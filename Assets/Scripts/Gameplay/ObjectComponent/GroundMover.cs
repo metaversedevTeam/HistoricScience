@@ -13,7 +13,10 @@ public class GroundMover : MonoBehaviour, IMover
 
     public bool Move(Vector2 targetPos)
     {
-        Vector3 destination = new Vector3(targetPos.x, 0f, targetPos.y);
+        float y = Terrain.activeTerrain != null
+            ? Terrain.activeTerrain.SampleHeight(new Vector3(targetPos.x, 0f, targetPos.y))
+            : 0f;
+        Vector3 destination = new Vector3(targetPos.x, y, targetPos.y);
 
         NavMeshPath path = new NavMeshPath();
         if (!_agent.CalculatePath(destination, path) || path.status != NavMeshPathStatus.PathComplete)
