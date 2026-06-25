@@ -3,10 +3,10 @@ using UnityEngine;
 
 public class SelectableObject : MonoBehaviour
 {
-    public event Action OnSelect;
+    public event Action<PlayerManager> OnSelect;
 
-    public void HandleSelect()
+    public void HandleSelect(PlayerManager playerManager)
     {
-        OnSelect?.Invoke();
+        OnSelect?.Invoke(playerManager);
     }
 }

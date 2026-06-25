@@ -28,7 +28,7 @@ public class PlayerManager : MonoBehaviour
             return;
         }
 
-        clickable.HandleClick();
+        clickable.HandleClick(this);
         var selectable = clickable.GetComponent<SelectableObject>();
         if (selectable != null)
             Select(selectable);
@@ -42,7 +42,7 @@ public class PlayerManager : MonoBehaviour
 
         Deselect();
         _currentSelection = target;
-        _currentSelection.HandleSelect();
+        _currentSelection.HandleSelect(this);
         OnSelected?.Invoke(_currentSelection);
     }
 

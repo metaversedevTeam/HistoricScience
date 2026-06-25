@@ -3,10 +3,10 @@ using UnityEngine;
 
 public class ClickableObject : MonoBehaviour
 {
-    public event Action OnClick;
+    public event Action<PlayerManager> OnClick;
 
-    public void HandleClick()
+    public void HandleClick(PlayerManager playerManager)
     {
-        OnClick?.Invoke();
+        OnClick?.Invoke(playerManager);
     }
 }
