@@ -12,12 +12,14 @@ public class PlayerManager : MonoBehaviour
 
     private void OnEnable()
     {
-        _inputManager.OnMouseLeftClick += OnLeftClick;
+        _inputManager.OnMouseLeftClick  += OnLeftClick;
+        _inputManager.OnMouseRightClick += OnRightClick;
     }
 
     private void OnDisable()
     {
-        _inputManager.OnMouseLeftClick -= OnLeftClick;
+        _inputManager.OnMouseLeftClick  -= OnLeftClick;
+        _inputManager.OnMouseRightClick -= OnRightClick;
     }
 
     private void OnLeftClick(Vector2 pos, ClickableObject clickable)
@@ -34,6 +36,14 @@ public class PlayerManager : MonoBehaviour
             Select(selectable);
         else
             Deselect();
+    }
+
+    private void OnRightClick(Vector2 pos, ClickableObject clickable)
+    {
+        if (_currentSelection == null) return;
+
+        var mover = _currentSelection.GetComponent<IMover>();
+        mover?.Move(pos);
     }
 
     private void Select(SelectableObject target)
