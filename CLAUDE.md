@@ -43,3 +43,4 @@ When writing C# scripts for Unity:
 - Assembly definitions (`.asmdef`) should be created for any new script folder to manage compilation.
 - Always explicitly declare `private` for all members of classes and structs (do not omit it).
 - If you find a better design or architecture than what was requested, do not implement it immediately; propose the design change first.
+- All test elements, including test code, scenes, and prefabs, must be created under `Assets/ExternalAssets/Test`.
