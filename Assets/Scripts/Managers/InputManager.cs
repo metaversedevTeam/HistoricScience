@@ -4,8 +4,8 @@ using UnityEngine.InputSystem;
 
 public class InputManager : MonoBehaviour
 {
-    public event Action<Vector2> OnMouseLeftClick;
-    public event Action<Vector2> OnMouseRightClick;
+    public event Action<Vector2, ClickableObject> OnMouseLeftClick;
+    public event Action<Vector2, ClickableObject> OnMouseRightClick;
 
     [SerializeField] private LayerMask _groundLayer;
 
@@ -36,12 +36,19 @@ public class InputManager : MonoBehaviour
             TryFireClick(OnMouseRightClick);
     }
 
-    private void TryFireClick(Action<Vector2> callback)
+    private void TryFireClick(Action<Vector2, ClickableObject> callback)
     {
         if (callback == null) return;
 
         Ray ray = _cam.ScreenPointToRay(Mouse.current.position.ReadValue());
-        if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, _groundLayer))
-            callback.Invoke(new Vector2(hit.point.x, hit.point.z));
+
+        // ClickableObject 감지 (레이어 무관)
+        ClickableObject clickable = null;
+        if (Physics.Raycast(ray, out RaycastHit objHit, Mathf.Infinity))
+            clickable = objHit.collider.GetComponentInParent<ClickableObject>();
+
+        // Ground 레이어 클릭 위치
+        if (Physics.Raycast(ray, out RaycastHit groundHit, Mathf.Infinity, _groundLayer))
+            callback.Invoke(new Vector2(groundHit.point.x, groundHit.point.z), clickable);
     }
 }
