@@ -8,18 +8,21 @@ public class GroundMover : MonoBehaviour, IMover
     private Transform     _followTarget;
     private HitableObject _selfHitable;
 
+    // NavMeshAgent와 HitableObject 컴포넌트를 캐싱
     private void Awake()
     {
         _agent       = GetComponent<NavMeshAgent>();
         _selfHitable = GetComponent<HitableObject>();
     }
 
+    // 추적 대상이 있으면 매 프레임 따라가기 처리
     private void Update()
     {
         if (_followTarget != null)
             HandleFollow();
     }
 
+    // 추적 대상의 경로를 재계산하고 멈춤 거리를 갱신하며 이동
     private void HandleFollow()
     {
         Vector3 destination = _followTarget.position;
@@ -34,6 +37,7 @@ public class GroundMover : MonoBehaviour, IMover
         _agent.SetDestination(destination);
     }
 
+    // 자신과 대상의 충돌 반경 합산으로 멈춤 거리 계산
     private float GetStoppingDistance(Transform target)
     {
         float selfRadius   = _selfHitable != null ? _selfHitable.HitRadius : 0f;
@@ -42,6 +46,7 @@ public class GroundMover : MonoBehaviour, IMover
         return selfRadius + targetRadius;
     }
 
+    // start부터 루트까지 추적 체인을 순회해 자신이 포함되면 true 반환
     private bool IsInFollowChain(Transform start)
     {
         var current = start;
@@ -54,6 +59,7 @@ public class GroundMover : MonoBehaviour, IMover
         return false;
     }
 
+    // 지정 위치로 이동; NavMesh 경로가 없으면 false 반환
     public bool Move(Vector2 targetPos)
     {
         _followTarget = null;
@@ -71,6 +77,7 @@ public class GroundMover : MonoBehaviour, IMover
         return true;
     }
 
+    // 대상 Transform을 추적 시작; 순환 체인이나 도달 불가면 false 반환
     public bool Move(Transform targetTransform)
     {
         if (targetTransform == null) return false;

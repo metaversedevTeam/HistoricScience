@@ -11,6 +11,7 @@ public class InputManager : MonoBehaviour
 
     private Camera _cam;
 
+    // Ground 레이어가 미설정된 경우 자동으로 찾아 할당
     private void Awake()
     {
         _cam = Camera.main;
@@ -25,6 +26,7 @@ public class InputManager : MonoBehaviour
         }
     }
 
+    // 매 프레임 마우스 버튼 입력을 감지해 클릭 콜백을 발행
     private void Update()
     {
         if (Mouse.current == null) return;
@@ -36,18 +38,17 @@ public class InputManager : MonoBehaviour
             TryFireClick(OnMouseRightClick);
     }
 
+    // 레이캐스트로 ClickableObject와 Ground 충돌 위치를 감지해 콜백 호출
     private void TryFireClick(Action<Vector2, ClickableObject> callback)
     {
         if (callback == null) return;
 
         Ray ray = _cam.ScreenPointToRay(Mouse.current.position.ReadValue());
 
-        // ClickableObject 감지 (레이어 무관)
         ClickableObject clickable = null;
         if (Physics.Raycast(ray, out RaycastHit objHit, Mathf.Infinity))
             clickable = objHit.collider.GetComponentInParent<ClickableObject>();
 
-        // Ground 레이어 클릭 위치
         if (Physics.Raycast(ray, out RaycastHit groundHit, Mathf.Infinity, _groundLayer))
             callback.Invoke(new Vector2(groundHit.point.x, groundHit.point.z), clickable);
     }

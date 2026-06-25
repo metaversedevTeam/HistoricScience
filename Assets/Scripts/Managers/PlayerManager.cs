@@ -10,18 +10,21 @@ public class PlayerManager : MonoBehaviour
 
     private SelectableObject _currentSelection;
 
+    // InputManager 클릭 이벤트 구독
     private void OnEnable()
     {
         _inputManager.OnMouseLeftClick  += OnLeftClick;
         _inputManager.OnMouseRightClick += OnRightClick;
     }
 
+    // InputManager 클릭 이벤트 구독 해제
     private void OnDisable()
     {
         _inputManager.OnMouseLeftClick  -= OnLeftClick;
         _inputManager.OnMouseRightClick -= OnRightClick;
     }
 
+    // 좌클릭 시 오브젝트 클릭 처리 및 선택 가능 여부에 따라 선택/해제
     private void OnLeftClick(Vector2 pos, ClickableObject clickable)
     {
         if (clickable == null)
@@ -38,6 +41,7 @@ public class PlayerManager : MonoBehaviour
             Deselect();
     }
 
+    // 우클릭 시 선택된 유닛을 오브젝트 추적 또는 지정 위치로 이동
     private void OnRightClick(Vector2 pos, ClickableObject clickable)
     {
         if (_currentSelection == null) return;
@@ -51,6 +55,7 @@ public class PlayerManager : MonoBehaviour
             mover.Move(pos);
     }
 
+    // 대상을 현재 선택으로 설정하고 OnSelected 이벤트 발행
     private void Select(SelectableObject target)
     {
         if (_currentSelection == target) return;
@@ -61,6 +66,7 @@ public class PlayerManager : MonoBehaviour
         OnSelected?.Invoke(_currentSelection);
     }
 
+    // 현재 선택을 해제하고 OnDeselected 이벤트 발행
     private void Deselect()
     {
         if (_currentSelection == null) return;
