@@ -43,7 +43,12 @@ public class PlayerManager : MonoBehaviour
         if (_currentSelection == null) return;
 
         var mover = _currentSelection.GetComponent<IMover>();
-        mover?.Move(pos);
+        if (mover == null) return;
+
+        if (clickable != null)
+            mover.Move(clickable.transform);
+        else
+            mover.Move(pos);
     }
 
     private void Select(SelectableObject target)
