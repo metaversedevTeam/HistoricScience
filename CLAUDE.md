@@ -40,7 +40,6 @@ IDEs configured: JetBrains Rider and Visual Studio (both have Unity integration 
 When writing C# scripts for Unity:
 - Use the **New Input System** (`UnityEngine.InputSystem`) — the legacy `Input` class is not the intended pattern for this project.
 - All materials and shaders must be **URP-compatible** (use URP Lit/Unlit shaders, not built-in Standard shader).
-- Assembly definitions (`.asmdef`) should be created for any new script folder to manage compilation.
 - Always explicitly declare `private` for all members of classes and structs (do not omit it).
 - If you find a better design or architecture than what was requested, do not implement it immediately; propose the design change first.
 - All test elements, including test code, scenes, and prefabs, must be created under `Assets/ExternalAssets/Test`.
