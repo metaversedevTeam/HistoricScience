@@ -44,3 +44,4 @@ When writing C# scripts for Unity:
 - Always explicitly declare `private` for all members of classes and structs (do not omit it).
 - If you find a better design or architecture than what was requested, do not implement it immediately; propose the design change first.
 - All test elements, including test code, scenes, and prefabs, must be created under `Assets/ExternalAssets/Test`.
+- When writing methods (excluding Unity built-in event functions like Start, Update, etc.), always include a simple, one-line comment explaining its purpose.
