@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 // 마우스 입력을 감지해 클릭 이벤트를 발행하는 매니저
@@ -43,6 +44,7 @@ public class InputManager : MonoBehaviour
     private void TryFireClick(Action<Vector2, ClickableObject> callback)
     {
         if (callback == null) return;
+        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
 
         Ray ray = _cam.ScreenPointToRay(Mouse.current.position.ReadValue());
 
