@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 
+// 플레이어의 오브젝트 선택 및 이동 명령을 처리하는 매니저
 public class PlayerManager : MonoBehaviour
 {
     public event Action<SelectableObject> OnSelected;
@@ -10,14 +11,12 @@ public class PlayerManager : MonoBehaviour
 
     private SelectableObject _currentSelection;
 
-    // InputManager 클릭 이벤트 구독
     private void OnEnable()
     {
         _inputManager.OnMouseLeftClick  += OnLeftClick;
         _inputManager.OnMouseRightClick += OnRightClick;
     }
 
-    // InputManager 클릭 이벤트 구독 해제
     private void OnDisable()
     {
         _inputManager.OnMouseLeftClick  -= OnLeftClick;

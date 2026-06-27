@@ -1,5 +1,6 @@
 using UnityEngine;
 
+// 위치 또는 대상을 향해 이동하는 기능을 정의하는 인터페이스
 public interface IMover
 {
     // 지정 위치로 이동; 도달 불가능하면 false 반환

@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+// 마우스 입력을 감지해 클릭 이벤트를 발행하는 매니저
 public class InputManager : MonoBehaviour
 {
     public event Action<Vector2, ClickableObject> OnMouseLeftClick;
