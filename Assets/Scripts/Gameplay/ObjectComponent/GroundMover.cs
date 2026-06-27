@@ -77,6 +77,13 @@ public class GroundMover : MonoBehaviour, IMover
         return true;
     }
 
+    // NavMeshAgent 경로를 초기화하고 추적 대상을 해제해 이동을 중지
+    public void Stop()
+    {
+        _followTarget = null;
+        _agent.ResetPath();
+    }
+
     // 대상 Transform을 추적 시작; 순환 체인이나 도달 불가면 false 반환
     public bool Move(Transform targetTransform)
     {

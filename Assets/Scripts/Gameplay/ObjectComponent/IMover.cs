@@ -7,4 +7,6 @@ public interface IMover
     bool Move(Vector2 targetPos);
     // 대상 Transform을 추적; 순환 체인이나 도달 불가면 false 반환
     bool Move(Transform targetTransform);
+    // 현재 이동을 즉시 중지
+    void Stop();
 }
