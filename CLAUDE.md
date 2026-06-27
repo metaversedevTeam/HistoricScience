@@ -10,6 +10,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Unity projects are edited primarily through the Unity Editor GUI, not the command line. There is no build/lint/test CLI to run from this repo directly. To work with this project:
 
+- If the Unity Editor is not detected, it means Claude failed to scan the process, not that Unity is closed. Retry the detection.
+- Do not attempt to locate the editor through Unity Hub; look for the active, currently running Unity process instead.
 - **Open the project**: Launch Unity Hub and open the `C:\GitHub\HistoricScience` folder with Unity 6000.1.17f1.
 - **Run tests**: Use the Unity Test Runner (Window → General → Test Runner) with the `com.unity.test-framework` 1.5.1 package.
 - **Build**: File → Build Settings in the Unity Editor.
