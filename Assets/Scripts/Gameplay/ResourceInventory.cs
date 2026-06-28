@@ -1,8 +1,12 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class ResourceInventory : MonoBehaviour
 {
+    public event Action<ItemData,int> OnAddItem;
+    public event Action<ItemData,int> OnRemoveItem;
+
     public ItemDataList ItemDataList => _itemDataList;
 
     [SerializeField] private ItemDataList _itemDataList;
@@ -24,6 +28,7 @@ public class ResourceInventory : MonoBehaviour
     {
         if (!_counts.ContainsKey(data.Id)) return;
         _counts[data.Id] += amount;
+        if (data is ItemData item) OnAddItem?.Invoke(item, _counts[data.Id]);
     }
 
     // 자원을 지정한 수량만큼 차감한다. 수량이 부족하면 false를 반환하고 변경하지 않는다.
@@ -33,6 +38,7 @@ public class ResourceInventory : MonoBehaviour
         if (_counts[data.Id] < amount) return false;
 
         _counts[data.Id] -= amount;
+        if (data is ItemData item) OnRemoveItem?.Invoke(item, _counts[data.Id]);
         return true;
     }
 
