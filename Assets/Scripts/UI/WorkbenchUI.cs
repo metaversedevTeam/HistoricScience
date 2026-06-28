@@ -36,19 +36,29 @@ public class WorkbenchUI : MonoBehaviour
         }
     }
 
-    // 인벤토리를 받아 슬롯 UI를 생성한다.
+    // 인벤토리를 받아 슬롯 UI를 생성하고 이벤트를 구독한다.
     public void Open(ResourceInventory inventory)
     {
         _inventory = inventory;
+        _inventory.OnAddItem += HandleInventoryChanged;
+        _inventory.OnRemoveItem += HandleInventoryChanged;
         PopulateSlots();
         _layer.SetActive(true);
     }
 
-    // UI를 닫는다.
+    // UI를 닫고 이벤트 구독을 해제한다.
     public void Close()
     {
+        if (_inventory != null)
+        {
+            _inventory.OnAddItem -= HandleInventoryChanged;
+            _inventory.OnRemoveItem -= HandleInventoryChanged;
+        }
         _layer.SetActive(false);
     }
+
+    // 인벤토리 변경 시 슬롯 목록을 갱신한다.
+    private void HandleInventoryChanged(ItemData item, int newCount) => PopulateSlots();
 
     // 기존 슬롯을 제거하고 인벤토리의 아이템마다 슬롯을 새로 생성한다.
     private void PopulateSlots()
@@ -96,8 +106,6 @@ public class WorkbenchUI : MonoBehaviour
 
         foreach (var slot in _craftingSlots)
             slot.Clear();
-
-        PopulateSlots();
     }
 
     // 조합 격자 배치와 일치하는 조합법의 결과 아이템을 반환한다. 없으면 null.
