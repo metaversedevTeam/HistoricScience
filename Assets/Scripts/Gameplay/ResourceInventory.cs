@@ -3,6 +3,8 @@ using UnityEngine;
 
 public class ResourceInventory : MonoBehaviour
 {
+    public ItemDataList ItemDataList => _itemDataList;
+
     [SerializeField] private ItemDataList _itemDataList;
 
     private Dictionary<int, int> _counts = new();
