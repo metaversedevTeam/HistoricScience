@@ -12,7 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 50c7798265ea6f74c942e10e629aadac, type: 3}
   m_Name: "\uC544\uC774\uD15C \uBAA9\uB85D"
   m_EditorClassIdentifier: 
-  _items:
-  - {fileID: 11400000, guid: dd09ea325752e9a4299f74b69c5d45c4, type: 2}
-  - {fileID: 11400000, guid: e0618b266e662bd48a8e4c5a64f6ec72, type: 2}
-  _nextId: 4
+  _items: []
+  _nextId: 1
