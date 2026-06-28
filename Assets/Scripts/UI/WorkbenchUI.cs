@@ -56,8 +56,10 @@ public class WorkbenchUI : MonoBehaviour
         ClearSlots();
         foreach (var item in _inventory.ItemDataList.Items)
         {
+            var count = _inventory.Get(item);
+            if (count == 0) continue;
             var slot = Instantiate(_slotPrefab, _slotsContent).GetComponent<ItemSlotUI>();
-            slot.Setup(item, _inventory.Get(item));
+            slot.Setup(item, count);
         }
     }
 
