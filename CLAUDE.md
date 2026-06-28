@@ -10,6 +10,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Unity projects are edited primarily through the Unity Editor GUI, not the command line. There is no build/lint/test CLI to run from this repo directly. To work with this project:
 
+- If the Unity Editor is not detected, it means Claude failed to scan the process, not that Unity is closed. Retry the detection.
+- Do not attempt to locate the editor through Unity Hub; look for the active, currently running Unity process instead.
 - **Open the project**: Launch Unity Hub and open the `C:\GitHub\HistoricScience` folder with Unity 6000.1.17f1.
 - **Run tests**: Use the Unity Test Runner (Window → General → Test Runner) with the `com.unity.test-framework` 1.5.1 package.
 - **Build**: File → Build Settings in the Unity Editor.
@@ -44,5 +46,6 @@ When writing C# scripts for Unity:
 - If you find a better design or architecture than what was requested, do not implement it immediately; propose the design change first.
 - All test elements, including test code, scenes, and prefabs, must be created under `Assets/ExternalAssets/Test`.
 - When writing methods (excluding Unity built-in event functions like Start, Update, etc.), always include a simple, one-line comment explaining its purpose.
+- Always include a simple, one-line comment explaining the purpose of every new Class, Interface, and Struct.
 - Keep Unity event functions (e.g., Update, FixedUpdate) concise. If the logic inside an event function becomes too long, extract it into separate "Handle" methods.
 - If an event function handles entirely different responsibilities (e.g., movement and camera management), separate them into multiple, distinct "Handle" methods.
