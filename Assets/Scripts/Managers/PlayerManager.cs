@@ -7,9 +7,14 @@ public class PlayerManager : MonoBehaviour
     public event Action<SelectableObject> OnSelected;
     public event Action OnDeselected;
 
+    public event Action<Vector2, ClickableObject> OnMouseLeftClick;
+    public event Action<Vector2, ClickableObject> OnMouseRightClick;
+
+
     [SerializeField] private InputManager _inputManager;
 
     private SelectableObject _currentSelection;
+
 
     private void OnEnable()
     {
@@ -29,29 +34,24 @@ public class PlayerManager : MonoBehaviour
         if (clickable == null)
         {
             Deselect();
-            return;
+        }
+        else
+        {
+            clickable.HandleClick(this);
+            var selectable = clickable.GetComponent<SelectableObject>();
+            if (selectable != null)
+                Select(selectable);
+            else
+                Deselect();
         }
 
-        clickable.HandleClick(this);
-        var selectable = clickable.GetComponent<SelectableObject>();
-        if (selectable != null)
-            Select(selectable);
-        else
-            Deselect();
+        OnMouseLeftClick?.Invoke(pos, clickable);
     }
 
-    // 우클릭 시 선택된 유닛을 오브젝트 추적 또는 지정 위치로 이동
+    // 우클릭 이벤트를 재발행
     private void OnRightClick(Vector2 pos, ClickableObject clickable)
     {
-        if (_currentSelection == null) return;
-
-        var mover = _currentSelection.GetComponent<IMover>();
-        if (mover == null) return;
-
-        if (clickable != null)
-            mover.Move(clickable.transform);
-        else
-            mover.Move(pos);
+        OnMouseRightClick?.Invoke(pos, clickable);
     }
 
     // 대상을 현재 선택으로 설정하고 OnSelected 이벤트 발행
