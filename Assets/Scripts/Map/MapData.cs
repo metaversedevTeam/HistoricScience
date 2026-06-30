@@ -16,10 +16,17 @@ public class MapData
 
     // 생성된 바이옴 영역(보로노이 정점) 목록
     private readonly BiomeRegion[] m_Regions;
+    // 경계선에 적용할 노이즈의 스케일. 클수록 더 잘게, 자주 굴곡진 경계가 만들어진다.
+    private readonly float m_BoundaryNoiseScale;
+    // 경계선에 적용할 노이즈의 세기. 0이면 원래의 가중 보로노이 경계(원호) 그대로 유지된다.
+    private readonly float m_BoundaryNoiseStrength;
 
     // 주어진 시드로 랜덤 바이옴 영역들을 생성한다.
-    public MapData(int seed, int regionCount = 12, float minWeight = 0.5f, float maxWeight = 2f)
+    public MapData(int seed, int regionCount = 12, float minWeight = 0.5f, float maxWeight = 2f, float boundaryNoiseScale = 4f, float boundaryNoiseStrength = 0.15f)
     {
+        m_BoundaryNoiseScale = boundaryNoiseScale;
+        m_BoundaryNoiseStrength = boundaryNoiseStrength;
+
         Random.State previousState = Random.state;
         Random.InitState(seed);
 
@@ -51,7 +58,7 @@ public class MapData
         return m_Regions;
     }
 
-    // 주어진 좌표와 가중치 거리가 가장 가까운 바이옴 영역의 인덱스를 찾는다.
+    // 주어진 좌표와 가중치 거리(+ 영역별 노이즈 보정)가 가장 가까운 바이옴 영역의 인덱스를 찾는다.
     private int HandleFindNearestRegionIndex(Vector2 position)
     {
         int nearestIndex = 0;
@@ -63,6 +70,7 @@ public class MapData
             float dy = m_Regions[i].Position.y - position.y;
             float distanceSqr = (dx * dx) + (dy * dy);
             float weightedDistanceSqr = distanceSqr / m_Regions[i].Weight;
+            weightedDistanceSqr += HandleGetBoundaryNoise(position, i);
 
             if (weightedDistanceSqr < nearestWeightedDistanceSqr)
             {
@@ -72,5 +80,20 @@ public class MapData
         }
 
         return nearestIndex;
+    }
+
+    // 영역마다 서로 다른 펄린 노이즈 값을 가중 거리에 더해, 두 영역 사이의 경계(원호)가 자연스럽게 굴곡지도록 만든다.
+    private float HandleGetBoundaryNoise(Vector2 position, int regionIndex)
+    {
+        if (m_BoundaryNoiseStrength <= 0f)
+        {
+            return 0f;
+        }
+
+        float sampleX = (position.x * m_BoundaryNoiseScale) + (regionIndex * 37.13f);
+        float sampleY = (position.y * m_BoundaryNoiseScale) + (regionIndex * 91.7f);
+        float noise = (Mathf.PerlinNoise(sampleX, sampleY) - 0.5f) * 2f;
+
+        return noise * m_BoundaryNoiseStrength;
     }
 }

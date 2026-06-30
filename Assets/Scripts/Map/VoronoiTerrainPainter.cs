@@ -22,6 +22,10 @@ namespace HistoricScience.Test
         [SerializeField] private float m_GizmoBaseRadius = 5f;
         // 터레인에 칠할 때 바이옴 경계를 부드럽게 섞을 블러 반경(알파맵 셀 단위). 0이면 경계가 그대로 딱딱 떨어진다.
         [SerializeField] private int m_BlendRadius = 3;
+        // 바이옴 경계(원호)에 굴곡을 주는 노이즈의 스케일. 클수록 더 잘게, 자주 굴곡진다.
+        [SerializeField] private float m_BoundaryNoiseScale = 20f;
+        // 바이옴 경계에 굴곡을 주는 노이즈의 세기. 0이면 가중 보로노이 경계가 원래의 원호 형태 그대로 유지된다.
+        [SerializeField] private float m_BoundaryNoiseStrength = 0.003f;
 
         // 마지막으로 칠할 때 생성된 맵 바이옴 데이터 (기즈모 표시에 사용)
         private MapData m_LastMapData;
@@ -55,7 +59,7 @@ namespace HistoricScience.Test
 
             if(useRandom)
                 seed = m_UseRandomSeed ? System.Environment.TickCount : m_RandomSeed;
-            MapData mapData = new MapData(seed, m_RegionCount, m_WeightRange.x, m_WeightRange.y);
+            MapData mapData = new MapData(seed, m_RegionCount, m_WeightRange.x, m_WeightRange.y, m_BoundaryNoiseScale, m_BoundaryNoiseStrength);
 
             float[,,] alphamap = HandleBuildAlphamap(terrainData, mapData);
             alphamap = HandleSmoothAlphamap(alphamap, m_BlendRadius);
