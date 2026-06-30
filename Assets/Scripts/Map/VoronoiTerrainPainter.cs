@@ -19,6 +19,8 @@ namespace HistoricScience.Test
         [SerializeField] private int m_RandomSeed = 0;
         // 기즈모 구체의 기본 반지름(가중치에 곱해져 크기가 결정됨)
         [SerializeField] private float m_GizmoBaseRadius = 5f;
+        // 터레인에 칠할 때 바이옴 경계를 부드럽게 섞을 블러 반경(알파맵 셀 단위). 0이면 경계가 그대로 딱딱 떨어진다.
+        [SerializeField] private int m_BlendRadius = 3;
 
         // 마지막으로 칠할 때 생성된 맵 바이옴 데이터 (기즈모 표시에 사용)
         private MapData m_LastMapData;
@@ -46,6 +48,7 @@ namespace HistoricScience.Test
             MapData mapData = new MapData(seed, m_RegionCount, m_WeightRange.x, m_WeightRange.y);
 
             float[,,] alphamap = HandleBuildAlphamap(terrainData, mapData);
+            alphamap = HandleSmoothAlphamap(alphamap, m_BlendRadius);
             terrainData.SetAlphamaps(0, 0, alphamap);
 
             m_LastMapData = mapData;
@@ -75,6 +78,61 @@ namespace HistoricScience.Test
             }
 
             return alphamap;
+        }
+
+        // 알파맵에 가로/세로 박스 블러를 차례로 적용해 바이옴 경계가 그라데이션으로 자연스럽게 섞이도록 만든다.
+        // 맵 데이터(MapData) 자체의 경계는 그대로 유지되고, 터레인에 칠해지는 결과물만 부드러워진다.
+        private float[,,] HandleSmoothAlphamap(float[,,] alphamap, int radius)
+        {
+            if (radius <= 0)
+            {
+                return alphamap;
+            }
+
+            int height = alphamap.GetLength(0);
+            int width = alphamap.GetLength(1);
+            int layerCount = alphamap.GetLength(2);
+
+            float[,,] horizontalPass = HandleBoxBlurPass(alphamap, width, height, layerCount, radius, true);
+            float[,,] verticalPass = HandleBoxBlurPass(horizontalPass, width, height, layerCount, radius, false);
+
+            return verticalPass;
+        }
+
+        // 가로 또는 세로 한 방향으로 박스 블러 한 번을 적용한다.
+        private float[,,] HandleBoxBlurPass(float[,,] source, int width, int height, int layerCount, int radius, bool horizontal)
+        {
+            float[,,] result = new float[height, width, layerCount];
+
+            for (int z = 0; z < height; z++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    for (int l = 0; l < layerCount; l++)
+                    {
+                        float sum = 0f;
+                        int count = 0;
+
+                        for (int offset = -radius; offset <= radius; offset++)
+                        {
+                            int sampleX = horizontal ? x + offset : x;
+                            int sampleZ = horizontal ? z : z + offset;
+
+                            if (sampleX < 0 || sampleX >= width || sampleZ < 0 || sampleZ >= height)
+                            {
+                                continue;
+                            }
+
+                            sum += source[sampleZ, sampleX, l];
+                            count++;
+                        }
+
+                        result[z, x, l] = sum / count;
+                    }
+                }
+            }
+
+            return result;
         }
 
         // 이 게임오브젝트가 선택되었을 때 마지막으로 칠한 바이옴 영역들을 기즈모로 표시한다.
