@@ -1,3 +1,4 @@
+using Unity.VisualScripting;
 using UnityEngine;
 
 namespace HistoricScience.Test
@@ -25,9 +26,17 @@ namespace HistoricScience.Test
         // 마지막으로 칠할 때 생성된 맵 바이옴 데이터 (기즈모 표시에 사용)
         private MapData m_LastMapData;
 
+        private int seed = -1;
+        
+
         // MapData로 보로노이 바이옴 정보를 생성하고, 그 결과로 터레인 알파맵을 칠한다.
-        [ContextMenu("Paint Voronoi Terrain")]
-        public void PaintVoronoiTerrain()
+        [ContextMenu("Paint")]
+        private void PaintButton()
+        {
+            PaintVoronoiTerrain(false);
+        }
+
+        public void PaintVoronoiTerrain(bool useRandom = true)
         {
             if (m_Terrain == null || m_Terrain.terrainData == null)
             {
@@ -44,7 +53,8 @@ namespace HistoricScience.Test
             TerrainData terrainData = m_Terrain.terrainData;
             terrainData.terrainLayers = m_TerrainLayers;
 
-            int seed = m_UseRandomSeed ? System.Environment.TickCount : m_RandomSeed;
+            if(useRandom)
+                seed = m_UseRandomSeed ? System.Environment.TickCount : m_RandomSeed;
             MapData mapData = new MapData(seed, m_RegionCount, m_WeightRange.x, m_WeightRange.y);
 
             float[,,] alphamap = HandleBuildAlphamap(terrainData, mapData);
