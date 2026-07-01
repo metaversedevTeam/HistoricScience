@@ -10,7 +10,7 @@ public class MapData
         public Vector2 Position;
         // 정점이 차지하는 영역의 가중치
         public float Weight;
-        // 정점이 속한 바이옴 종류
+        // 정점이 속한 바이옴
         public MapBiome Biome;
     }
 
@@ -21,8 +21,8 @@ public class MapData
     // 경계선에 적용할 노이즈의 세기. 0이면 원래의 가중 보로노이 경계(원호) 그대로 유지된다.
     private readonly float m_BoundaryNoiseStrength;
 
-    // 주어진 시드로 랜덤 바이옴 영역들을 생성한다.
-    public MapData(int seed, int regionCount = 12, float minWeight = 0.5f, float maxWeight = 2f, float boundaryNoiseScale = 4f, float boundaryNoiseStrength = 0.15f)
+    // 주어진 시드와 바이옴 목록으로 랜덤 바이옴 영역들을 생성한다.
+    public MapData(int seed, MapBiome[] biomes, int regionCount = 12, float minWeight = 0.5f, float maxWeight = 2f, float boundaryNoiseScale = 4f, float boundaryNoiseStrength = 0.15f)
     {
         m_BoundaryNoiseScale = boundaryNoiseScale;
         m_BoundaryNoiseStrength = boundaryNoiseStrength;
@@ -31,7 +31,6 @@ public class MapData
         Random.InitState(seed);
 
         m_Regions = new BiomeRegion[regionCount];
-        int biomeCount = System.Enum.GetValues(typeof(MapBiome)).Length;
 
         for (int i = 0; i < regionCount; i++)
         {
@@ -39,7 +38,7 @@ public class MapData
             {
                 Position = new Vector2(Random.value, Random.value),
                 Weight = Random.Range(minWeight, maxWeight),
-                Biome = (MapBiome)Random.Range(0, biomeCount),
+                Biome = biomes[Random.Range(0, biomes.Length)],
             };
         }
 

@@ -9,8 +9,6 @@ namespace HistoricScience.Test
         [SerializeField] private MapDataGenerator m_MapDataGenerator;
         // 칠할 대상 터레인
         [SerializeField] private Terrain m_Terrain;
-        // BiomeType 순서와 동일하게 매핑되는 터레인 레이어(바이옴) 목록
-        [SerializeField] private TerrainLayer[] m_TerrainLayers;
         // 기즈모 구체의 기본 반지름(가중치에 곱해져 크기가 결정됨)
         [SerializeField] private float m_GizmoBaseRadius = 5f;
         // 터레인에 칠할 때 바이옴 경계를 부드럽게 섞을 블러 반경(알파맵 셀 단위). 0이면 경계가 그대로 딱딱 떨어진다.
@@ -27,38 +25,47 @@ namespace HistoricScience.Test
         {
             if (m_MapDataGenerator == null)
             {
-                Debug.LogError("VoronoiTerrainPainter: MapDataGenerator is not assigned.");
+                Debug.LogError("TerrainPainter: MapDataGenerator is not assigned.");
                 return;
             }
 
             if (m_Terrain == null || m_Terrain.terrainData == null)
             {
-                Debug.LogError("VoronoiTerrainPainter: Terrain is not assigned.");
+                Debug.LogError("TerrainPainter: Terrain is not assigned.");
                 return;
             }
-
-            if (m_TerrainLayers == null || m_TerrainLayers.Length == 0)
-            {
-                Debug.LogError("VoronoiTerrainPainter: No terrain layers assigned.");
-                return;
-            }
-
-            TerrainData terrainData = m_Terrain.terrainData;
-            terrainData.terrainLayers = m_TerrainLayers;
 
             MapData mapData = m_MapDataGenerator.GenerateMapData(useRandom);
+            if (mapData == null) return;
 
-            float[,,] alphamap = HandleBuildAlphamap(terrainData, mapData);
+            MapBiome[] biomes = m_MapDataGenerator.Biomes;
+            TerrainLayer[] layers = HandleCollectTerrainLayers(biomes);
+
+            TerrainData terrainData = m_Terrain.terrainData;
+            terrainData.terrainLayers = layers;
+
+            float[,,] alphamap = HandleBuildAlphamap(terrainData, mapData, biomes, layers);
             alphamap = HandleSmoothAlphamap(alphamap, m_BlendRadius);
             terrainData.SetAlphamaps(0, 0, alphamap);
         }
 
+        // 바이옴 목록에서 터레인 레이어만 순서대로 추출한다.
+        private TerrainLayer[] HandleCollectTerrainLayers(MapBiome[] biomes)
+        {
+            TerrainLayer[] layers = new TerrainLayer[biomes.Length];
+            for (int i = 0; i < biomes.Length; i++)
+            {
+                layers[i] = biomes[i].TerrainLayer;
+            }
+            return layers;
+        }
+
         // 각 알파맵 셀의 정규화 좌표에 대해 MapData가 반환하는 바이옴에 해당하는 터레인 레이어로 100% 칠한 알파맵을 만든다.
-        private float[,,] HandleBuildAlphamap(TerrainData terrainData, MapData mapData)
+        private float[,,] HandleBuildAlphamap(TerrainData terrainData, MapData mapData, MapBiome[] biomes, TerrainLayer[] layers)
         {
             int width = terrainData.alphamapWidth;
             int height = terrainData.alphamapHeight;
-            int layerCount = m_TerrainLayers.Length;
+            int layerCount = layers.Length;
             float[,,] alphamap = new float[height, width, layerCount];
 
             for (int z = 0; z < height; z++)
@@ -67,7 +74,7 @@ namespace HistoricScience.Test
                 {
                     Vector2 normalizedPosition = new Vector2((float)x / width, (float)z / height);
                     MapBiome biome = mapData.GetBiome(normalizedPosition);
-                    int layer = (int)biome;
+                    int layer = System.Array.IndexOf(biomes, biome);
 
                     for (int l = 0; l < layerCount; l++)
                     {
@@ -153,13 +160,13 @@ namespace HistoricScience.Test
         {
             Vector3 worldPosition = HandleNormalizedToWorldPosition(region.Position);
 
-            Gizmos.color = Color.red;
+            Gizmos.color = region.Biome.GizmoColor;
             Gizmos.DrawSphere(worldPosition, m_GizmoBaseRadius * region.Weight);
 
 #if UNITY_EDITOR
             UnityEditor.Handles.Label(
                 worldPosition + Vector3.up * (m_GizmoBaseRadius * region.Weight + 1f),
-                $"biome: {region.Biome}");
+                $"biome: {region.Biome.Name}");
 #endif
         }
 
