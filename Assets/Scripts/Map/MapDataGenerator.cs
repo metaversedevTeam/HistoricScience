@@ -21,6 +21,8 @@ namespace HistoricScience.Test
         [SerializeField] private float m_MaxInfluenceDistance = 0.6f;
         // 맵에 배치될 바이옴 목록. 랜덤 영역 생성 시 이 목록에서 무작위로 선택된다.
         [SerializeField] private MapBiome[] m_Biomes;
+        // maxInfluenceDistance 이내에 정점이 없는 위치에 대신 사용할 기본 바이옴
+        [SerializeField] private MapBiome m_DefaultBiome;
 
         // 마지막으로 생성된 맵 바이옴 데이터
         private MapData m_LastMapData;
@@ -44,7 +46,7 @@ namespace HistoricScience.Test
             if (useRandom)
                 seed = m_UseRandomSeed ? System.Environment.TickCount : m_RandomSeed;
 
-            MapData mapData = new MapData(seed, m_Biomes, m_RegionCount, m_WeightRange.x, m_WeightRange.y, m_BoundaryNoiseScale, m_BoundaryNoiseStrength, m_MaxInfluenceDistance);
+            MapData mapData = new MapData(seed, m_Biomes, m_DefaultBiome, m_RegionCount, m_WeightRange.x, m_WeightRange.y, m_BoundaryNoiseScale, m_BoundaryNoiseStrength, m_MaxInfluenceDistance);
             m_LastMapData = mapData;
 
             return mapData;

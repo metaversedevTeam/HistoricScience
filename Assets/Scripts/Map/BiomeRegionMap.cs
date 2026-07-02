@@ -29,13 +29,11 @@ public class BiomeRegionMap
         Random.state = previousState;
     }
 
-    // 주어진 위치에서 maxInfluenceDistance 이내의 정점들을 반환한다. 범위 내 정점이 없으면 가장 가까운 정점 하나를 반환한다.
+    // 주어진 위치에서 maxInfluenceDistance 이내의 정점들을 반환한다. 범위 내 정점이 없으면 빈 배열을 반환한다.
     public BiomeRegion[] GetRegions(Vector2 pos, float maxInfluenceDistance)
     {
         float maxDistSqr = maxInfluenceDistance * maxInfluenceDistance;
         var result = new List<BiomeRegion>();
-        int nearestIndex = 0;
-        float nearestDistSqr = float.MaxValue;
 
         for (int i = 0; i < m_Regions.Length; i++)
         {
@@ -43,18 +41,9 @@ public class BiomeRegionMap
             float dy = m_Regions[i].Position.y - pos.y;
             float distSqr = dx * dx + dy * dy;
 
-            if (distSqr < nearestDistSqr)
-            {
-                nearestDistSqr = distSqr;
-                nearestIndex = i;
-            }
-
             if (distSqr <= maxDistSqr)
                 result.Add(m_Regions[i]);
         }
-
-        if (result.Count == 0)
-            result.Add(m_Regions[nearestIndex]);
 
         return result.ToArray();
     }

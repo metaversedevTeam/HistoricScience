@@ -10,21 +10,27 @@ public class MapData
     private readonly float m_BoundaryNoiseStrength;
     // 이 거리보다 멀리 있는 정점은 영향력 계산에서 제외된다.
     private readonly float m_MaxInfluenceDistance;
+    // maxInfluenceDistance 이내에 정점이 하나도 없을 때 대신 사용할 바이옴.
+    private readonly MapBiome m_DefaultBiome;
 
     // 주어진 시드와 바이옴 목록으로 랜덤 바이옴 영역들을 생성한다.
-    public MapData(int seed, MapBiome[] biomes, int regionCount = 12, float minWeight = 0.5f, float maxWeight = 2f, float boundaryNoiseScale = 4f, float boundaryNoiseStrength = 0.15f, float maxInfluenceDistance = 0.6f)
+    public MapData(int seed, MapBiome[] biomes, MapBiome defaultBiome, int regionCount = 12, float minWeight = 0.5f, float maxWeight = 2f, float boundaryNoiseScale = 4f, float boundaryNoiseStrength = 0.15f, float maxInfluenceDistance = 0.6f)
     {
         m_BoundaryNoiseScale = boundaryNoiseScale;
         m_BoundaryNoiseStrength = boundaryNoiseStrength;
         m_MaxInfluenceDistance = maxInfluenceDistance;
+        m_DefaultBiome = defaultBiome;
 
         m_RegionMap = new BiomeRegionMap(seed, regionCount, minWeight, maxWeight, biomes);
     }
 
-    // 0~1로 정규화된 좌표를 기준으로 가장 가까운(가중치 적용) 바이옴을 반환한다.
+    // 0~1로 정규화된 좌표를 기준으로 가장 가까운(가중치 적용) 바이옴을 반환한다. 범위 내 정점이 없으면 기본 바이옴을 반환한다.
     public MapBiome GetBiome(Vector2 position)
     {
         BiomeRegion[] candidates = m_RegionMap.GetRegions(position, m_MaxInfluenceDistance);
+        if (candidates.Length == 0)
+            return m_DefaultBiome;
+
         return HandleFindNearestRegion(position, candidates).Biome;
     }
 
