@@ -149,14 +149,14 @@ namespace HistoricScience.Test
                 return;
             }
 
-            foreach (MapData.BiomeRegion region in m_MapDataGenerator.LastMapData.GetRegions())
+            foreach (BiomeRegion region in m_MapDataGenerator.LastMapData.GetRegions())
             {
                 HandleDrawRegionGizmo(region);
             }
         }
 
         // 바이옴 영역 하나를 가중치 크기에 비례한 구체로 그리고, 배정된 바이옴 이름을 라벨로 표시한다.
-        private void HandleDrawRegionGizmo(MapData.BiomeRegion region)
+        private void HandleDrawRegionGizmo(BiomeRegion region)
         {
             Vector3 worldPosition = HandleNormalizedToWorldPosition(region.Position);
 
