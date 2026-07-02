@@ -17,6 +17,8 @@ namespace HistoricScience.Test
         [SerializeField] private float m_BoundaryNoiseScale = 20f;
         // 바이옴 경계에 굴곡을 주는 노이즈의 세기. 0이면 가중 보로노이 경계가 원래의 원호 형태 그대로 유지된다.
         [SerializeField] private float m_BoundaryNoiseStrength = 0.003f;
+        // 이 거리보다 멀리 있는 보로노이 정점은 영향력 계산에서 제외된다. (0~1 정규화 좌표 기준)
+        [SerializeField] private float m_MaxInfluenceDistance = 0.6f;
         // 맵에 배치될 바이옴 목록. 랜덤 영역 생성 시 이 목록에서 무작위로 선택된다.
         [SerializeField] private MapBiome[] m_Biomes;
 
@@ -42,7 +44,7 @@ namespace HistoricScience.Test
             if (useRandom)
                 seed = m_UseRandomSeed ? System.Environment.TickCount : m_RandomSeed;
 
-            MapData mapData = new MapData(seed, m_Biomes, m_RegionCount, m_WeightRange.x, m_WeightRange.y, m_BoundaryNoiseScale, m_BoundaryNoiseStrength);
+            MapData mapData = new MapData(seed, m_Biomes, m_RegionCount, m_WeightRange.x, m_WeightRange.y, m_BoundaryNoiseScale, m_BoundaryNoiseStrength, m_MaxInfluenceDistance);
             m_LastMapData = mapData;
 
             return mapData;

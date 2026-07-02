@@ -20,12 +20,15 @@ public class MapData
     private readonly float m_BoundaryNoiseScale;
     // 경계선에 적용할 노이즈의 세기. 0이면 원래의 가중 보로노이 경계(원호) 그대로 유지된다.
     private readonly float m_BoundaryNoiseStrength;
+    // 이 거리(제곱)보다 멀리 있는 영역은 영향력 계산에서 제외된다.
+    private readonly float m_MaxInfluenceDistanceSqr;
 
     // 주어진 시드와 바이옴 목록으로 랜덤 바이옴 영역들을 생성한다.
-    public MapData(int seed, MapBiome[] biomes, int regionCount = 12, float minWeight = 0.5f, float maxWeight = 2f, float boundaryNoiseScale = 4f, float boundaryNoiseStrength = 0.15f)
+    public MapData(int seed, MapBiome[] biomes, int regionCount = 12, float minWeight = 0.5f, float maxWeight = 2f, float boundaryNoiseScale = 4f, float boundaryNoiseStrength = 0.15f, float maxInfluenceDistance = 0.6f)
     {
         m_BoundaryNoiseScale = boundaryNoiseScale;
         m_BoundaryNoiseStrength = boundaryNoiseStrength;
+        m_MaxInfluenceDistanceSqr = maxInfluenceDistance * maxInfluenceDistance;
 
         Random.State previousState = Random.state;
         Random.InitState(seed);
@@ -68,6 +71,11 @@ public class MapData
             float dx = m_Regions[i].Position.x - position.x;
             float dy = m_Regions[i].Position.y - position.y;
             float distanceSqr = (dx * dx) + (dy * dy);
+
+            // 후보가 이미 존재하는 경우에만 거리 제한 컷오프를 적용해 항상 최소 하나의 영역이 선택되도록 보장한다.
+            if (nearestWeightedDistanceSqr < float.MaxValue && distanceSqr > m_MaxInfluenceDistanceSqr)
+                continue;
+
             float weightedDistanceSqr = distanceSqr / m_Regions[i].Weight;
             weightedDistanceSqr += HandleGetBoundaryNoise(position, i);
 
