@@ -20,7 +20,7 @@ public class BiomeRegionMap
             m_Regions[i] = new BiomeRegion
             {
                 Index = i,
-                Position = new Vector2(Random.value, Random.value),
+                Position = new Vector2(Random.value / 2f + 0.25f, Random.value / 2f + 0.25f),
                 Weight = Random.Range(minWeight, maxWeight),
                 Biome = biomes[Random.Range(0, biomes.Length)],
             };
