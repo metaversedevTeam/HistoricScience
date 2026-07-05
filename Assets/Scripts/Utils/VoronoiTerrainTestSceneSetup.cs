@@ -36,15 +36,15 @@ namespace HistoricScience.Test
             "Assets/ExternalAssets/Cartoon_Texture_Pack/SAND/SAND_Underwater/Materials/Sand_Underwater_Base.mat",
         };
 
-        // 각 터레인 레이어에 대응하는 바이옴 정의. 순서가 k_SourceMaterialPaths와 일치해야 한다.
-        private static readonly (string name, Color color)[] k_BiomeDefinitions =
+        // 각 터레인 레이어에 대응하는 바이옴 정의. 순서가 k_SourceMaterialPaths와 일치해야 한다. (같은 종류가 여럿이면 생성 규칙은 목록의 첫 에셋만 사용한다)
+        private static readonly (string name, Color color, MapBiomeType type)[] k_BiomeDefinitions =
         {
-            ("Grass",          new Color(0.2f, 0.8f, 0.2f)),
-            ("Dirt",           new Color(0.6f, 0.4f, 0.2f)),
-            ("SandBeach",      new Color(0.9f, 0.85f, 0.5f)),
-            ("RocksCliff",     new Color(0.5f, 0.5f, 0.5f)),
-            ("RocksVolcanic",  new Color(0.3f, 0.1f, 0.1f)),
-            ("SandUnderwater", new Color(0.3f, 0.6f, 0.8f)),
+            ("Grass",          new Color(0.2f, 0.8f, 0.2f),   MapBiomeType.Plains),
+            ("Dirt",           new Color(0.6f, 0.4f, 0.2f),   MapBiomeType.Plains),
+            ("SandBeach",      new Color(0.9f, 0.85f, 0.5f),  MapBiomeType.Desert),
+            ("RocksCliff",     new Color(0.5f, 0.5f, 0.5f),   MapBiomeType.Mountain),
+            ("RocksVolcanic",  new Color(0.3f, 0.1f, 0.1f),   MapBiomeType.Mountain),
+            ("SandUnderwater", new Color(0.3f, 0.6f, 0.8f),   MapBiomeType.Sea),
         };
 
         // 터레인을 만들고, 바이옴 SO와 터레인 레이어를 생성한 뒤, 보로노이로 칠하고 테스트 씬을 저장한다.
@@ -173,6 +173,7 @@ namespace HistoricScience.Test
 
                 SerializedObject serializedBiome = new SerializedObject(biome);
                 serializedBiome.FindProperty("m_BiomeName").stringValue = k_BiomeDefinitions[i].name;
+                serializedBiome.FindProperty("m_BiomeType").enumValueIndex = (int)k_BiomeDefinitions[i].type;
                 serializedBiome.FindProperty("m_TerrainLayer").objectReferenceValue = layers[i];
                 serializedBiome.FindProperty("m_GizmoColor").colorValue = k_BiomeDefinitions[i].color;
                 serializedBiome.ApplyModifiedPropertiesWithoutUndo();
