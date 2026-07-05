@@ -13,6 +13,10 @@ namespace HistoricScience.Test
         [SerializeField] private float m_GizmoBaseRadius = 5f;
         // 터레인에 칠할 때 바이옴 경계를 부드럽게 섞을 블러 반경(알파맵 셀 단위). 0이면 경계가 그대로 딱딱 떨어진다.
         [SerializeField] private int m_BlendRadius = 3;
+        // 터레인에 출력할 맵 영역의 한 변 길이 (정규화 맵 좌표). 1이면 맵의 1x1 영역이 터레인 전체에 칠해지고, 클수록 더 넓은 영역이 축소되어 보인다.
+        [SerializeField, Min(0.1f)] private float m_MapViewSize = 3f;
+        // 터레인에 출력할 맵 영역의 좌하단 원점 (정규화 맵 좌표)
+        [SerializeField] private Vector2 m_MapViewOrigin = Vector2.zero;
 
         // MapData로 보로노이 바이옴 정보를 생성하고, 그 결과로 터레인 알파맵을 칠한다.
         [ContextMenu("Paint")]
@@ -72,8 +76,8 @@ namespace HistoricScience.Test
             {
                 for (int x = 0; x < width; x++)
                 {
-                    Vector2 normalizedPosition = new Vector2((float)x / width, (float)z / height);
-                    MapBiome biome = mapData.GetBiome(normalizedPosition);
+                    Vector2 mapPosition = HandleTerrainToMapPosition(new Vector2((float)x / width, (float)z / height));
+                    MapBiome biome = mapData.GetBiome(mapPosition);
                     int layer = System.Array.IndexOf(biomes, biome);
 
                     for (int l = 0; l < layerCount; l++)
@@ -149,9 +153,9 @@ namespace HistoricScience.Test
                 return;
             }
 
-            // 터레인이 차지하는 정규화 좌표 영역(0~1)의 정점만 기즈모로 표시한다.
-            Rect terrainArea = new Rect(0f, 0f, 1f, 1f);
-            foreach (BiomeRegion region in m_MapDataGenerator.LastMapData.GetRegions(terrainArea))
+            // 터레인에 출력 중인 맵 영역 안의 정점만 기즈모로 표시한다.
+            Rect mapViewArea = new Rect(m_MapViewOrigin.x, m_MapViewOrigin.y, m_MapViewSize, m_MapViewSize);
+            foreach (BiomeRegion region in m_MapDataGenerator.LastMapData.GetRegions(mapViewArea))
             {
                 HandleDrawRegionGizmo(region);
             }
@@ -160,7 +164,7 @@ namespace HistoricScience.Test
         // 바이옴 영역 하나를 가중치 크기에 비례한 구체로 그리고, 배정된 바이옴 이름을 라벨로 표시한다.
         private void HandleDrawRegionGizmo(BiomeRegion region)
         {
-            Vector3 worldPosition = HandleNormalizedToWorldPosition(region.Position);
+            Vector3 worldPosition = HandleMapToWorldPosition(region.Position);
 
             Gizmos.color = region.Biome.GizmoColor;
             Gizmos.DrawSphere(worldPosition, m_GizmoBaseRadius * region.Weight);
@@ -172,10 +176,17 @@ namespace HistoricScience.Test
 #endif
         }
 
-        // 0~1로 정규화된 좌표를 터레인 표면 위의 월드 좌표로 변환한다.
-        private Vector3 HandleNormalizedToWorldPosition(Vector2 normalizedPosition)
+        // 0~1 정규화 터레인 좌표를 현재 출력 설정(원점/크기)에 따른 맵 좌표로 변환한다.
+        private Vector2 HandleTerrainToMapPosition(Vector2 normalizedTerrainPosition)
+        {
+            return m_MapViewOrigin + normalizedTerrainPosition * m_MapViewSize;
+        }
+
+        // 맵 좌표를 현재 출력 중인 맵 영역 기준의 터레인 표면 월드 좌표로 변환한다.
+        private Vector3 HandleMapToWorldPosition(Vector2 mapPosition)
         {
             TerrainData terrainData = m_Terrain.terrainData;
+            Vector2 normalizedPosition = (mapPosition - m_MapViewOrigin) / m_MapViewSize;
             float worldX = normalizedPosition.x * terrainData.size.x;
             float worldZ = normalizedPosition.y * terrainData.size.z;
             float worldY = m_Terrain.SampleHeight(m_Terrain.transform.position + new Vector3(worldX, 0f, worldZ));
