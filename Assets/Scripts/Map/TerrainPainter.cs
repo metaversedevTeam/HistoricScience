@@ -149,7 +149,9 @@ namespace HistoricScience.Test
                 return;
             }
 
-            foreach (BiomeRegion region in m_MapDataGenerator.LastMapData.GetRegions())
+            // 터레인이 차지하는 정규화 좌표 영역(0~1)의 정점만 기즈모로 표시한다.
+            Rect terrainArea = new Rect(0f, 0f, 1f, 1f);
+            foreach (BiomeRegion region in m_MapDataGenerator.LastMapData.GetRegions(terrainArea))
             {
                 HandleDrawRegionGizmo(region);
             }

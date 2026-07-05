@@ -5,8 +5,6 @@ namespace HistoricScience.Test
     // 보로노이 다이어그램 기반의 MapData를 생성하고 보관하는 클래스
     public class MapDataGenerator : MonoBehaviour
     {
-        // 생성할 보로노이 정점(영역)의 개수
-        [SerializeField] private int m_RegionCount = 12;
         // 각 정점에 랜덤으로 부여할 가중치의 최소/최대 범위
         [SerializeField] private Vector2 m_WeightRange = new Vector2(0.5f, 2f);
         // true면 매번 랜덤 시드를 사용하고, false면 m_RandomSeed 값을 고정 시드로 사용
@@ -46,7 +44,7 @@ namespace HistoricScience.Test
             if (useRandom)
                 seed = m_UseRandomSeed ? System.Environment.TickCount : m_RandomSeed;
 
-            MapData mapData = new MapData(seed, m_Biomes, m_DefaultBiome, m_RegionCount, m_WeightRange.x, m_WeightRange.y, m_BoundaryNoiseScale, m_BoundaryNoiseStrength, m_MaxInfluenceDistance);
+            MapData mapData = new MapData(seed, m_Biomes, m_DefaultBiome, m_WeightRange.x, m_WeightRange.y, m_BoundaryNoiseScale, m_BoundaryNoiseStrength, m_MaxInfluenceDistance);
             m_LastMapData = mapData;
 
             return mapData;

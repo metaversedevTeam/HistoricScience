@@ -189,7 +189,6 @@ namespace HistoricScience.Test
         private static void HandleConfigureMapDataGenerator(MapDataGenerator mapDataGenerator, MapBiome[] biomes)
         {
             SerializedObject serializedGenerator = new SerializedObject(mapDataGenerator);
-            serializedGenerator.FindProperty("m_RegionCount").intValue = 30;
             serializedGenerator.FindProperty("m_UseRandomSeed").boolValue = true;
 
             SerializedProperty biomesProperty = serializedGenerator.FindProperty("m_Biomes");

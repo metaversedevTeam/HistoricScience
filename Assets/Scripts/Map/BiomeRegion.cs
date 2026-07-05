@@ -3,9 +3,9 @@ using UnityEngine;
 // 보로노이 다이어그램의 정점 하나를 나타내는 구조체
 public struct BiomeRegion
 {
-    // 전체 정점 목록에서의 고유 인덱스
+    // 생성 규칙이 배정하는 정점 고유 인덱스 (경계 노이즈 오프셋 계산에 사용)
     public int Index;
-    // 정점의 위치 (0~1로 정규화된 좌표)
+    // 정점의 위치 (터레인 한 변을 1로 하는 정규화 좌표, 무한 평면이므로 0~1 범위 밖일 수 있음)
     public Vector2 Position;
     // 정점이 차지하는 영역의 가중치
     public float Weight;
