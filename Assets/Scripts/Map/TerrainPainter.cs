@@ -3,9 +3,16 @@ using UnityEngine;
 
 namespace HistoricScience.Test
 {
-    // MapData가 계산한 보로노이 바이옴 정보를 이용해 터레인의 알파맵과 높이맵을 굽고 기즈모를 출력하는 클래스
+    // 터레인에 TerrainData가 없으면 인메모리로 새로 만들어 할당하고, MapData가 계산한 보로노이 바이옴 정보를 이용해 터레인의 알파맵과 높이맵을 굽고 기즈모를 출력하는 클래스
     public class TerrainPainter : MonoBehaviour
     {
+        // 터레인에 TerrainData가 없을 때 새로 생성할 높이맵 해상도
+        private const int k_HeightmapResolution = 129;
+        // 터레인에 TerrainData가 없을 때 새로 생성할 알파맵 해상도
+        private const int k_AlphamapResolution = 512;
+        // 터레인에 TerrainData가 없을 때 새로 생성할 터레인 크기
+        private static readonly Vector3 k_TerrainSize = new Vector3(500f, 100f, 500f);
+
         // 맵 바이옴 데이터를 생성하는 제공자
         [SerializeField] private MapDataGenerator m_MapDataGenerator;
         // 칠할 대상 터레인
@@ -34,11 +41,13 @@ namespace HistoricScience.Test
                 return;
             }
 
-            if (m_Terrain == null || m_Terrain.terrainData == null)
+            if (m_Terrain == null)
             {
                 Debug.LogError("TerrainPainter: Terrain is not assigned.");
                 return;
             }
+
+            HandleAssignTerrainData();
 
             MapData mapData = m_MapDataGenerator.GenerateMapData(useRandom);
             if (mapData == null) return;
@@ -55,6 +64,30 @@ namespace HistoricScience.Test
 
             float[,] heightmap = HandleBuildHeightmap(terrainData, mapData);
             terrainData.SetHeights(0, 0, heightmap);
+        }
+
+        // 터레인에 TerrainData가 없으면 에셋으로 저장하지 않는 인메모리 TerrainData를 새로 만들어 터레인과 터레인 콜라이더에 할당한다.
+        private void HandleAssignTerrainData()
+        {
+            if (m_Terrain.terrainData != null)
+            {
+                return;
+            }
+
+            TerrainData terrainData = new TerrainData
+            {
+                heightmapResolution = k_HeightmapResolution,
+                alphamapResolution = k_AlphamapResolution,
+                size = k_TerrainSize,
+            };
+
+            m_Terrain.terrainData = terrainData;
+
+            TerrainCollider terrainCollider = m_Terrain.GetComponent<TerrainCollider>();
+            if (terrainCollider != null)
+            {
+                terrainCollider.terrainData = terrainData;
+            }
         }
 
         // 바이옴 목록에서 터레인 레이어만 순서대로 추출한다.

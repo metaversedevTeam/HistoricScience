@@ -103,17 +103,10 @@ namespace HistoricScience.Test
             lightObject.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
         }
 
-        // 에셋으로 저장하지 않는 인메모리 TerrainData를 기반으로 새 터레인 게임오브젝트를 생성한다.
+        // TerrainData 없이 빈 터레인 게임오브젝트를 생성한다. TerrainData 생성 및 할당은 TerrainPainter가 담당한다.
         private static Terrain HandleCreateTerrain()
         {
-            TerrainData terrainData = new TerrainData
-            {
-                heightmapResolution = 129,
-                alphamapResolution = 512,
-                size = new Vector3(500f, 100f, 500f),
-            };
-
-            GameObject terrainObject = Terrain.CreateTerrainGameObject(terrainData);
+            GameObject terrainObject = Terrain.CreateTerrainGameObject(null);
             terrainObject.name = "VoronoiTestTerrain";
 
             return terrainObject.GetComponent<Terrain>();
