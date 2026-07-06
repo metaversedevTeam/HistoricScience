@@ -8,53 +8,18 @@ namespace HistoricScience.Test
     // 보로노이 기반 터레인 칠하기를 보여주는 독립 실행형 테스트 씬을 생성하는 에디터 유틸리티
     public static class VoronoiTerrainTestSceneSetup
     {
-        // 테스트 산출물(씬, 터레인 레이어, 바이옴 SO)이 저장될 루트 폴더 경로. TerrainData는 에셋으로 저장하지 않고 씬에 인메모리로 포함된다.
+        // 테스트 씬이 저장될 루트 폴더 경로. TerrainData는 에셋으로 저장하지 않고 씬에 인메모리로 포함된다.
         private const string k_TestRoot = "Assets/ExternalAssets/Test";
         // 생성될 테스트 씬 파일 경로
         private const string k_ScenePath = k_TestRoot + "/Scenes/VoronoiTerrainTest.unity";
-        // 생성될 TerrainLayer 에셋들이 저장될 폴더 경로
-        private const string k_LayersFolder = k_TestRoot + "/TerrainLayers";
-        // 생성될 MapBiome SO 에셋들이 저장될 폴더 경로
-        private const string k_BiomesFolder = k_TestRoot + "/Biomes";
         // 바다 평면에 사용할 머티리얼 경로
         private const string k_SeaMaterialPath = "Assets/ExternalAssets/Procedural Water Shader/Materials/Pool Water.mat";
         // 바다 평면의 해수면 높이(0~1 정규화, 터레인 최대 높이 기준). 바다 바이옴의 지형보다 높고 육지 바이옴보다 낮아야 바다 영역만 물에 잠긴다.
         private const float k_SeaLevelNormalizedHeight = 0.12f;
-        // 정점 범위 밖일 때 대신 사용할 기본 바이옴의 이름
-        private const string k_DefaultBiomeName = "SandUnderwater";
         // Terrain, TerrainCollider, MapDataGenerator, TerrainPainter가 미리 구성되어 있는 터레인 프리팹 경로
         private const string k_TerrainPrefabPath = "Assets/Prefabs/Environment/MapChunkTerrain.prefab";
 
-        // 터레인 레이어(바이옴)를 만들 때 텍스처를 가져올 원본 머티리얼 경로 목록
-        private static readonly string[] k_SourceMaterialPaths =
-        {
-            "Assets/ExternalAssets/Cartoon_Texture_Pack/SAND/SAND_Underwater/Materials/Sand_Underwater_Base.mat",
-            "Assets/ExternalAssets/Cartoon_Texture_Pack/ROCKS/ROCKS_Volcanic/Materials/Rocks_Volcanic_A.mat",
-            "Assets/ExternalAssets/Cartoon_Texture_Pack/ROCKS/ROCKS_Cliff/Materials/Rocks_Cliff_A_BC_A.mat",
-            "Assets/ExternalAssets/Cartoon_Texture_Pack/SAND/SAND_Beach/Materials/Sand_Beach_Base.mat",
-            "Assets/ExternalAssets/Cartoon_Texture_Pack/DIRT/Dirt_Path/Materials/Dirt_Path.mat",
-            "Assets/ExternalAssets/Cartoon_Texture_Pack/GRASS/GRASS_Dense/GRASS_Dense_Tint_01/Materials/Grass_Dense_Tint_01_Base_A.mat",
-        };
-
-        // 각 터레인 레이어에 대응하는 바이옴 정의. 순서가 k_SourceMaterialPaths와 일치해야 하며, 앞선 바이옴의 배치 범위가 먼저 검사되므로 순서가 곧 배치 우선순위다.
-        // 마지막 Grass는 전체 범위를 덮는 폴백이다. 범위는 (최소, 최대), 높이 값은 (기준 높이, 굴곡 노이즈 최대 높이, 굴곡 노이즈 스케일) 순서다.
-        private static readonly (string name, Color color, Vector2 elevationRange, Vector2 moistureRange, float baseHeight, float heightAmplitude, float heightNoiseScale)[] k_BiomeDefinitions =
-        {
-            ("SandUnderwater", new Color(0.3f, 0.6f, 0.8f),  new Vector2(0f, 0.35f),    new Vector2(0f, 1f),       0.02f, 0.04f, 2f),
-            ("RocksVolcanic",  new Color(0.3f, 0.1f, 0.1f),  new Vector2(0.85f, 1f),    new Vector2(0f, 1f),       0.32f, 0.60f, 6f),
-            ("RocksCliff",     new Color(0.5f, 0.5f, 0.5f),  new Vector2(0.65f, 1f),    new Vector2(0f, 1f),       0.30f, 0.55f, 6f),
-            ("SandBeach",      new Color(0.9f, 0.85f, 0.5f), new Vector2(0.35f, 0.65f), new Vector2(0f, 0.35f),    0.20f, 0.10f, 5f),
-            ("Dirt",           new Color(0.6f, 0.4f, 0.2f),  new Vector2(0.35f, 0.65f), new Vector2(0.35f, 0.45f), 0.22f, 0.06f, 3f),
-            ("Grass",          new Color(0.2f, 0.8f, 0.2f),  new Vector2(0f, 1f),       new Vector2(0f, 1f),       0.22f, 0.06f, 3f),
-        };
-
-        // 인접 금지 규칙 목록: (대상 바이옴 이름, 인접 금지 바이옴 이름들, 대체 바이옴 이름). 사막(SandBeach)은 산과 접하면 평원(Grass)으로 대체된다.
-        private static readonly (string biome, string[] incompatible, string fallback)[] k_IncompatibleRules =
-        {
-            ("SandBeach", new[] { "RocksCliff", "RocksVolcanic" }, "Grass"),
-        };
-
-        // 터레인을 만들고, 바이옴 SO와 터레인 레이어를 생성한 뒤, 보로노이로 칠하고 테스트 씬을 저장한다.
+        // MapChunkManager로 청크를 소환해 프리팹에 설정된 값 그대로 보로노이 지형을 굽고 테스트 씬을 저장한다.
         [MenuItem("HistoricScience/Test/Create Voronoi Terrain Test Scene")]
         public static void CreateScene()
         {
@@ -65,16 +30,9 @@ namespace HistoricScience.Test
             HandleCreateLight();
 
             MapChunkManager mapChunkManager = HandleCreateMapChunkManager();
-            GameObject chunkObject = mapChunkManager.SpawnChunk(Vector2Int.zero);
+            GameObject chunkObject = mapChunkManager.DrawChunk(Vector2Int.zero);
+            chunkObject.name = "VoronoiTestTerrain";
             Terrain terrain = chunkObject.GetComponent<Terrain>();
-
-            TerrainLayer[] layers = HandleCreateTerrainLayers();
-            MapBiome[] biomes = HandleCreateBiomes(layers);
-
-            MapDataGenerator mapDataGenerator = chunkObject.GetComponent<MapDataGenerator>();
-            HandleConfigureMapDataGenerator(mapDataGenerator, biomes);
-
-            mapChunkManager.PaintChunk(Vector2Int.zero);
 
             HandleCreateSea(terrain);
 
@@ -82,7 +40,7 @@ namespace HistoricScience.Test
             Debug.Log($"Voronoi terrain test scene created at {k_ScenePath}");
         }
 
-        // 테스트 씬, 터레인 레이어, 바이옴 SO 에셋을 저장할 폴더가 없으면 생성한다.
+        // 테스트 씬을 저장할 폴더가 없으면 생성한다.
         private static void HandleEnsureFolders()
         {
             if (!AssetDatabase.IsValidFolder(k_TestRoot))
@@ -90,12 +48,6 @@ namespace HistoricScience.Test
 
             if (!AssetDatabase.IsValidFolder(k_TestRoot + "/Scenes"))
                 AssetDatabase.CreateFolder(k_TestRoot, "Scenes");
-
-            if (!AssetDatabase.IsValidFolder(k_LayersFolder))
-                AssetDatabase.CreateFolder(k_TestRoot, "TerrainLayers");
-
-            if (!AssetDatabase.IsValidFolder(k_BiomesFolder))
-                AssetDatabase.CreateFolder(k_TestRoot, "Biomes");
         }
 
         // 칠해진 터레인이 잘 보이도록 씬에 디렉셔널 라이트를 추가한다.
@@ -140,112 +92,6 @@ namespace HistoricScience.Test
                 terrainData.size.x * 0.5f,
                 terrainData.size.y * k_SeaLevelNormalizedHeight,
                 terrainData.size.z * 0.5f);
-        }
-
-        // 각 원본 머티리얼의 텍스처로 TerrainLayer 에셋을 만들어 테스트 폴더에 저장한다.
-        private static TerrainLayer[] HandleCreateTerrainLayers()
-        {
-            TerrainLayer[] layers = new TerrainLayer[k_SourceMaterialPaths.Length];
-
-            for (int i = 0; i < k_SourceMaterialPaths.Length; i++)
-            {
-                Material sourceMaterial = AssetDatabase.LoadAssetAtPath<Material>(k_SourceMaterialPaths[i]);
-
-                TerrainLayer layer = new TerrainLayer
-                {
-                    diffuseTexture = sourceMaterial.GetTexture("_BaseMap") as Texture2D,
-                    normalMapTexture = sourceMaterial.GetTexture("_BumpMap") as Texture2D,
-                    tileSize = new Vector2(10f, 10f),
-                };
-
-                string layerPath = $"{k_LayersFolder}/{sourceMaterial.name}.terrainlayer";
-                AssetDatabase.CreateAsset(layer, layerPath);
-                layers[i] = layer;
-            }
-
-            return layers;
-        }
-
-        // 바이옴 정의와 터레인 레이어로 MapBiome SO 에셋을 생성해 테스트 폴더에 저장한다.
-        private static MapBiome[] HandleCreateBiomes(TerrainLayer[] layers)
-        {
-            MapBiome[] biomes = new MapBiome[k_BiomeDefinitions.Length];
-
-            for (int i = 0; i < k_BiomeDefinitions.Length; i++)
-            {
-                MapBiome biome = ScriptableObject.CreateInstance<MapBiome>();
-
-                SerializedObject serializedBiome = new SerializedObject(biome);
-                serializedBiome.FindProperty("m_BiomeName").stringValue = k_BiomeDefinitions[i].name;
-                serializedBiome.FindProperty("m_ElevationRange").vector2Value = k_BiomeDefinitions[i].elevationRange;
-                serializedBiome.FindProperty("m_MoistureRange").vector2Value = k_BiomeDefinitions[i].moistureRange;
-                serializedBiome.FindProperty("m_TerrainLayer").objectReferenceValue = layers[i];
-                serializedBiome.FindProperty("m_GizmoColor").colorValue = k_BiomeDefinitions[i].color;
-                serializedBiome.FindProperty("m_BaseHeight").floatValue = k_BiomeDefinitions[i].baseHeight;
-                serializedBiome.FindProperty("m_HeightNoiseAmplitude").floatValue = k_BiomeDefinitions[i].heightAmplitude;
-                serializedBiome.FindProperty("m_HeightNoiseScale").floatValue = k_BiomeDefinitions[i].heightNoiseScale;
-                serializedBiome.ApplyModifiedPropertiesWithoutUndo();
-
-                string biomePath = $"{k_BiomesFolder}/{k_BiomeDefinitions[i].name}.asset";
-                AssetDatabase.CreateAsset(biome, biomePath);
-                biomes[i] = biome;
-            }
-
-            HandleApplyIncompatibleRules(biomes);
-
-            return biomes;
-        }
-
-        // 인접 금지 규칙 목록을 생성된 바이옴 SO들에 참조로 연결한다. (SO끼리의 참조라 모든 SO가 생성된 뒤에 연결해야 한다)
-        private static void HandleApplyIncompatibleRules(MapBiome[] biomes)
-        {
-            foreach ((string biomeName, string[] incompatibleNames, string fallbackName) in k_IncompatibleRules)
-            {
-                MapBiome biome = HandleFindBiomeByName(biomes, biomeName);
-                SerializedObject serializedBiome = new SerializedObject(biome);
-
-                SerializedProperty incompatibleProperty = serializedBiome.FindProperty("m_IncompatibleBiomes");
-                incompatibleProperty.arraySize = incompatibleNames.Length;
-                for (int i = 0; i < incompatibleNames.Length; i++)
-                {
-                    incompatibleProperty.GetArrayElementAtIndex(i).objectReferenceValue = HandleFindBiomeByName(biomes, incompatibleNames[i]);
-                }
-
-                serializedBiome.FindProperty("m_FallbackBiome").objectReferenceValue = HandleFindBiomeByName(biomes, fallbackName);
-                serializedBiome.ApplyModifiedPropertiesWithoutUndo();
-            }
-
-            AssetDatabase.SaveAssets();
-        }
-
-        // 맵 데이터 생성기 컴포넌트에 보로노이 생성 파라미터와 바이옴 SO 목록을 연결한다.
-        private static void HandleConfigureMapDataGenerator(MapDataGenerator mapDataGenerator, MapBiome[] biomes)
-        {
-            SerializedObject serializedGenerator = new SerializedObject(mapDataGenerator);
-            serializedGenerator.FindProperty("m_UseRandomSeed").boolValue = true;
-
-            SerializedProperty biomesProperty = serializedGenerator.FindProperty("m_Biomes");
-            biomesProperty.arraySize = biomes.Length;
-            for (int i = 0; i < biomes.Length; i++)
-            {
-                biomesProperty.GetArrayElementAtIndex(i).objectReferenceValue = biomes[i];
-            }
-
-            serializedGenerator.FindProperty("m_DefaultBiome").objectReferenceValue = HandleFindBiomeByName(biomes, k_DefaultBiomeName);
-
-            serializedGenerator.ApplyModifiedPropertiesWithoutUndo();
-        }
-
-        // 이름으로 바이옴 목록에서 하나를 찾는다.
-        private static MapBiome HandleFindBiomeByName(MapBiome[] biomes, string name)
-        {
-            foreach (MapBiome biome in biomes)
-            {
-                if (biome.Name == name)
-                    return biome;
-            }
-
-            return null;
         }
     }
 }
