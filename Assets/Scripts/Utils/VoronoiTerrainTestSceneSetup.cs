@@ -22,6 +22,8 @@ namespace HistoricScience.Test
         private const float k_SeaLevelNormalizedHeight = 0.12f;
         // 정점 범위 밖일 때 대신 사용할 기본 바이옴의 이름
         private const string k_DefaultBiomeName = "SandUnderwater";
+        // Terrain, TerrainCollider, MapDataGenerator, TerrainPainter가 미리 구성되어 있는 터레인 프리팹 경로
+        private const string k_TerrainPrefabPath = "Assets/Prefabs/Environment/MapChunkTerrain.prefab";
 
         // 터레인 레이어(바이옴)를 만들 때 텍스처를 가져올 원본 머티리얼 경로 목록
         private static readonly string[] k_SourceMaterialPaths =
@@ -65,11 +67,10 @@ namespace HistoricScience.Test
             TerrainLayer[] layers = HandleCreateTerrainLayers();
             MapBiome[] biomes = HandleCreateBiomes(layers);
 
-            MapDataGenerator mapDataGenerator = terrain.gameObject.AddComponent<MapDataGenerator>();
+            MapDataGenerator mapDataGenerator = terrain.GetComponent<MapDataGenerator>();
             HandleConfigureMapDataGenerator(mapDataGenerator, biomes);
 
-            TerrainPainter painter = terrain.gameObject.AddComponent<TerrainPainter>();
-            HandleConfigurePainter(painter, mapDataGenerator, terrain);
+            TerrainPainter painter = terrain.GetComponent<TerrainPainter>();
             painter.PaintVoronoiTerrain();
 
             HandleCreateSea(terrain);
@@ -103,10 +104,11 @@ namespace HistoricScience.Test
             lightObject.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
         }
 
-        // TerrainData 없이 빈 터레인 게임오브젝트를 생성한다. TerrainData 생성 및 할당은 TerrainPainter가 담당한다.
+        // Terrain, TerrainCollider, MapDataGenerator, TerrainPainter가 미리 구성된 프리팹을 인스턴스화한다. TerrainData 생성 및 할당은 TerrainPainter가 담당한다.
         private static Terrain HandleCreateTerrain()
         {
-            GameObject terrainObject = Terrain.CreateTerrainGameObject(null);
+            GameObject terrainPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(k_TerrainPrefabPath);
+            GameObject terrainObject = (GameObject)PrefabUtility.InstantiatePrefab(terrainPrefab);
             terrainObject.name = "VoronoiTestTerrain";
 
             return terrainObject.GetComponent<Terrain>();
@@ -235,16 +237,6 @@ namespace HistoricScience.Test
             }
 
             return null;
-        }
-
-        // 페인터 컴포넌트에 맵 데이터 생성기와 터레인을 연결한다.
-        private static void HandleConfigurePainter(TerrainPainter painter, MapDataGenerator mapDataGenerator, Terrain terrain)
-        {
-            SerializedObject serializedPainter = new SerializedObject(painter);
-            serializedPainter.FindProperty("m_MapDataGenerator").objectReferenceValue = mapDataGenerator;
-            serializedPainter.FindProperty("m_Terrain").objectReferenceValue = terrain;
-
-            serializedPainter.ApplyModifiedPropertiesWithoutUndo();
         }
     }
 }
