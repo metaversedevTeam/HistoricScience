@@ -8,12 +8,10 @@ namespace HistoricScience.Test
     // 보로노이 기반 터레인 칠하기를 보여주는 독립 실행형 테스트 씬을 생성하는 에디터 유틸리티
     public static class VoronoiTerrainTestSceneSetup
     {
-        // 테스트 산출물(씬, 터레인 데이터, 레이어, 바이옴 SO)이 저장될 루트 폴더 경로
+        // 테스트 산출물(씬, 터레인 레이어, 바이옴 SO)이 저장될 루트 폴더 경로. TerrainData는 에셋으로 저장하지 않고 씬에 인메모리로 포함된다.
         private const string k_TestRoot = "Assets/ExternalAssets/Test";
         // 생성될 테스트 씬 파일 경로
         private const string k_ScenePath = k_TestRoot + "/Scenes/VoronoiTerrainTest.unity";
-        // 생성될 TerrainData 에셋 경로
-        private const string k_TerrainDataPath = k_TestRoot + "/Terrain/VoronoiTestTerrainData.asset";
         // 생성될 TerrainLayer 에셋들이 저장될 폴더 경로
         private const string k_LayersFolder = k_TestRoot + "/TerrainLayers";
         // 생성될 MapBiome SO 에셋들이 저장될 폴더 경로
@@ -80,7 +78,7 @@ namespace HistoricScience.Test
             Debug.Log($"Voronoi terrain test scene created at {k_ScenePath}");
         }
 
-        // 테스트 씬, 터레인 데이터, 터레인 레이어, 바이옴 SO 에셋을 저장할 폴더가 없으면 생성한다.
+        // 테스트 씬, 터레인 레이어, 바이옴 SO 에셋을 저장할 폴더가 없으면 생성한다.
         private static void HandleEnsureFolders()
         {
             if (!AssetDatabase.IsValidFolder(k_TestRoot))
@@ -88,9 +86,6 @@ namespace HistoricScience.Test
 
             if (!AssetDatabase.IsValidFolder(k_TestRoot + "/Scenes"))
                 AssetDatabase.CreateFolder(k_TestRoot, "Scenes");
-
-            if (!AssetDatabase.IsValidFolder(k_TestRoot + "/Terrain"))
-                AssetDatabase.CreateFolder(k_TestRoot, "Terrain");
 
             if (!AssetDatabase.IsValidFolder(k_LayersFolder))
                 AssetDatabase.CreateFolder(k_TestRoot, "TerrainLayers");
@@ -108,7 +103,7 @@ namespace HistoricScience.Test
             lightObject.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
         }
 
-        // 새로 저장한 TerrainData 에셋을 기반으로 새 터레인 게임오브젝트를 생성한다.
+        // 에셋으로 저장하지 않는 인메모리 TerrainData를 기반으로 새 터레인 게임오브젝트를 생성한다.
         private static Terrain HandleCreateTerrain()
         {
             TerrainData terrainData = new TerrainData
@@ -117,8 +112,6 @@ namespace HistoricScience.Test
                 alphamapResolution = 512,
                 size = new Vector3(500f, 100f, 500f),
             };
-
-            AssetDatabase.CreateAsset(terrainData, k_TerrainDataPath);
 
             GameObject terrainObject = Terrain.CreateTerrainGameObject(terrainData);
             terrainObject.name = "VoronoiTestTerrain";
