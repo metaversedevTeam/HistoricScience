@@ -20,31 +20,38 @@ namespace HistoricScience.Test
         private const string k_BiomesFolder = k_TestRoot + "/Biomes";
         // 바다 평면에 사용할 머티리얼 경로
         private const string k_SeaMaterialPath = "Assets/ExternalAssets/Procedural Water Shader/Materials/Pool Water.mat";
-        // 바다 평면의 해수면 높이(0~1 정규화, 터레인 최대 높이 기준)
-        private const float k_SeaLevelNormalizedHeight = -1f;
+        // 바다 평면의 해수면 높이(0~1 정규화, 터레인 최대 높이 기준). 바다 바이옴의 지형보다 높고 육지 바이옴보다 낮아야 바다 영역만 물에 잠긴다.
+        private const float k_SeaLevelNormalizedHeight = 0.12f;
         // 정점 범위 밖일 때 대신 사용할 기본 바이옴의 이름
         private const string k_DefaultBiomeName = "SandUnderwater";
 
         // 터레인 레이어(바이옴)를 만들 때 텍스처를 가져올 원본 머티리얼 경로 목록
         private static readonly string[] k_SourceMaterialPaths =
         {
-            "Assets/ExternalAssets/Cartoon_Texture_Pack/GRASS/GRASS_Dense/GRASS_Dense_Tint_01/Materials/Grass_Dense_Tint_01_Base_A.mat",
-            "Assets/ExternalAssets/Cartoon_Texture_Pack/DIRT/Dirt_Path/Materials/Dirt_Path.mat",
-            "Assets/ExternalAssets/Cartoon_Texture_Pack/SAND/SAND_Beach/Materials/Sand_Beach_Base.mat",
-            "Assets/ExternalAssets/Cartoon_Texture_Pack/ROCKS/ROCKS_Cliff/Materials/Rocks_Cliff_A_BC_A.mat",
-            "Assets/ExternalAssets/Cartoon_Texture_Pack/ROCKS/ROCKS_Volcanic/Materials/Rocks_Volcanic_A.mat",
             "Assets/ExternalAssets/Cartoon_Texture_Pack/SAND/SAND_Underwater/Materials/Sand_Underwater_Base.mat",
+            "Assets/ExternalAssets/Cartoon_Texture_Pack/ROCKS/ROCKS_Volcanic/Materials/Rocks_Volcanic_A.mat",
+            "Assets/ExternalAssets/Cartoon_Texture_Pack/ROCKS/ROCKS_Cliff/Materials/Rocks_Cliff_A_BC_A.mat",
+            "Assets/ExternalAssets/Cartoon_Texture_Pack/SAND/SAND_Beach/Materials/Sand_Beach_Base.mat",
+            "Assets/ExternalAssets/Cartoon_Texture_Pack/DIRT/Dirt_Path/Materials/Dirt_Path.mat",
+            "Assets/ExternalAssets/Cartoon_Texture_Pack/GRASS/GRASS_Dense/GRASS_Dense_Tint_01/Materials/Grass_Dense_Tint_01_Base_A.mat",
         };
 
-        // 각 터레인 레이어에 대응하는 바이옴 정의. 순서가 k_SourceMaterialPaths와 일치해야 한다. (같은 종류가 여럿이면 생성 규칙은 목록의 첫 에셋만 사용한다)
-        private static readonly (string name, Color color, MapBiomeType type)[] k_BiomeDefinitions =
+        // 각 터레인 레이어에 대응하는 바이옴 정의. 순서가 k_SourceMaterialPaths와 일치해야 하며, 앞선 바이옴의 배치 범위가 먼저 검사되므로 순서가 곧 배치 우선순위다.
+        // 마지막 Grass는 전체 범위를 덮는 폴백이다. 범위는 (최소, 최대), 높이 값은 (기준 높이, 굴곡 노이즈 최대 높이, 굴곡 노이즈 스케일) 순서다.
+        private static readonly (string name, Color color, Vector2 elevationRange, Vector2 moistureRange, float baseHeight, float heightAmplitude, float heightNoiseScale)[] k_BiomeDefinitions =
         {
-            ("Grass",          new Color(0.2f, 0.8f, 0.2f),   MapBiomeType.Plains),
-            ("Dirt",           new Color(0.6f, 0.4f, 0.2f),   MapBiomeType.Plains),
-            ("SandBeach",      new Color(0.9f, 0.85f, 0.5f),  MapBiomeType.Desert),
-            ("RocksCliff",     new Color(0.5f, 0.5f, 0.5f),   MapBiomeType.Mountain),
-            ("RocksVolcanic",  new Color(0.3f, 0.1f, 0.1f),   MapBiomeType.Mountain),
-            ("SandUnderwater", new Color(0.3f, 0.6f, 0.8f),   MapBiomeType.Sea),
+            ("SandUnderwater", new Color(0.3f, 0.6f, 0.8f),  new Vector2(0f, 0.35f),    new Vector2(0f, 1f),       0.02f, 0.04f, 2f),
+            ("RocksVolcanic",  new Color(0.3f, 0.1f, 0.1f),  new Vector2(0.85f, 1f),    new Vector2(0f, 1f),       0.32f, 0.60f, 6f),
+            ("RocksCliff",     new Color(0.5f, 0.5f, 0.5f),  new Vector2(0.65f, 1f),    new Vector2(0f, 1f),       0.30f, 0.55f, 6f),
+            ("SandBeach",      new Color(0.9f, 0.85f, 0.5f), new Vector2(0.35f, 0.65f), new Vector2(0f, 0.35f),    0.20f, 0.10f, 5f),
+            ("Dirt",           new Color(0.6f, 0.4f, 0.2f),  new Vector2(0.35f, 0.65f), new Vector2(0.35f, 0.45f), 0.22f, 0.06f, 3f),
+            ("Grass",          new Color(0.2f, 0.8f, 0.2f),  new Vector2(0f, 1f),       new Vector2(0f, 1f),       0.22f, 0.06f, 3f),
+        };
+
+        // 인접 금지 규칙 목록: (대상 바이옴 이름, 인접 금지 바이옴 이름들, 대체 바이옴 이름). 사막(SandBeach)은 산과 접하면 평원(Grass)으로 대체된다.
+        private static readonly (string biome, string[] incompatible, string fallback)[] k_IncompatibleRules =
+        {
+            ("SandBeach", new[] { "RocksCliff", "RocksVolcanic" }, "Grass"),
         };
 
         // 터레인을 만들고, 바이옴 SO와 터레인 레이어를 생성한 뒤, 보로노이로 칠하고 테스트 씬을 저장한다.
@@ -173,9 +180,13 @@ namespace HistoricScience.Test
 
                 SerializedObject serializedBiome = new SerializedObject(biome);
                 serializedBiome.FindProperty("m_BiomeName").stringValue = k_BiomeDefinitions[i].name;
-                serializedBiome.FindProperty("m_BiomeType").enumValueIndex = (int)k_BiomeDefinitions[i].type;
+                serializedBiome.FindProperty("m_ElevationRange").vector2Value = k_BiomeDefinitions[i].elevationRange;
+                serializedBiome.FindProperty("m_MoistureRange").vector2Value = k_BiomeDefinitions[i].moistureRange;
                 serializedBiome.FindProperty("m_TerrainLayer").objectReferenceValue = layers[i];
                 serializedBiome.FindProperty("m_GizmoColor").colorValue = k_BiomeDefinitions[i].color;
+                serializedBiome.FindProperty("m_BaseHeight").floatValue = k_BiomeDefinitions[i].baseHeight;
+                serializedBiome.FindProperty("m_HeightNoiseAmplitude").floatValue = k_BiomeDefinitions[i].heightAmplitude;
+                serializedBiome.FindProperty("m_HeightNoiseScale").floatValue = k_BiomeDefinitions[i].heightNoiseScale;
                 serializedBiome.ApplyModifiedPropertiesWithoutUndo();
 
                 string biomePath = $"{k_BiomesFolder}/{k_BiomeDefinitions[i].name}.asset";
@@ -183,7 +194,31 @@ namespace HistoricScience.Test
                 biomes[i] = biome;
             }
 
+            HandleApplyIncompatibleRules(biomes);
+
             return biomes;
+        }
+
+        // 인접 금지 규칙 목록을 생성된 바이옴 SO들에 참조로 연결한다. (SO끼리의 참조라 모든 SO가 생성된 뒤에 연결해야 한다)
+        private static void HandleApplyIncompatibleRules(MapBiome[] biomes)
+        {
+            foreach ((string biomeName, string[] incompatibleNames, string fallbackName) in k_IncompatibleRules)
+            {
+                MapBiome biome = HandleFindBiomeByName(biomes, biomeName);
+                SerializedObject serializedBiome = new SerializedObject(biome);
+
+                SerializedProperty incompatibleProperty = serializedBiome.FindProperty("m_IncompatibleBiomes");
+                incompatibleProperty.arraySize = incompatibleNames.Length;
+                for (int i = 0; i < incompatibleNames.Length; i++)
+                {
+                    incompatibleProperty.GetArrayElementAtIndex(i).objectReferenceValue = HandleFindBiomeByName(biomes, incompatibleNames[i]);
+                }
+
+                serializedBiome.FindProperty("m_FallbackBiome").objectReferenceValue = HandleFindBiomeByName(biomes, fallbackName);
+                serializedBiome.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            AssetDatabase.SaveAssets();
         }
 
         // 맵 데이터 생성기 컴포넌트에 보로노이 생성 파라미터와 바이옴 SO 목록을 연결한다.

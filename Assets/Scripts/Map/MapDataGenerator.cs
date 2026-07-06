@@ -17,7 +17,7 @@ namespace HistoricScience.Test
         [SerializeField] private float m_BoundaryNoiseStrength = 0.003f;
         // 이 거리보다 멀리 있는 보로노이 정점은 영향력 계산에서 제외된다. (0~1 정규화 좌표 기준)
         [SerializeField] private float m_MaxInfluenceDistance = 0.6f;
-        // 맵에 배치될 바이옴 목록. 생성 규칙이 바이옴 종류(MapBiomeType)별로 이 목록에서 첫 번째 에셋을 찾아 사용한다.
+        // 맵에 배치될 바이옴 목록. 앞선 바이옴의 배치 범위(고도/습도)가 먼저 검사되므로 순서가 곧 배치 우선순위다.
         [SerializeField] private MapBiome[] m_Biomes;
         // maxInfluenceDistance 이내에 정점이 없는 위치에 대신 사용할 기본 바이옴
         [SerializeField] private MapBiome m_DefaultBiome;
