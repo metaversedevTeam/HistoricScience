@@ -33,6 +33,12 @@ namespace HistoricScience.Test
             PaintVoronoiTerrain(false);
         }
 
+        // 청크 좌표에 맞춰 이 터레인이 출력할 정규화 맵 영역의 원점을 설정한다. (원점 = 좌표 × MapViewSize). 청크 관리자가 여러 청크를 이어 붙일 때 사용한다.
+        public void SetChunkCoordinate(Vector2Int chunkCoordinate)
+        {
+            m_MapViewOrigin = new Vector2(chunkCoordinate.x, chunkCoordinate.y) * m_MapViewSize;
+        }
+
         public void PaintVoronoiTerrain(bool useRandom = true)
         {
             if (m_MapDataGenerator == null)

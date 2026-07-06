@@ -63,15 +63,18 @@ namespace HistoricScience.Test
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
             HandleCreateLight();
-            Terrain terrain = HandleCreateTerrain();
+
+            MapChunkManager mapChunkManager = HandleCreateMapChunkManager();
+            GameObject chunkObject = mapChunkManager.SpawnChunk(Vector2Int.zero);
+            Terrain terrain = chunkObject.GetComponent<Terrain>();
+
             TerrainLayer[] layers = HandleCreateTerrainLayers();
             MapBiome[] biomes = HandleCreateBiomes(layers);
 
-            MapDataGenerator mapDataGenerator = terrain.GetComponent<MapDataGenerator>();
+            MapDataGenerator mapDataGenerator = chunkObject.GetComponent<MapDataGenerator>();
             HandleConfigureMapDataGenerator(mapDataGenerator, biomes);
 
-            TerrainPainter painter = terrain.GetComponent<TerrainPainter>();
-            painter.PaintVoronoiTerrain();
+            mapChunkManager.PaintChunk(Vector2Int.zero);
 
             HandleCreateSea(terrain);
 
@@ -104,14 +107,20 @@ namespace HistoricScience.Test
             lightObject.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
         }
 
-        // Terrain, TerrainCollider, MapDataGenerator, TerrainPainter가 미리 구성된 프리팹을 인스턴스화한다. TerrainData 생성 및 할당은 TerrainPainter가 담당한다.
-        private static Terrain HandleCreateTerrain()
+        // Terrain, TerrainCollider, MapDataGenerator, TerrainPainter가 미리 구성된 프리팹을 청크 프리팹으로 갖는 MapChunkManager를 생성한다.
+        // 이후 청크 소환/굽기는 모두 MapChunkManager를 통해 이뤄지며, TerrainPainter는 직접 참조하지 않는다.
+        private static MapChunkManager HandleCreateMapChunkManager()
         {
             GameObject terrainPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(k_TerrainPrefabPath);
-            GameObject terrainObject = (GameObject)PrefabUtility.InstantiatePrefab(terrainPrefab);
-            terrainObject.name = "VoronoiTestTerrain";
 
-            return terrainObject.GetComponent<Terrain>();
+            GameObject managerObject = new GameObject("MapChunkManager");
+            MapChunkManager mapChunkManager = managerObject.AddComponent<MapChunkManager>();
+
+            SerializedObject serializedManager = new SerializedObject(mapChunkManager);
+            serializedManager.FindProperty("m_ChunkPrefab").objectReferenceValue = terrainPrefab;
+            serializedManager.ApplyModifiedPropertiesWithoutUndo();
+
+            return mapChunkManager;
         }
 
         // 터레인 전체를 덮는 크기의 평면을 해수면 높이에 배치하고 Pool Water 머티리얼을 입혀 바다를 만든다.
