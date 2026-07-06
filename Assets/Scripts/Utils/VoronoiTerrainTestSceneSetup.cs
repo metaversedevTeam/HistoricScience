@@ -12,8 +12,8 @@ namespace HistoricScience.Test
         private const string k_TestRoot = "Assets/ExternalAssets/Test";
         // 생성될 테스트 씬 파일 경로
         private const string k_ScenePath = k_TestRoot + "/Scenes/VoronoiTerrainTest.unity";
-        // 바다 평면에 사용할 머티리얼 경로
-        private const string k_SeaMaterialPath = "Assets/ExternalAssets/Procedural Water Shader/Materials/Pool Water.mat";
+        // 소환할 바다 프리팹 경로
+        private const string k_SeaPrefabPath = "Assets/Prefabs/Environment/Sea.prefab";
         // 바다 평면의 해수면 높이(0~1 정규화, 터레인 최대 높이 기준). 바다 바이옴의 지형보다 높고 육지 바이옴보다 낮아야 바다 영역만 물에 잠긴다.
         private const float k_SeaLevelNormalizedHeight = 0.12f;
         // Terrain, TerrainCollider, MapDataGenerator, TerrainPainter가 미리 구성되어 있는 터레인 프리팹 경로
@@ -75,16 +75,13 @@ namespace HistoricScience.Test
             return mapChunkManager;
         }
 
-        // 터레인 전체를 덮는 크기의 평면을 해수면 높이에 배치하고 Pool Water 머티리얼을 입혀 바다를 만든다.
+        // Sea 프리팹을 소환해 터레인 전체를 덮는 크기로 스케일하고 해수면 높이에 배치한다.
         private static void HandleCreateSea(Terrain terrain)
         {
             TerrainData terrainData = terrain.terrainData;
-            Material seaMaterial = AssetDatabase.LoadAssetAtPath<Material>(k_SeaMaterialPath);
 
-            GameObject seaObject = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            seaObject.name = "Sea";
-            Object.DestroyImmediate(seaObject.GetComponent<MeshCollider>());
-            seaObject.GetComponent<MeshRenderer>().sharedMaterial = seaMaterial;
+            GameObject seaPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(k_SeaPrefabPath);
+            GameObject seaObject = (GameObject)PrefabUtility.InstantiatePrefab(seaPrefab);
 
             // 기본 Plane 메시는 10x10 유닛이므로, 터레인의 가로/세로 크기에 맞추려면 10으로 나눈 배율로 스케일해야 한다.
             seaObject.transform.localScale = new Vector3(terrainData.size.x / 10f, 1f, terrainData.size.z / 10f);
