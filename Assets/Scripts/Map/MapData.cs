@@ -1,8 +1,7 @@
-using System.Collections.Generic;
 using UnityEngine;
 
-// 보로노이 다이어그램을 기반으로 맵의 바이옴/높이 정보를 계산하는 클래스
-public class MapData
+// 보로노이 다이어그램을 기반으로 맵의 바이옴/높이 정보를 계산하는 불변 클래스 (생성 후 상태가 변하지 않아 여러 스레드에서 동시에 읽어도 안전하다)
+public sealed class MapData
 {
     // 높이 샘플 격자의 정규화 맵 좌표 1단위당 샘플 개수. GetHeight의 정수 격자 좌표를 이 값으로 나누면 맵 좌표가 된다.
     public const int HeightSamplesPerUnit = 64;
@@ -21,8 +20,6 @@ public class MapData
     private readonly MapBiome m_DefaultBiome;
     // 시드마다 높이 굴곡 노이즈가 달라지도록 하는 펄린 샘플 오프셋
     private readonly Vector2 m_HeightNoiseOffset;
-    // 바이옴별 굴곡 노이즈 샘플 오프셋 캐시 (바이옴 이름 해시 기반)
-    private readonly Dictionary<MapBiome, Vector2> m_BiomeNoiseShifts = new Dictionary<MapBiome, Vector2>();
 
     // 주어진 시드와 바이옴 목록으로 바이옴 영역 맵을 생성한다.
     public MapData(int seed, MapBiome[] biomes, MapBiome defaultBiome, float minWeight = 0.5f, float maxWeight = 2f, float boundaryNoiseScale = 4f, float boundaryNoiseStrength = 0.15f, float maxInfluenceDistance = 0.6f)
@@ -134,21 +131,15 @@ public class MapData
         return biome.BaseHeight + noise * biome.HeightNoiseAmplitude;
     }
 
-    // 바이옴 이름에서 결정론적인 굴곡 노이즈 샘플 오프셋을 계산해 캐시한다.
-    private Vector2 HandleGetBiomeNoiseShift(MapBiome biome)
+    // 바이옴 이름에서 결정론적인 굴곡 노이즈 샘플 오프셋을 계산한다.
+    private static Vector2 HandleGetBiomeNoiseShift(MapBiome biome)
     {
-        if (m_BiomeNoiseShifts.TryGetValue(biome, out Vector2 shift))
-            return shift;
-
         // FNV-1a 해시: string.GetHashCode와 달리 세션이 바뀌어도 값이 유지된다.
         uint hash = 2166136261u;
         foreach (char character in biome.Name ?? string.Empty)
             hash = (hash ^ character) * 16777619u;
 
-        shift = new Vector2((hash & 0xFFFF) / 65536f * 97f, ((hash >> 16) & 0xFFFF) / 65536f * 97f);
-        m_BiomeNoiseShifts[biome] = shift;
-
-        return shift;
+        return new Vector2((hash & 0xFFFF) / 65536f * 97f, ((hash >> 16) & 0xFFFF) / 65536f * 97f);
     }
 
     // 시드마다 높이 노이즈 패턴이 달라지도록 시드로부터 펄린 샘플 오프셋을 계산한다.

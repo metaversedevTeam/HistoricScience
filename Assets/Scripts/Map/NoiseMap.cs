@@ -1,7 +1,7 @@
 using UnityEngine;
 
-// 옥타브를 합산한 펄린 노이즈로 높이 값을 계산하는 클래스
-public class NoiseMap
+// 옥타브를 합산한 펄린 노이즈로 높이 값을 계산하는 불변 클래스 (생성 후 상태가 변하지 않아 여러 스레드에서 동시에 읽어도 안전하다)
+public sealed class NoiseMap
 {
     // 노이즈 생성에 사용할 시드 (옥타브별 샘플링 오프셋을 결정한다)
     private readonly int m_Seed;

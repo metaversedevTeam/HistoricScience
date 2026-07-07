@@ -4,7 +4,8 @@ using UnityEngine;
 // 무한 평면 위의 보로노이 바이옴 정점들을 정의된 생성 규칙에 따라 계산해 제공하는 클래스. 정점을 저장하지 않고 조회할 때마다 규칙으로 다시 계산한다. (캐싱은 추후 도입 예정)
 // 생성 규칙: 평면을 격자 셀로 나눠 셀마다 정점을 하나씩 배치하고, 저주파 고도/습도 노이즈 값을 바이옴 에셋의 배치 범위와 목록 순서대로 대조해 처음 맞는 바이옴을 배정한다.
 // 노이즈가 저주파라 이웃 정점들이 같은 바이옴으로 뭉쳐 좁은 파편 영역이 생기지 않으며, 주변 정점에 인접 금지 바이옴이 있으면 에셋에 지정된 대체 바이옴으로 바뀐다.
-public class BiomeRegionMap
+// 생성 후 상태가 변하지 않는 불변 클래스로, 여러 스레드에서 동시에 읽어도 안전하다.
+public sealed class BiomeRegionMap
 {
     // 정점 배치 격자의 셀 한 변 길이 (정규화 좌표). 셀마다 정점이 하나씩 배치된다.
     private const float k_CellSize = 0.2f;
@@ -34,7 +35,8 @@ public class BiomeRegionMap
         m_Seed = seed;
         m_MinWeight = minWeight;
         m_MaxWeight = maxWeight;
-        m_Biomes = biomes != null ? biomes : new MapBiome[0];
+        // 호출부가 넘긴 배열을 나중에 바꾸더라도 이 객체의 상태가 변하지 않도록 방어적으로 복사해 둔다.
+        m_Biomes = biomes != null ? (MapBiome[])biomes.Clone() : new MapBiome[0];
 
         if (m_Biomes.Length == 0)
             Debug.LogError("BiomeRegionMap: 바이옴 목록이 비어 있습니다.");
@@ -91,13 +93,11 @@ public class BiomeRegionMap
     // 셀 좌표 하나에 대응하는 바이옴 정점을 생성 규칙에 따라 계산한다.
     private BiomeRegion HandleCreateRegion(int cellX, int cellY)
     {
-        return new BiomeRegion
-        {
-            Index = (int)(HandleHash(cellX, cellY, 3) & k_RegionIndexMask),
-            Position = HandleGetRegionPosition(cellX, cellY),
-            Weight = Mathf.Lerp(m_MinWeight, m_MaxWeight, HandleHash01(cellX, cellY, 2)),
-            Biome = HandleGetBiome(cellX, cellY),
-        };
+        return new BiomeRegion(
+            index: (int)(HandleHash(cellX, cellY, 3) & k_RegionIndexMask),
+            position: HandleGetRegionPosition(cellX, cellY),
+            weight: Mathf.Lerp(m_MinWeight, m_MaxWeight, HandleHash01(cellX, cellY, 2)),
+            biome: HandleGetBiome(cellX, cellY));
     }
 
     // 셀 내부의 결정론적 지터(여백 안쪽) 위치에 정점을 배치한다.
