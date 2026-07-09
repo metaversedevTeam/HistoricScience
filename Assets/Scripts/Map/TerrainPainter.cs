@@ -39,24 +39,35 @@ namespace HistoricScience.Test
             m_MapViewOrigin = new Vector2(chunkCoordinate.x, chunkCoordinate.y) * m_MapViewSize;
         }
 
+        // MapData 생성부터 굽기까지 전체 과정을 메인 스레드에서 동기적으로 실행한다. 에디터의 Paint 버튼처럼 즉시 결과가 필요할 때 사용한다.
         public void PaintVoronoiTerrain(bool useRandom = true)
+        {
+            var context = PrepareForPaint(useRandom);
+            if (context == null) return;
+
+            var result = ComputePaint(context.Value);
+            ApplyPaint(result);
+        }
+
+        // MapData를 새로 생성하고 백그라운드 계산에 필요한 데이터를 모아 반환한다. Unity API를 사용하므로 반드시 메인 스레드에서 호출해야 한다.
+        public (MapData MapData, MapBiome[] Biomes, TerrainLayer[] Layers, int AlphamapWidth, int AlphamapHeight, int HeightmapResolution)? PrepareForPaint(bool useRandom = true)
         {
             if (m_MapDataGenerator == null)
             {
                 Debug.LogError("TerrainPainter: MapDataGenerator is not assigned.");
-                return;
+                return null;
             }
 
             if (m_Terrain == null)
             {
                 Debug.LogError("TerrainPainter: Terrain is not assigned.");
-                return;
+                return null;
             }
 
             HandleAssignTerrainData();
 
             MapData mapData = m_MapDataGenerator.GenerateMapData(useRandom);
-            if (mapData == null) return;
+            if (mapData == null) return null;
 
             MapBiome[] biomes = m_MapDataGenerator.Biomes;
             TerrainLayer[] layers = HandleCollectTerrainLayers(biomes);
@@ -64,12 +75,26 @@ namespace HistoricScience.Test
             TerrainData terrainData = m_Terrain.terrainData;
             terrainData.terrainLayers = layers;
 
-            float[,,] alphamap = HandleBuildAlphamap(terrainData, mapData, biomes, layers);
-            alphamap = HandleSmoothAlphamap(alphamap, m_BlendRadius);
-            terrainData.SetAlphamaps(0, 0, alphamap);
+            return (mapData, biomes, layers, terrainData.alphamapWidth, terrainData.alphamapHeight, terrainData.heightmapResolution);
+        }
 
-            float[,] heightmap = HandleBuildHeightmap(terrainData, mapData);
-            terrainData.SetHeights(0, 0, heightmap);
+        // 준비된 데이터로 알파맵과 높이맵을 계산한다. Terrain을 직접 건드리지 않는 순수 계산이라 백그라운드 스레드에서 호출해도 안전하다.
+        public (float[,,] Alphamap, float[,] Heightmap) ComputePaint((MapData MapData, MapBiome[] Biomes, TerrainLayer[] Layers, int AlphamapWidth, int AlphamapHeight, int HeightmapResolution) context)
+        {
+            float[,,] alphamap = HandleBuildAlphamap(context.AlphamapWidth, context.AlphamapHeight, context.MapData, context.Biomes, context.Layers);
+            alphamap = HandleSmoothAlphamap(alphamap, m_BlendRadius);
+
+            float[,] heightmap = HandleBuildHeightmap(context.HeightmapResolution, context.MapData);
+
+            return (alphamap, heightmap);
+        }
+
+        // 계산된 알파맵과 높이맵을 실제 터레인에 적용한다. Unity API를 사용하므로 반드시 메인 스레드에서 호출해야 한다.
+        public void ApplyPaint((float[,,] Alphamap, float[,] Heightmap) result)
+        {
+            TerrainData terrainData = m_Terrain.terrainData;
+            terrainData.SetAlphamaps(0, 0, result.Alphamap);
+            terrainData.SetHeights(0, 0, result.Heightmap);
         }
 
         // 터레인에 TerrainData가 없으면 에셋으로 저장하지 않는 인메모리 TerrainData를 새로 만들어 터레인과 터레인 콜라이더에 할당한다.
@@ -108,10 +133,8 @@ namespace HistoricScience.Test
         }
 
         // 각 알파맵 셀의 정규화 좌표에 대해 MapData가 반환하는 바이옴에 해당하는 터레인 레이어로 100% 칠한 알파맵을 만든다.
-        private float[,,] HandleBuildAlphamap(TerrainData terrainData, MapData mapData, MapBiome[] biomes, TerrainLayer[] layers)
+        private float[,,] HandleBuildAlphamap(int width, int height, MapData mapData, MapBiome[] biomes, TerrainLayer[] layers)
         {
-            int width = terrainData.alphamapWidth;
-            int height = terrainData.alphamapHeight;
             int layerCount = layers.Length;
             float[,,] alphamap = new float[height, width, layerCount];
 
@@ -134,9 +157,8 @@ namespace HistoricScience.Test
         }
 
         // 각 높이맵 셀의 높이를 MapData의 높이 샘플 격자에서 받아와 높이맵을 만든다. 높이 계산 로직은 MapData가 담당한다.
-        private float[,] HandleBuildHeightmap(TerrainData terrainData, MapData mapData)
+        private float[,] HandleBuildHeightmap(int resolution, MapData mapData)
         {
-            int resolution = terrainData.heightmapResolution;
             float[,] heightmap = new float[resolution, resolution];
             // 이웃 셀들이 같은 격자점을 공유하므로 격자점 높이를 캐시해 중복 계산을 줄인다.
             var heightCache = new Dictionary<Vector2Int, float>();

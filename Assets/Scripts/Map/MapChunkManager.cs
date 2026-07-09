@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEngine;
 using HistoricScience.Test;
 
@@ -57,6 +58,41 @@ public class MapChunkManager : MonoBehaviour
         TerrainPainter painter = chunkObject.GetComponent<TerrainPainter>();
         painter.SetChunkCoordinate(chunkCoordinate);
         painter.PaintVoronoiTerrain(false);
+
+        HandlePositionChunk(chunkObject, chunkCoordinate);
+    }
+
+    // DrawChunk의 비동기 버전. 무거운 지형 계산을 백그라운드 스레드에서 수행해 메인 스레드를 막지 않는다. 이미 소환된 좌표면 기존 오브젝트를 그대로 반환한다.
+    public async Task<GameObject> DrawChunkAsync(Vector2Int chunkCoordinate)
+    {
+        if (m_ActiveChunks.TryGetValue(chunkCoordinate, out GameObject existingChunk))
+            return existingChunk;
+
+        GameObject chunkObject = SpawnChunk(chunkCoordinate);
+        if (chunkObject != null)
+            await PaintChunkAsync(chunkCoordinate);
+
+        return chunkObject;
+    }
+
+    // PaintChunk의 비동기 버전. 알파맵/높이맵 계산만 Task.Run으로 백그라운드 스레드에 맡기고, Terrain에 적용하는 부분은 메인 스레드로 돌아와 처리한다.
+    public async Task PaintChunkAsync(Vector2Int chunkCoordinate)
+    {
+        if (!m_ActiveChunks.TryGetValue(chunkCoordinate, out GameObject chunkObject))
+        {
+            Debug.LogError($"MapChunkManager: {chunkCoordinate} 청크가 소환되어 있지 않습니다.");
+            return;
+        }
+
+        TerrainPainter painter = chunkObject.GetComponent<TerrainPainter>();
+        painter.SetChunkCoordinate(chunkCoordinate);
+
+        var context = painter.PrepareForPaint(false);
+        if (context == null)
+            return;
+
+        var result = await Task.Run(() => painter.ComputePaint(context.Value));
+        painter.ApplyPaint(result);
 
         HandlePositionChunk(chunkObject, chunkCoordinate);
     }
