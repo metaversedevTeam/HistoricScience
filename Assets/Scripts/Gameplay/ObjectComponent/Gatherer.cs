@@ -9,18 +9,21 @@ public class Gatherer : MonoBehaviour
     private const int GizmoCircleSegments = 32;
 
 
-    // 지정한 IGatherable 대상이 채집 범위 안에 있는지 확인한다.
+    // 지정한 IGatherable 대상이 채집 범위 안에 있는지 확인한다. 대상에 HitableObject가 있다면 HitRadius만큼 범위를 늘려준다.
     private bool IsInRange(IGatherable target)
     {
         if (target is not Component component) return false;
-        return IsInRange(component.transform.position);
+
+        var targetHitable = component.GetComponent<HitableObject>();
+        float extraRange = targetHitable != null ? targetHitable.HitRadius : 0f;
+        return IsInRange(component.transform.position, extraRange);
     }
 
-    private bool IsInRange(Vector3 pos)
+    private bool IsInRange(Vector3 pos, float extraRange = 0f)
     {
         Vector2 myPos = new Vector2(transform.position.x, transform.position.z);
         Vector2 targetPos = new Vector2(pos.x, pos.z);
-        return Vector2.Distance(myPos, targetPos) <= _gatherRange;
+        return Vector2.Distance(myPos, targetPos) <= _gatherRange + extraRange;
     }
 
     // 대상을 채집하여 결과 아이템을 인벤토리에 추가한다. 범위 밖이거나 채집 불가 상태면 false를 반환한다.
