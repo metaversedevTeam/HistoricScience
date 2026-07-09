@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 2749613347567756879}
   - component: {fileID: 8723176566083072883}
   - component: {fileID: 8365578988269883798}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: MapChunkTerrain
   m_TagString: Untagged
   m_Icon: {fileID: 0}
