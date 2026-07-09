@@ -3,7 +3,6 @@ using UnityEngine;
 // 주변의 IGatherable 대상을 채집하여 ResourceInventory에 결과를 추가하는 컴포넌트
 public class Gatherer : MonoBehaviour
 {
-    [SerializeField] private ResourceInventory _inventory;
     [SerializeField] private float _gatherRange = 3f;
 
     private const int GizmoCircleSegments = 32;
@@ -27,19 +26,19 @@ public class Gatherer : MonoBehaviour
     }
 
     // 대상을 채집하여 결과 아이템을 인벤토리에 추가한다. 범위 밖이거나 채집 불가 상태면 false를 반환한다.
-    public bool TryGather(IGatherable target)
+    public bool TryGather(IGatherable target, ResourceInventory inventory)
     {
         if (!IsInRange(target)) return false;
         if (!target.CanGather()) return false;
 
         var (isSuccess, itemType, count) = target.OnGather();
         if (isSuccess && itemType != null && count > 0)
-            _inventory.Add(itemType, count);
+            inventory?.Add(itemType, count);
 
         return true;
     }
     
-    // 선택 시 Scene 뷰에 히트 반경을 XZ 평면 원으로 표시
+    // 선택 시 Scene 뷰에 채집 반경을 XZ 평면 원으로 표시
     private void OnDrawGizmosSelected()
     {
         if (_gatherRange <= 0f) return;
