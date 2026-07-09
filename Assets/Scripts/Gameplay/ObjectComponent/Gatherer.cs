@@ -6,6 +6,9 @@ public class Gatherer : MonoBehaviour
     [SerializeField] private ResourceInventory _inventory;
     [SerializeField] private float _gatherRange = 3f;
 
+    private const int GizmoCircleSegments = 32;
+
+
     // 지정한 IGatherable 대상이 채집 범위 안에 있는지 확인한다.
     private bool IsInRange(IGatherable target)
     {
@@ -31,5 +34,30 @@ public class Gatherer : MonoBehaviour
             _inventory.Add(itemType, count);
 
         return true;
+    }
+    
+    // 선택 시 Scene 뷰에 히트 반경을 XZ 평면 원으로 표시
+    private void OnDrawGizmosSelected()
+    {
+        if (_gatherRange <= 0f) return;
+
+        Gizmos.color = Color.red;
+        DrawHitRadiusGizmo();
+    }
+
+    // _gatherRange 크기의 원을 자신의 위치를 중심으로 XZ 평면에 그린다.
+    private void DrawHitRadiusGizmo()
+    {
+        Vector3 center = transform.position;
+        Vector3 prevPoint = center + new Vector3(_gatherRange, 0f, 0f);
+        Gizmos.color = Color.green;
+
+        for (int i = 1; i <= GizmoCircleSegments; i++)
+        {
+            float angle = i / (float)GizmoCircleSegments * Mathf.PI * 2f;
+            Vector3 nextPoint = center + new Vector3(Mathf.Cos(angle) * _gatherRange, 0f, Mathf.Sin(angle) * _gatherRange);
+            Gizmos.DrawLine(prevPoint, nextPoint);
+            prevPoint = nextPoint;
+        }
     }
 }
