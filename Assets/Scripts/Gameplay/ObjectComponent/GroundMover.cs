@@ -4,6 +4,10 @@ using UnityEngine.AI;
 [RequireComponent(typeof(NavMeshAgent))]
 public class GroundMover : MonoBehaviour, IMover
 {
+    // 에이전트가 내브메시 밖에 있을 때 주변에서 내브메시를 찾아볼 반경. 내브메시가 뒤늦게 구워지는 경우를 위한 값이라
+    // 너무 크게 잡지 않는다. 이 범위 안에 내브메시가 없으면 실제로 이동할 수 없는 상태로 간주한다.
+    private const float k_NavMeshWarpSearchRadius = 10f;
+
     private NavMeshAgent  _agent;
     private Transform     _followTarget;
     private HitableObject _selfHitable;
@@ -25,6 +29,12 @@ public class GroundMover : MonoBehaviour, IMover
     // 추적 대상의 경로를 재계산하고 멈춤 거리를 갱신하며 이동
     private void HandleFollow()
     {
+        if (!EnsureOnNavMesh())
+        {
+            _followTarget = null;
+            return;
+        }
+
         Vector3 destination = _followTarget.position;
         NavMeshPath path = new NavMeshPath();
         if (!_agent.CalculatePath(destination, path) || path.status != NavMeshPathStatus.PathComplete)
@@ -35,6 +45,22 @@ public class GroundMover : MonoBehaviour, IMover
 
         _agent.stoppingDistance = GetStoppingDistance(_followTarget);
         _agent.SetDestination(destination);
+    }
+
+    // 에이전트가 아직 내브메시 위에 있지 않으면 주변에서 가장 가까운 내브메시로 옮겨 놓는다. 내브메시가 동적으로
+    // 늦게 구워지는 구조에서는 스폰 시점에 에이전트가 내브메시를 못 찾아 영구히 "오프메시" 상태로 남을 수 있어 필요하다.
+    private bool EnsureOnNavMesh()
+    {
+        if (_agent.isOnNavMesh)
+            return true;
+
+        if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, k_NavMeshWarpSearchRadius, NavMesh.AllAreas))
+        {
+            _agent.Warp(hit.position);
+            return true;
+        }
+
+        return false;
     }
 
     // 자신과 대상의 충돌 반경 합산으로 멈춤 거리 계산
@@ -64,6 +90,9 @@ public class GroundMover : MonoBehaviour, IMover
     {
         _followTarget = null;
 
+        if (!EnsureOnNavMesh())
+            return false;
+
         float y = Terrain.activeTerrain != null
             ? Terrain.activeTerrain.SampleHeight(new Vector3(targetPos.x, 0f, targetPos.y))
             : 0f;
@@ -90,6 +119,9 @@ public class GroundMover : MonoBehaviour, IMover
         if (targetTransform == null) return false;
 
         if (IsInFollowChain(targetTransform))
+            return false;
+
+        if (!EnsureOnNavMesh())
             return false;
 
         NavMeshPath path = new NavMeshPath();

@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace HistoricScience.Test
 {
-    // 터레인에 TerrainData가 없으면 인메모리로 새로 만들어 할당하고, MapData가 계산한 보로노이 바이옴 정보를 이용해 터레인의 알파맵과 높이맵을 굽고 기즈모를 출력하는 클래스
+    // 터레인에 TerrainData가 없으면 인메모리로 새로 만들어 할당하고, MapData가 계산한 보로노이 바이옴 정보를 이용해 터레인의 알파맵과 높이맵을 굽는 클래스
     public class TerrainPainter : MonoBehaviour
     {
         // 터레인에 TerrainData가 없을 때 새로 생성할 높이맵 해상도
