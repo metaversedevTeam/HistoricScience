@@ -37,7 +37,7 @@ public class GroundMover : MonoBehaviour, IMover
 
         Vector3 destination = _followTarget.position;
         NavMeshPath path = new NavMeshPath();
-        if (!_agent.CalculatePath(destination, path) || path.status != NavMeshPathStatus.PathComplete)
+        if (!_agent.CalculatePath(destination, path) || !IsPathUsable(path))
         {
             _followTarget = null;
             return;
@@ -61,6 +61,14 @@ public class GroundMover : MonoBehaviour, IMover
         }
 
         return false;
+    }
+
+    // 경로가 목적지까지 완전하지 않아도(PathPartial) 갈 수 있는 데까지는 이동을 시도한다. 경사가 너무 가파른
+    // 지형처럼 일부만 막힌 경우, 유닛이 그 앞까지 실제로 걸어가서 멈추는 편이 아무 반응이 없는 것보다 명확하다.
+    // 아예 경로가 없는 경우(PathInvalid)만 이동 불가로 취급한다.
+    private static bool IsPathUsable(NavMeshPath path)
+    {
+        return path.status != NavMeshPathStatus.PathInvalid;
     }
 
     // 자신과 대상의 충돌 반경 합산으로 멈춤 거리 계산
@@ -99,7 +107,7 @@ public class GroundMover : MonoBehaviour, IMover
         Vector3 destination = new Vector3(targetPos.x, y, targetPos.y);
 
         NavMeshPath path = new NavMeshPath();
-        if (!_agent.CalculatePath(destination, path) || path.status != NavMeshPathStatus.PathComplete)
+        if (!_agent.CalculatePath(destination, path) || !IsPathUsable(path))
             return false;
 
         _agent.SetDestination(destination);
@@ -125,7 +133,7 @@ public class GroundMover : MonoBehaviour, IMover
             return false;
 
         NavMeshPath path = new NavMeshPath();
-        if (!_agent.CalculatePath(targetTransform.position, path) || path.status != NavMeshPathStatus.PathComplete)
+        if (!_agent.CalculatePath(targetTransform.position, path) || !IsPathUsable(path))
             return false;
 
         _followTarget = targetTransform;
