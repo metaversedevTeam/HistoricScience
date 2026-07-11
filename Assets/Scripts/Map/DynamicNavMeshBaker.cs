@@ -16,8 +16,10 @@ public class DynamicNavMeshBaker : MonoBehaviour
     [SerializeField] private List<Transform> m_FollowTargets = new List<Transform>();
     // 구울 영역의 한 변 절반 길이(정사각형 반경)
     [SerializeField, Min(1f)] private float m_BakeRadius = 750f;
-    // 굽는 영역의 y축 범위. 터레인 최대 높이를 덮을 만큼 충분히 커야 한다.
-    [SerializeField, Min(1f)] private float m_BakeHeight = 100f;
+    // 이 높이(월드 Y) 아래의 표면은 굽지 않아 걸을 수 없다. 기본값은 해수면 높이.
+    [SerializeField] private float m_MinBakeHeight = 12f;
+    // 이 높이(월드 Y) 위의 표면은 굽지 않아 걸을 수 없다. 기본값은 터레인 최대 높이.
+    [SerializeField] private float m_MaxBakeHeight = 100f;
 
     // 대상 하나를 따라다니며 굽는 데 필요한 상태를 한데 묶은 것
     private class TargetBaker
@@ -36,6 +38,12 @@ public class DynamicNavMeshBaker : MonoBehaviour
 
     // 현재 추적 중인 대상마다 하나씩 만들어 둔 굽기 상태
     private readonly List<TargetBaker> m_Bakers = new List<TargetBaker>();
+
+    // 인스펙터에서 값을 바꿀 때 최대 높이가 항상 최소 높이보다 크도록 보정한다
+    private void OnValidate()
+    {
+        m_MaxBakeHeight = Mathf.Max(m_MaxBakeHeight, m_MinBakeHeight + 1f);
+    }
 
     // 설정된 대상마다 내브메시 데이터를 만들어 등록하고 추적을 시작한다
     private void OnEnable()
@@ -155,13 +163,18 @@ public class DynamicNavMeshBaker : MonoBehaviour
 
     // 대상 위치를 볼륨 크기의 10% 단위로 스냅한 경계를 반환한다. 대상이 그 안에서 조금만 움직이면 경계가
     // 그대로라 다음 갱신이 사실상 재사용되고, 스냅 칸을 넘어야만 실제로 다른 영역이 구워진다.
+    // 볼륨의 y 범위가 곧 걷기 가능 높이 구간이라, 이 구간 밖 표면에는 내브메시가 생성되지 않는다.
     private Bounds HandleGetBounds(Transform target)
     {
         Vector3 targetPosition = target != null ? target.position : transform.position;
-        Vector3 size = new Vector3(m_BakeRadius * 2f, m_BakeHeight, m_BakeRadius * 2f);
-        Vector3 center = new Vector3(targetPosition.x, m_BakeHeight * 0.5f, targetPosition.z);
+        float bakeHeight = m_MaxBakeHeight - m_MinBakeHeight;
+        Vector3 size = new Vector3(m_BakeRadius * 2f, bakeHeight, m_BakeRadius * 2f);
+        Vector3 center = new Vector3(targetPosition.x, m_MinBakeHeight + bakeHeight * 0.5f, targetPosition.z);
 
-        return new Bounds(HandleQuantize(center, size * 0.1f), size);
+        Vector3 quantizedCenter = HandleQuantize(center, size * 0.1f);
+        quantizedCenter.y = center.y; // y까지 스냅하면 걷기 가능 높이 구간이 어긋나므로 그대로 둔다
+
+        return new Bounds(quantizedCenter, size);
     }
 
     // 각 축을 quant 간격으로 내림해 스냅한다
