@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 4907829669519567632}
   - component: {fileID: 1803116923085429630}
   - component: {fileID: 7913048810111824886}
+  - component: {fileID: 7510188537879547689}
   m_Layer: 0
   m_Name: Stone Source
   m_TagString: Untagged
@@ -76,6 +77,22 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _hitEnabled: 1
   _hitRadius: 3
+--- !u!208 &7510188537879547689
+NavMeshObstacle:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1564132085319456066}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Shape: 0
+  m_Extents: {x: 2.5, y: 1, z: 2.5}
+  m_MoveThreshold: 0.1
+  m_Carve: 1
+  m_CarveOnlyStationary: 1
+  m_Center: {x: 0, y: 0, z: 0}
+  m_TimeToStationary: 0.5
 --- !u!1001 &6038790842437247885
 PrefabInstance:
   m_ObjectHideFlags: 0
