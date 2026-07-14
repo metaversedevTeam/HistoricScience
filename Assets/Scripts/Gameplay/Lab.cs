@@ -1,6 +1,69 @@
+using System.Collections.Generic;
 using UnityEngine;
 
-public class Lab : MonoBehaviour//, ICommandable
+// 선택되었을 때 작업대 UI를 여는 명령을 제공하는 연구소 오브젝트
+public class Lab : MonoBehaviour, ICommandable
 {
-    
+    [SerializeField] private WorkbenchUI _workbenchUiPrefab;
+
+    private SelectableObject _selectable;
+    private PlayerManager _selectedBy;
+    private IReadOnlyList<CommandData> _commands;
+
+    // SelectableObject 컴포넌트를 캐싱하고 명령 목록을 생성
+    private void Awake()
+    {
+        _selectable = GetComponent<SelectableObject>();
+        _commands = new List<CommandData> { new CommandData("작업대 열기", null, OpenWorkbenchUI) };
+    }
+
+    // 자신의 선택 이벤트를 구독
+    private void OnEnable()
+    {
+        _selectable.OnSelect += HandleSelect;
+    }
+
+    // 자신의 선택 이벤트와 PlayerManager 구독을 해제
+    private void OnDisable()
+    {
+        _selectable.OnSelect -= HandleSelect;
+        UnsubscribeFromPlayer();
+    }
+
+    // 이 오브젝트가 제공하는 명령 목록을 반환한다.
+    public IReadOnlyList<CommandData> GetCommands()
+    {
+        return _commands;
+    }
+
+    // 선택되었을 때 해당 PlayerManager를 저장하고 선택해제 이벤트를 구독
+    private void HandleSelect(PlayerManager playerManager)
+    {
+        UnsubscribeFromPlayer();
+
+        _selectedBy = playerManager;
+        _selectedBy.OnDeselected += HandleDeselected;
+    }
+
+    // 선택 해제 시 PlayerManager 구독을 해제
+    private void HandleDeselected()
+    {
+        UnsubscribeFromPlayer();
+    }
+
+    // 구독 중인 PlayerManager 이벤트를 해제하고 참조를 비운다.
+    private void UnsubscribeFromPlayer()
+    {
+        if (_selectedBy == null) return;
+
+        _selectedBy.OnDeselected -= HandleDeselected;
+        _selectedBy = null;
+    }
+
+    // 작업대 UI를 선택 중인 플레이어의 자원 인벤토리와 함께 연다.
+    private void OpenWorkbenchUI()
+    {
+        if (_selectedBy == null) return;
+        UIManager.Instance.OpenUI(_workbenchUiPrefab, _selectedBy.ResourceInventory);
+    }
 }
