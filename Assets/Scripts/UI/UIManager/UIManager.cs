@@ -5,8 +5,25 @@ using UnityEngine;
 // 풀은 인스턴스가 외부에서 파괴되지 않는다고 가정한다 (파괴는 반드시 Close·풀링 경로로만).
 public class UIManager : MonoBehaviour
 {
+    public static UIManager Instance
+    {
+        get
+        {
+            if (_instance != null) return _instance;
+
+            UIManager prefab = Resources.Load<UIManager>(PrefabResourcePath);
+            Instantiate(prefab); // Awake에서 _instance에 자신을 등록한다
+            return _instance;
+        }
+    }
+
     // UI 인스턴스를 생성해 붙일 부모 (미지정 시 자기 자신의 트랜스폼 사용)
     [SerializeField] private Transform uiRoot;
+
+    // Resources 폴더 하위의 UIManager 프리팹 경로 (확장자 제외)
+    private const string PrefabResourcePath = "UIManager";
+
+    private static UIManager _instance;
 
     // 프리팹별 대기(Closed) 인스턴스 풀
     private readonly Dictionary<MonoBehaviour, Stack<IManagedUI>> pools = new Dictionary<MonoBehaviour, Stack<IManagedUI>>();
@@ -16,6 +33,17 @@ public class UIManager : MonoBehaviour
 
     // 현재 활성(Opening·Open·Closing) 인스턴스 목록
     private readonly List<IManagedUI> activeInstances = new List<IManagedUI>();
+    
+    private void Awake()
+    {
+        if (_instance != null && _instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        _instance = this;
+    }
 
     // 프리팹에 해당하는 UI를 풀에서 꺼내거나 생성해 연다 (페이로드 없는 UI용).
     // 같은 프리팹으로 여러 번 호출하면 각각 별도의 인스턴스가 열린다 (다중 인스턴스 허용).
