@@ -5,11 +5,12 @@ using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using TMPro;
 
-// 선택된 유닛의 ICommandable 명령 목록을 하단 패널에 버튼으로 표시하는 UI
-public class TempCommandPanelUI : MonoBehaviour
+// 선택된 유닛의 ICommandable 명령 목록을 하단 패널에 버튼으로 표시하는 관리형 UI (PlayerManager를 페이로드로 받아 열린다)
+public class TempCommandPanelUI : OpenableUIBase<PlayerManager>
 {
-    [SerializeField] private PlayerManager _playerManager;
     [SerializeField] private Transform _buttonContainer;
+
+    private PlayerManager _playerManager;
 
     private readonly List<GameObject> _activeButtons = new();
 
@@ -31,16 +32,24 @@ public class TempCommandPanelUI : MonoBehaviour
         GUI.Label(new Rect(10, 10, 700, 30), $"[DBG] {_dbg}  pos:{Mouse.current?.position.ReadValue()}");
     }
 
-    private void OnEnable()
+    // 주입받은 PlayerManager의 선택 이벤트를 구독한다.
+    protected override void ApplyData(PlayerManager data)
     {
+        _playerManager = data;
         _playerManager.OnSelected   += HandleSelected;
         _playerManager.OnDeselected += HandleDeselected;
     }
 
-    private void OnDisable()
+    // 선택 이벤트 구독을 해제하고 생성된 버튼을 정리한다.
+    protected override void OnReturnToPool()
     {
-        _playerManager.OnSelected   -= HandleSelected;
-        _playerManager.OnDeselected -= HandleDeselected;
+        if (_playerManager != null)
+        {
+            _playerManager.OnSelected   -= HandleSelected;
+            _playerManager.OnDeselected -= HandleDeselected;
+            _playerManager = null;
+        }
+        ClearButtons();
     }
 
     // 선택된 오브젝트의 ICommandable 명령 목록을 읽어 버튼을 생성한다.

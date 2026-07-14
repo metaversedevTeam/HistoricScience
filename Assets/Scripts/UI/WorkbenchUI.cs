@@ -4,9 +4,9 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class WorkbenchUI : MonoBehaviour
+// 작업대 조합 UI — 인벤토리를 페이로드로 받아 열리는 관리형 UI (슬롯 목록 표시, 3x3 격자 조합)
+public class WorkbenchUI : OpenableUIBase<ResourceInventory>
 {
-    [SerializeField] private GameObject _layer;
     [SerializeField] private GameObject _slotPrefab;
     [SerializeField] private RectTransform _slotsContent;
     [SerializeField] private RectTransform _craftingGrid;
@@ -36,25 +36,29 @@ public class WorkbenchUI : MonoBehaviour
         }
     }
 
-    // 인벤토리를 받아 슬롯 UI를 생성하고 이벤트를 구독한다.
-    public void Open(ResourceInventory inventory)
+    // 주입받은 인벤토리를 구독하고 슬롯 목록을 구성한다.
+    protected override void ApplyData(ResourceInventory data)
     {
-        _inventory = inventory;
+        _inventory = data;
         _inventory.OnAddItem += HandleInventoryChanged;
         _inventory.OnRemoveItem += HandleInventoryChanged;
         PopulateSlots();
-        _layer.SetActive(true);
     }
 
-    // UI를 닫고 이벤트 구독을 해제한다.
-    public void Close()
+    // 인벤토리 구독을 해제하고 격자·경고 표시를 재사용 가능한 상태로 정리한다.
+    protected override void OnReturnToPool()
     {
         if (_inventory != null)
         {
             _inventory.OnAddItem -= HandleInventoryChanged;
             _inventory.OnRemoveItem -= HandleInventoryChanged;
+            _inventory = null;
         }
-        _layer.SetActive(false);
+
+        foreach (var slot in _craftingSlots)
+            slot.Clear();
+
+        _warningText.gameObject.SetActive(false);
     }
 
     // 인벤토리 변경 시 슬롯 목록을 갱신한다.
@@ -80,6 +84,7 @@ public class WorkbenchUI : MonoBehaviour
             Destroy(_slotsContent.GetChild(i).gameObject);
     }
 
+    // 격자 배치와 일치하는 조합법을 찾아 재료를 소비하고 결과 아이템을 지급한다.
     private void OnCraftButtonClick()
     {
         var result = FindMatchingRecipe();
@@ -173,6 +178,7 @@ public class WorkbenchUI : MonoBehaviour
         _warningCoroutine = StartCoroutine(HideWarningAfterDelay(2f));
     }
 
+    // 지정한 시간 뒤에 경고 텍스트를 숨기는 코루틴.
     private IEnumerator HideWarningAfterDelay(float seconds)
     {
         yield return new WaitForSeconds(seconds);
