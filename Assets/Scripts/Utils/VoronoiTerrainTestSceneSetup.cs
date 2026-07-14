@@ -1,3 +1,4 @@
+using Unity.AI.Navigation;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -35,6 +36,7 @@ namespace HistoricScience.Test
             Terrain terrain = chunkObject.GetComponent<Terrain>();
 
             HandleCreateSea(terrain);
+            HandleBakeNavMesh();
 
             EditorSceneManager.SaveScene(scene, k_ScenePath);
             Debug.Log($"Voronoi terrain test scene created at {k_ScenePath}");
@@ -73,6 +75,16 @@ namespace HistoricScience.Test
             serializedManager.ApplyModifiedPropertiesWithoutUndo();
 
             return mapChunkManager;
+        }
+
+        // 테스트 씬은 청크가 하나뿐이라 이동에 따라 다시 굽는 DynamicNavMeshBaker 없이, 전체를 한 번만 굽는 것으로 충분하다.
+        private static void HandleBakeNavMesh()
+        {
+            GameObject navMeshObject = new GameObject("NavMesh");
+            NavMeshSurface navMeshSurface = navMeshObject.AddComponent<NavMeshSurface>();
+            navMeshSurface.collectObjects = CollectObjects.All;
+            navMeshSurface.layerMask = LayerMask.GetMask("Ground");
+            navMeshSurface.BuildNavMesh();
         }
 
         // Sea 프리팹을 소환해 터레인 전체를 덮는 크기로 스케일하고 해수면 높이에 배치한다.

@@ -31,6 +31,8 @@ namespace HistoricScience.Test
         public MapData LastMapData => m_LastMapData;
         // 설정된 바이옴 목록을 반환한다.
         public MapBiome[] Biomes => m_Biomes;
+        // 현재 사용 중인 랜덤 시드를 반환한다.
+        public int Seed => seed;
 
         // 시드와 파라미터를 이용해 새로운 MapData를 생성하고 결과를 보관한다.
         public MapData GenerateMapData(bool useRandom = true)
