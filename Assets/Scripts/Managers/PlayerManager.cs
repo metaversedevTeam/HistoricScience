@@ -10,8 +10,12 @@ public class PlayerManager : MonoBehaviour
     public event Action<Vector2, ClickableObject> OnMouseLeftClick;
     public event Action<Vector2, ClickableObject> OnMouseRightClick;
 
+    public ResourceInventory ResourceInventory => _resourceInventory;
+
 
     [SerializeField] private InputManager _inputManager;
+
+    [SerializeField] private ResourceInventory _resourceInventory;
 
     private SelectableObject _currentSelection;
 
