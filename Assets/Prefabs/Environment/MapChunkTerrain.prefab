@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 2749613347567756879}
   - component: {fileID: 8723176566083072883}
   - component: {fileID: 8365578988269883798}
+  - component: {fileID: 4437218856120974311}
   m_Layer: 6
   m_Name: MapChunkTerrain
   m_TagString: Untagged
@@ -139,3 +140,19 @@ MonoBehaviour:
   m_BlendRadius: 3
   m_MapViewSize: 3
   m_MapViewOrigin: {x: 0, y: 0}
+--- !u!114 &4437218856120974311
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7487192341888620568}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0a5055f4f6944c11be185d38464a181b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Terrain: {fileID: 5896736372485518151}
+  m_ItemDataList: {fileID: 11400000, guid: 23b254639cfcfe1429b71ef4685fa432, type: 2}
+  m_MinSpawnHeight: 12
+  m_MaxAttemptsPerSpawn: 8

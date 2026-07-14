@@ -95,6 +95,18 @@ namespace HistoricScience.Test
             TerrainData terrainData = m_Terrain.terrainData;
             terrainData.SetAlphamaps(0, 0, result.Alphamap);
             terrainData.SetHeights(0, 0, result.Heightmap);
+
+            HandleSpawnResources();
+        }
+
+        // 같은 오브젝트에 ChunkResourceSpawner가 있으면 현재 시드와 맵 출력 영역, 맵 데이터로 자원 소환을 요청한다. 스포너는 선택적 구성이라 없으면 아무것도 하지 않는다.
+        private void HandleSpawnResources()
+        {
+            ChunkResourceSpawner spawner = GetComponent<ChunkResourceSpawner>();
+            if (spawner == null)
+                return;
+
+            spawner.SpawnResources(m_MapDataGenerator.Seed, m_MapViewOrigin, m_MapViewSize, m_MapDataGenerator.LastMapData);
         }
 
         // 터레인에 TerrainData가 없으면 에셋으로 저장하지 않는 인메모리 TerrainData를 새로 만들어 터레인과 터레인 콜라이더에 할당한다.
