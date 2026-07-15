@@ -5,6 +5,7 @@ using UnityEngine;
 public class Lab : MonoBehaviour, ICommandable
 {
     [SerializeField] private WorkbenchUI _workbenchUiPrefab;
+    [SerializeField] private Sprite _workbenchButtonIcon;
 
     private SelectableObject _selectable;
     private PlayerManager _selectedBy;
@@ -14,7 +15,7 @@ public class Lab : MonoBehaviour, ICommandable
     private void Awake()
     {
         _selectable = GetComponent<SelectableObject>();
-        _commands = new List<CommandData> { new CommandData("작업대 열기", null, OpenWorkbenchUI) };
+        _commands = new List<CommandData> { new CommandData("작업대 열기", _workbenchButtonIcon, OpenWorkbenchUI) };
     }
 
     // 자신의 선택 이벤트를 구독

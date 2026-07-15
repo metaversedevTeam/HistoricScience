@@ -74,6 +74,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _workbenchUiPrefab: {fileID: 4505615791114591322, guid: cb5ed65accb8ac3438af2ad0a3384b10, type: 3}
+  _workbenchButtonIcon: {fileID: 21300000, guid: 3a243952cd4c3ca4d81f2271deec5970, type: 3}
 --- !u!208 &2633924789195897796
 NavMeshObstacle:
   m_ObjectHideFlags: 0
