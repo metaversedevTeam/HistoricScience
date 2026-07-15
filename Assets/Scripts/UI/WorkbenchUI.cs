@@ -11,6 +11,7 @@ public class WorkbenchUI : OpenableUIBase<ResourceInventory>
     [SerializeField] private RectTransform _slotsContent;
     [SerializeField] private RectTransform _craftingGrid;
     [SerializeField] private Button _craftButton;
+    [SerializeField] private Button _closeButton;
     [SerializeField] private TextMeshProUGUI _warningText;
 
     private ResourceInventory _inventory;
@@ -21,6 +22,7 @@ public class WorkbenchUI : OpenableUIBase<ResourceInventory>
     {
         InitializeCraftingSlots();
         _craftButton.onClick.AddListener(OnCraftButtonClick);
+        _closeButton.onClick.AddListener(OnCloseButtonClick);
         _warningText.gameObject.SetActive(false);
     }
 
@@ -63,6 +65,9 @@ public class WorkbenchUI : OpenableUIBase<ResourceInventory>
 
     // 인벤토리 변경 시 슬롯 목록을 갱신한다.
     private void HandleInventoryChanged(ItemData item, int newCount) => PopulateSlots();
+
+    // 닫기 버튼 클릭 시 UI를 닫는다.
+    private void OnCloseButtonClick() => Close();
 
     // 기존 슬롯을 제거하고 인벤토리의 아이템마다 슬롯을 새로 생성한다.
     private void PopulateSlots()
