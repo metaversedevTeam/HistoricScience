@@ -13,5 +13,6 @@ MonoBehaviour:
   m_Name: "\uC544\uC774\uD15C \uBAA9\uB85D"
   m_EditorClassIdentifier: 
   _items:
+  - {fileID: 11400000, guid: 66a4c6db477587647a450e30cd792563, type: 2}
   - {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
-  _nextId: 2
+  _nextId: 3
