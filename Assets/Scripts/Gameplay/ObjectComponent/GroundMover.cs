@@ -8,9 +8,18 @@ public class GroundMover : MonoBehaviour, IMover
     // 너무 크게 잡지 않는다. 이 범위 안에 내브메시가 없으면 실제로 이동할 수 없는 상태로 간주한다.
     private const float k_NavMeshWarpSearchRadius = 10f;
 
+    // 목적지가 내브메시 위에 없을 때 주변에서 가장 가까운 내브메시 지점을 찾아볼 반경. Stone Source처럼
+    // 카빙하는 오브젝트의 발밑 구멍(반경 약 2.5m)을 넉넉히 벗어날 수 있어야 한다.
+    private const float k_DestinationSampleRadius = 10f;
+
+    // 추적 중 경로 재계산 최소 간격(초). 동기 CalculatePath를 매 프레임 수행하지 않기 위한 값으로,
+    // 도달 불가한 대상을 계속 재시도하는 비용도 이 간격으로 제한된다.
+    private const float k_FollowRepathInterval = 0.25f;
+
     private NavMeshAgent  _agent;
     private Transform     _followTarget;
     private HitableObject _selfHitable;
+    private float         _nextRepathTime;
 
     // NavMeshAgent와 HitableObject 컴포넌트를 캐싱
     private void Awake()
@@ -26,24 +35,25 @@ public class GroundMover : MonoBehaviour, IMover
             HandleFollow();
     }
 
-    // 추적 대상의 경로를 재계산하고 멈춤 거리를 갱신하며 이동
+    // 추적 대상의 경로를 주기적으로 재계산하고 멈춤 거리를 갱신하며 이동. 대상이 일시적으로 도달 불가해도
+    // 추적을 버리지 않고 다음 주기에 재시도해, 내브메시가 뒤늦게 구워지거나 대상이 범위 안으로 돌아오면 이어서 따라간다.
     private void HandleFollow()
     {
-        if (!EnsureOnNavMesh())
-        {
-            _followTarget = null;
+        if (Time.time < _nextRepathTime)
             return;
-        }
+        _nextRepathTime = Time.time + k_FollowRepathInterval;
 
-        Vector3 destination = _followTarget.position;
+        if (!EnsureOnNavMesh())
+            return;
+
+        if (!TryResolveDestination(_followTarget.position, out Vector3 destination))
+            return;
+
         NavMeshPath path = new NavMeshPath();
         if (!_agent.CalculatePath(destination, path) || !IsPathUsable(path))
-        {
-            _followTarget = null;
             return;
-        }
 
-        _agent.stoppingDistance = GetStoppingDistance(_followTarget);
+        _agent.stoppingDistance = GetStoppingDistance(_followTarget, destination);
         _agent.SetDestination(destination);
     }
 
@@ -71,13 +81,44 @@ public class GroundMover : MonoBehaviour, IMover
         return path.status != NavMeshPathStatus.PathInvalid;
     }
 
-    // 자신과 대상의 충돌 반경 합산으로 멈춤 거리 계산
-    private float GetStoppingDistance(Transform target)
+    // 목적지를 내브메시 위 좌표로 투영한다. CalculatePath는 내브메시에서 조금만 벗어난 목적지(카빙된 구멍 안,
+    // 베이크 범위 밖 등)도 매핑하지 못해 통째로 실패하므로, 먼저 주변에서 가장 가까운 내브메시 지점을 찾고,
+    // 그마저 없으면 에이전트에서 목적지 방향으로 걸어서 닿을 수 있는 마지막 지점(내브메시 가장자리)을 반환해
+    // 아무 행동도 하지 않는 대신 갈 수 있는 데까지는 이동하게 한다. EnsureOnNavMesh 이후에 호출해야 한다.
+    private bool TryResolveDestination(Vector3 desired, out Vector3 resolved)
+    {
+        if (NavMesh.SamplePosition(desired, out NavMeshHit sampleHit, k_DestinationSampleRadius, NavMesh.AllAreas))
+        {
+            resolved = sampleHit.position;
+            return true;
+        }
+
+        // Raycast는 선이 내브메시 가장자리에서 끊기면 그 지점을, 끝까지 이어지면 매핑된 도착점을 hit에 채운다.
+        // 어느 쪽이든 위치가 유한하면 그대로 쓸 수 있고, 무한대면 투영 자체가 실패한 것이다.
+        NavMesh.Raycast(transform.position, desired, out NavMeshHit rayHit, NavMesh.AllAreas);
+        if (!float.IsInfinity(rayHit.position.x))
+        {
+            resolved = rayHit.position;
+            return true;
+        }
+
+        resolved = desired;
+        return false;
+    }
+
+    // 자신과 대상의 충돌 반경 합산으로 멈춤 거리를 계산한다. 목적지가 대상 위치에서 내브메시 위로 밀려나
+    // 투영된 경우 그 오프셋만큼 빼서, 실제 대상 기준으로는 원래 의도한 거리에서 멈추게 한다.
+    private float GetStoppingDistance(Transform target, Vector3 destination)
     {
         float selfRadius   = _selfHitable != null ? _selfHitable.HitRadius : 0f;
         var   targetHitable = target.GetComponent<HitableObject>();
         float targetRadius = targetHitable != null ? targetHitable.HitRadius : 0f;
-        return selfRadius + targetRadius;
+
+        Vector2 targetXZ      = new Vector2(target.position.x, target.position.z);
+        Vector2 destinationXZ = new Vector2(destination.x, destination.z);
+        float projectionOffset = Vector2.Distance(targetXZ, destinationXZ);
+
+        return Mathf.Max(0f, selfRadius + targetRadius - projectionOffset);
     }
 
     // start부터 루트까지 추적 체인을 순회해 자신이 포함되면 true 반환
@@ -93,7 +134,7 @@ public class GroundMover : MonoBehaviour, IMover
         return false;
     }
 
-    // 지정 위치로 이동; NavMesh 경로가 없으면 false 반환
+    // 지정 위치로 이동; 위치가 내브메시 밖이면 갈 수 있는 가장 가까운 지점까지 이동하고, 이동 자체가 불가능하면 false 반환
     public bool Move(Vector2 targetPos)
     {
         _followTarget = null;
@@ -104,7 +145,10 @@ public class GroundMover : MonoBehaviour, IMover
         float y = Terrain.activeTerrain != null
             ? Terrain.activeTerrain.SampleHeight(new Vector3(targetPos.x, 0f, targetPos.y))
             : 0f;
-        Vector3 destination = new Vector3(targetPos.x, y, targetPos.y);
+        Vector3 desired = new Vector3(targetPos.x, y, targetPos.y);
+
+        if (!TryResolveDestination(desired, out Vector3 destination))
+            return false;
 
         NavMeshPath path = new NavMeshPath();
         if (!_agent.CalculatePath(destination, path) || !IsPathUsable(path))
@@ -121,7 +165,8 @@ public class GroundMover : MonoBehaviour, IMover
         _agent.ResetPath();
     }
 
-    // 대상 Transform을 추적 시작; 순환 체인이나 도달 불가면 false 반환
+    // 대상 Transform을 추적 시작; 대상이 내브메시 밖이어도 갈 수 있는 데까지 접근하며, 순환 체인이거나
+    // 이동 자체가 불가능하면 false 반환
     public bool Move(Transform targetTransform)
     {
         if (targetTransform == null) return false;
@@ -132,11 +177,15 @@ public class GroundMover : MonoBehaviour, IMover
         if (!EnsureOnNavMesh())
             return false;
 
+        if (!TryResolveDestination(targetTransform.position, out Vector3 destination))
+            return false;
+
         NavMeshPath path = new NavMeshPath();
-        if (!_agent.CalculatePath(targetTransform.position, path) || !IsPathUsable(path))
+        if (!_agent.CalculatePath(destination, path) || !IsPathUsable(path))
             return false;
 
         _followTarget = targetTransform;
+        _nextRepathTime = 0f; // 새 명령은 다음 Update에서 즉시 경로를 계산한다
         return true;
     }
 }
