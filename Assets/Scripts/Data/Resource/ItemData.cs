@@ -10,6 +10,7 @@ public class ItemData : ResourceData
     [SerializeField] private MapBiome[] _spawnBiomes;
     // 청크당 자원 소스 목표 소환 개수. 0이면 소환되지 않는다.
     [SerializeField, Min(0)] private int _spawnCountPerChunk;
+    [SerializeField, Min(0)] private float _craftingTime;
 
     public GameObject SourcePrefab => _sourcePrefab;
     public int SpawnCountPerChunk => _spawnCountPerChunk;
