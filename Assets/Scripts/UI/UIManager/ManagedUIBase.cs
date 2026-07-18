@@ -5,6 +5,8 @@ using UnityEngine;
 // 열기 진입점까지 필요한 UI는 이 클래스 대신 OpenableUIBase / OpenableUIBase<TData>를 상속할 것.
 public abstract class ManagedUIBase : MonoBehaviour, IManagedUI
 {
+    public event Action<IManagedUI> OnStartClose;
+
     public event Action<IManagedUI> OnFinishClose;
 
     public UIState State { get; private set; } = UIState.Closed;
@@ -36,6 +38,7 @@ public abstract class ManagedUIBase : MonoBehaviour, IManagedUI
         }
 
         State = UIState.Closing;
+        OnStartClose?.Invoke(this);
 
         if (immediate)
         {

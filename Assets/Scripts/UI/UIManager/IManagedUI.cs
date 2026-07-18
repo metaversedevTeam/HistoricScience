@@ -19,9 +19,12 @@ public enum UIState
 // UIManager가 수명주기(풀링 포함)를 관리하는 캔버스 UI의 공통 계약 (닫기·풀 반납).
 // 여는 방법은 페이로드 유무에 따라 IOpenableUI / IOpenableUI<TData>로 나뉜다.
 // 상태는 Closed → Opening → Open → Closing → Closed 순서로만 전이되며,
-// OnFinishClose는 한 사이클(열림→닫힘)당 정확히 1회 발행되어야 한다.
+// OnStartClose·OnFinishClose는 각각 한 사이클(열림→닫힘)당 정확히 1회 발행되어야 한다.
 public interface IManagedUI
 {
+    // 닫기 연출이 시작될 때(Closing 상태 진입 시) 발행되는 이벤트 (발신자 전달)
+    public event Action<IManagedUI> OnStartClose;
+
     // UI 닫기 완료 시 풀 반납을 위해 발행되는 이벤트 (발신자 전달)
     public event Action<IManagedUI> OnFinishClose;
 
