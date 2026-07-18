@@ -5,16 +5,38 @@ using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using TMPro;
 
-// 선택된 유닛의 ICommandable 명령 목록을 하단 패널에 버튼으로 표시하는 관리형 UI (PlayerManager를 페이로드로 받아 열린다)
-public class TempCommandPanelUI : OpenableUIBase<PlayerManager>
+// 선택된 유닛의 ICommandable 명령 목록을 하단 패널에 버튼으로 표시하는, 씬에 상주하는 UI
+public class TempCommandPanelUI : MonoBehaviour
 {
     [SerializeField] private Transform _buttonContainer;
 
-    private PlayerManager _playerManager;
+    [SerializeField] private PlayerManager _playerManager;
 
     private readonly List<GameObject> _activeButtons = new();
 
     private string _dbg = "waiting...";
+
+    // 씬 상주 오브젝트이므로 로드 시점에 바로 PlayerManager의 선택 이벤트를 구독한다.
+    private void Awake()
+    {
+        if (_playerManager == null)
+        {
+            Debug.LogWarning("[TempCommandPanelUI] PlayerManager가 Inspector에 할당되지 않았습니다.", this);
+            return;
+        }
+
+        _playerManager.OnSelected   += HandleSelected;
+        _playerManager.OnDeselected += HandleDeselected;
+    }
+
+    // 파괴 시 이벤트 구독을 해제한다.
+    private void OnDestroy()
+    {
+        if (_playerManager == null) return;
+
+        _playerManager.OnSelected   -= HandleSelected;
+        _playerManager.OnDeselected -= HandleDeselected;
+    }
 
     private void Update()
     {
@@ -30,26 +52,6 @@ public class TempCommandPanelUI : OpenableUIBase<PlayerManager>
     private void OnGUI()
     {
         GUI.Label(new Rect(10, 10, 700, 30), $"[DBG] {_dbg}  pos:{Mouse.current?.position.ReadValue()}");
-    }
-
-    // 주입받은 PlayerManager의 선택 이벤트를 구독한다.
-    protected override void ApplyData(PlayerManager data)
-    {
-        _playerManager = data;
-        _playerManager.OnSelected   += HandleSelected;
-        _playerManager.OnDeselected += HandleDeselected;
-    }
-
-    // 선택 이벤트 구독을 해제하고 생성된 버튼을 정리한다.
-    protected override void OnReturnToPool()
-    {
-        if (_playerManager != null)
-        {
-            _playerManager.OnSelected   -= HandleSelected;
-            _playerManager.OnDeselected -= HandleDeselected;
-            _playerManager = null;
-        }
-        ClearButtons();
     }
 
     // 선택된 오브젝트의 ICommandable 명령 목록을 읽어 버튼을 생성한다.
