@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using UnityEngine;
 
 // MapChunkManager를 이용해 0,0 청크를 기준으로 가까운 청크부터 순서대로 계속 로딩하는 클래스.
+// 스스로 시작하지 않으며, 씬 진입점이 시드 주입을 마친 뒤 BeginLoadingAsync를 호출해야 한다.
 // 무거운 지형 계산은 MapChunkManager.DrawChunkAsync를 통해 백그라운드 스레드에서 여러 청크를 동시에 처리해 메인 스레드 프레임드랍을 막고, 한번 로딩한 청크는 지우지 않는다.
 public class MapChunkLoader : MonoBehaviour
 {
@@ -16,8 +17,8 @@ public class MapChunkLoader : MonoBehaviour
     // 0,0에서 가까운 순서로 미리 정렬해 둔 로딩 대기열
     private Queue<Vector2Int> m_PendingChunks;
 
-    // 씬 시작 시 로딩 대기열을 만들고 비동기 로딩을 시작한다.
-    private async void Start()
+    // 로딩 대기열을 만들고 비동기 청크 로딩을 시작한다. 청크 시드가 주입된 뒤에 호출되어야 한다.
+    public async Task BeginLoadingAsync()
     {
         if (m_ChunkManager == null)
         {

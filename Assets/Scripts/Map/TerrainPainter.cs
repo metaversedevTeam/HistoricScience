@@ -25,12 +25,14 @@ namespace HistoricScience.Test
         [SerializeField, Min(0.1f)] private float m_MapViewSize = 3f;
         // 터레인에 출력할 맵 영역의 좌하단 원점 (정규화 맵 좌표)
         [SerializeField] private Vector2 m_MapViewOrigin = Vector2.zero;
+        // 에디터의 Paint 컨텍스트 메뉴에서 지형 굽기를 확인할 때 사용할 고정 시드
+        [SerializeField] private int m_EditorPaintSeed = 0;
 
         // MapData로 보로노이 바이옴 정보를 생성하고, 그 결과로 터레인 알파맵과 높이맵을 굽는다.
         [ContextMenu("Paint")]
         private void PaintButton()
         {
-            PaintVoronoiTerrain(false);
+            PaintVoronoiTerrain(m_EditorPaintSeed);
         }
 
         // 청크 좌표에 맞춰 이 터레인이 출력할 정규화 맵 영역의 원점을 설정한다. (원점 = 좌표 × MapViewSize). 청크 관리자가 여러 청크를 이어 붙일 때 사용한다.
@@ -39,18 +41,18 @@ namespace HistoricScience.Test
             m_MapViewOrigin = new Vector2(chunkCoordinate.x, chunkCoordinate.y) * m_MapViewSize;
         }
 
-        // MapData 생성부터 굽기까지 전체 과정을 메인 스레드에서 동기적으로 실행한다. 에디터의 Paint 버튼처럼 즉시 결과가 필요할 때 사용한다.
-        public void PaintVoronoiTerrain(bool useRandom = true)
+        // 주입받은 시드로 MapData 생성부터 굽기까지 전체 과정을 메인 스레드에서 동기적으로 실행한다. 에디터의 Paint 버튼처럼 즉시 결과가 필요할 때 사용한다.
+        public void PaintVoronoiTerrain(int seed)
         {
-            var context = PrepareForPaint(useRandom);
+            var context = PrepareForPaint(seed);
             if (context == null) return;
 
             var result = ComputePaint(context.Value);
             ApplyPaint(result);
         }
 
-        // MapData를 새로 생성하고 백그라운드 계산에 필요한 데이터를 모아 반환한다. Unity API를 사용하므로 반드시 메인 스레드에서 호출해야 한다.
-        public (MapData MapData, MapBiome[] Biomes, TerrainLayer[] Layers, int AlphamapWidth, int AlphamapHeight, int HeightmapResolution)? PrepareForPaint(bool useRandom = true)
+        // 주입받은 시드로 MapData를 새로 생성하고 백그라운드 계산에 필요한 데이터를 모아 반환한다. Unity API를 사용하므로 반드시 메인 스레드에서 호출해야 한다.
+        public (MapData MapData, MapBiome[] Biomes, TerrainLayer[] Layers, int AlphamapWidth, int AlphamapHeight, int HeightmapResolution)? PrepareForPaint(int seed)
         {
             if (m_MapDataGenerator == null)
             {
@@ -66,7 +68,7 @@ namespace HistoricScience.Test
 
             HandleAssignTerrainData();
 
-            MapData mapData = m_MapDataGenerator.GenerateMapData(useRandom);
+            MapData mapData = m_MapDataGenerator.GenerateMapData(seed);
             if (mapData == null) return null;
 
             MapBiome[] biomes = m_MapDataGenerator.Biomes;
