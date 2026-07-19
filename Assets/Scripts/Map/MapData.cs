@@ -9,6 +9,8 @@ public sealed class MapData
     // 높이 영향력 계산의 완충값. 가중 거리에 더해져 정점 근처에서 영향력이 발산하는 것을 막고, 클수록 경계의 높이 전환이 넓고 완만해진다.
     private const float k_HeightBlendSoftness = 0.01f;
 
+    // 이 맵 데이터를 생성할 때 사용된 랜덤 시드
+    private readonly int m_Seed;
     private readonly BiomeRegionMap m_RegionMap;
     // 경계선에 적용할 노이즈의 스케일. 클수록 더 잘게, 자주 굴곡진 경계가 만들어진다.
     private readonly float m_BoundaryNoiseScale;
@@ -21,9 +23,13 @@ public sealed class MapData
     // 시드마다 높이 굴곡 노이즈가 달라지도록 하는 펄린 샘플 오프셋
     private readonly Vector2 m_HeightNoiseOffset;
 
+    // 이 맵 데이터를 생성할 때 사용된 랜덤 시드를 반환한다.
+    public int Seed => m_Seed;
+
     // 주어진 시드와 바이옴 목록으로 바이옴 영역 맵을 생성한다.
     public MapData(int seed, MapBiome[] biomes, MapBiome defaultBiome, float minWeight = 0.5f, float maxWeight = 2f, float boundaryNoiseScale = 4f, float boundaryNoiseStrength = 0.15f, float maxInfluenceDistance = 0.6f)
     {
+        m_Seed = seed;
         m_HeightNoiseOffset = HandleGetHeightNoiseOffset(seed);
         m_BoundaryNoiseScale = boundaryNoiseScale;
         m_BoundaryNoiseStrength = boundaryNoiseStrength;
