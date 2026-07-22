@@ -76,6 +76,24 @@ public class MapSaveUtil : MonoBehaviour
         }
     }
 
+    // 슬롯의 저장 파일을 삭제 시도, 성공하면(파일이 원래 없던 경우 포함) True 반환
+    public bool TryDeleteMap(string slot)
+    {
+        try
+        {
+            string path = HandleGetSavePath(slot);
+            if (File.Exists(path))
+                File.Delete(path);
+
+            return true;
+        }
+        catch (Exception exception)
+        {
+            Debug.LogError($"MapSaveUtil: '{slot}' 삭제 실패 - {exception.Message}");
+            return false;
+        }
+    }
+
     // 슬롯 이름으로 저장 파일의 전체 경로를 만든다. 파일명에 쓸 수 없는 문자가 있으면 예외를 던진다.
     private string HandleGetSavePath(string slot)
     {
