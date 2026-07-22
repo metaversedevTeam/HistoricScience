@@ -16,6 +16,7 @@ GameObject:
   - component: {fileID: 5113330609687835715}
   - component: {fileID: 9198185840361527824}
   - component: {fileID: 4581206732114982103}
+  - component: {fileID: 1079012590664367675}
   m_Layer: 0
   m_Name: Citizen
   m_TagString: Untagged
@@ -136,6 +137,28 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dfca1d8e7ffaecd49bc2883534588271, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _gatherCommandIcon: {fileID: 0}
+  _savable:
+    _prefabId: Citizen
+--- !u!114 &1079012590664367675
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5471225282963636213}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a8b061e26e1bab84daf06d47e01f6214, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _groundLayer:
+    serializedVersion: 2
+    m_Bits: 0
+  _heightOffset: 0
+  _raycastUpDistance: 500
+  _raycastLength: 1000
+  _snapOnEnable: 1
 --- !u!1001 &5676454125667670124
 PrefabInstance:
   m_ObjectHideFlags: 0

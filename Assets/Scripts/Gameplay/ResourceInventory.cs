@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class ResourceInventory : MonoBehaviour
+public class ResourceInventory : MonoBehaviour, ISavable
 {
     public event Action<ItemData,int> OnAddItem;
     public event Action<ItemData,int> OnRemoveItem;
@@ -45,4 +45,40 @@ public class ResourceInventory : MonoBehaviour
     // 자원이 지정한 수량 이상 있는지 확인한다.
     public bool Has(ResourceData data, int amount = 1) =>
         Get(data) >= amount;
+
+    // 씬에 상주하는 객체라 프리팹 소환에 쓰이지 않는 고정 식별자
+    public string PrefabId => "ResourceInventory";
+
+    // 현재 자원 보유량을 JSON 문자열로 캡처한다.
+    public string CaptureJson()
+    {
+        var state = new SaveState();
+        foreach (var pair in _counts)
+        {
+            state.Ids.Add(pair.Key);
+            state.Counts.Add(pair.Value);
+        }
+        return JsonUtility.ToJson(state);
+    }
+
+    // JSON 문자열에서 자원 보유량을 복원하고, UI 갱신을 위해 아이템마다 OnAddItem을 발화한다.
+    public void ApplyJson(string json)
+    {
+        var state = JsonUtility.FromJson<SaveState>(json);
+        if (state == null) return;
+
+        for (int i = 0; i < state.Ids.Count && i < state.Counts.Count; i++)
+            _counts[state.Ids[i]] = state.Counts[i];
+
+        foreach (var item in _itemDataList.Items)
+            OnAddItem?.Invoke(item, _counts.TryGetValue(item.Id, out var count) ? count : 0);
+    }
+
+    // 인벤토리 상태의 직렬화 래퍼. JsonUtility가 Dictionary를 지원하지 않아 병렬 리스트로 변환한다.
+    [Serializable]
+    private class SaveState
+    {
+        public List<int> Ids = new();
+        public List<int> Counts = new();
+    }
 }

@@ -2,9 +2,11 @@ using System.Collections.Generic;
 using UnityEngine;
 
 // 시민 유닛을 나타내며 선택된 상태에서 우클릭한 대상이 IGatherable이면 채집하고, 아니면 대상 추적 또는 위치 이동을 명령하는 컴포넌트
-public class Citizen : MonoBehaviour, ICommandable
+public class Citizen : MonoBehaviour, ICommandable, ISavable
 {
     [SerializeField] private Sprite _gatherCommandIcon;
+    // 저장/복원 기능을 제공하는 컴포지션. PrefabId는 인스펙터에서 설정한다.
+    [SerializeField] private SavableHandler _savable = new();
 
     private SelectableObject _selectable;
     private IMover _mover;
@@ -156,4 +158,12 @@ public class Citizen : MonoBehaviour, ICommandable
         _gatherTarget = null;
         _gatherInventory = null;
     }
+
+    public string PrefabId => _savable.PrefabId;
+
+    // 현재 상태를 JSON 문자열로 캡처한다.
+    public string CaptureJson() => _savable.CaptureJson(transform);
+
+    // JSON 문자열로 상태를 복원한다.
+    public void ApplyJson(string json) => _savable.ApplyJson(transform, json);
 }

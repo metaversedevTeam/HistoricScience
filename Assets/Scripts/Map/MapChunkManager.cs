@@ -9,6 +9,12 @@ public class MapChunkManager : MonoBehaviour
     // 소환할 청크 프리팹. Terrain, TerrainCollider, MapDataGenerator, TerrainPainter가 구성되어 있어야 한다.
     [SerializeField] private GameObject m_ChunkPrefab;
 
+    // 이 맵의 모든 청크에 공통으로 주입할 맵 시드. 새 게임 시작이나 저장 파일 로드 시 SetSeed로 갱신한다.
+    [SerializeField] private int m_Seed = 0;
+
+    // 아직 소환되지 않은 저장 오브젝트 대기 목록. 청크가 구워질 때마다 그 청크의 스포너가 자기 영역의 항목을 꺼내 소환한다.
+    private List<SavableEntry> m_PendingSavables;
+
     // 현재 소환되어 있는 청크 오브젝트를 청크 좌표 기준으로 보관한다.
     private readonly Dictionary<Vector2Int, GameObject> m_ActiveChunks = new Dictionary<Vector2Int, GameObject>();
 
@@ -44,9 +50,20 @@ public class MapChunkManager : MonoBehaviour
         return chunkObject;
     }
 
-    // 이미 소환된 청크의 좌표를 터레인 페인터에 반영해 보로노이 지형을 굽고 월드 위치를 잡는다. useRandom을 항상 false로
-    // 넘겨야 MapDataGenerator의 시드가 모든 청크 인스턴스에서 기본값으로 고정되어, 같은 무한 맵의 서로 다른 영역을
-    // 이어서 보여주게 된다. (true로 넘기면 청크마다 랜덤 시드가 생겨 경계가 끊어진다)
+    // 이후 소환/굽기되는 청크들에 주입할 맵 시드를 설정한다. 이미 구워진 청크에는 소급 적용되지 않으므로 청크를 그리기 전에 호출해야 한다.
+    public void SetSeed(int seed)
+    {
+        m_Seed = seed;
+    }
+
+    // 청크가 구워질 때 각 청크 영역의 저장 오브젝트를 소환하는 데 쓸 대기 목록을 설정한다. 소환된 항목은 목록에서 제거되므로 호출자와 목록을 공유한다.
+    public void SetPendingSavables(List<SavableEntry> pendingSavables)
+    {
+        m_PendingSavables = pendingSavables;
+    }
+
+    // 이미 소환된 청크의 좌표를 터레인 페인터에 반영해 보로노이 지형을 굽고 월드 위치를 잡는다. 모든 청크에 같은 맵 시드(m_Seed)를
+    // 주입하므로, 각 청크는 같은 무한 맵의 서로 다른 영역을 이어서 보여주게 된다.
     public void PaintChunk(Vector2Int chunkCoordinate)
     {
         if (!m_ActiveChunks.TryGetValue(chunkCoordinate, out GameObject chunkObject))
@@ -57,9 +74,10 @@ public class MapChunkManager : MonoBehaviour
 
         TerrainPainter painter = chunkObject.GetComponent<TerrainPainter>();
         painter.SetChunkCoordinate(chunkCoordinate);
-        painter.PaintVoronoiTerrain(false);
+        painter.PaintVoronoiTerrain(m_Seed);
 
         HandlePositionChunk(chunkObject, chunkCoordinate);
+        HandleSpawnSavables(chunkObject);
     }
 
     // DrawChunk의 비동기 버전. 무거운 지형 계산을 백그라운드 스레드에서 수행해 메인 스레드를 막지 않는다. 이미 소환된 좌표면 기존 오브젝트를 그대로 반환한다.
@@ -87,7 +105,7 @@ public class MapChunkManager : MonoBehaviour
         TerrainPainter painter = chunkObject.GetComponent<TerrainPainter>();
         painter.SetChunkCoordinate(chunkCoordinate);
 
-        var context = painter.PrepareForPaint(false);
+        var context = painter.PrepareForPaint(m_Seed);
         if (context == null)
             return;
 
@@ -95,6 +113,7 @@ public class MapChunkManager : MonoBehaviour
         painter.ApplyPaint(result);
 
         HandlePositionChunk(chunkObject, chunkCoordinate);
+        HandleSpawnSavables(chunkObject);
     }
 
     // 주어진 좌표에 소환된 청크가 있으면 오브젝트와 인메모리 터레인 데이터를 파괴해 지운다.
@@ -106,6 +125,17 @@ public class MapChunkManager : MonoBehaviour
         HandleDestroyChunkTerrainData(chunkObject);
         Destroy(chunkObject);
         m_ActiveChunks.Remove(chunkCoordinate);
+    }
+
+    // 방금 구워져 위치까지 잡힌 청크 영역에 속한 저장 오브젝트들을 청크의 스포너로 소환한다. 대기 목록이나 스포너가 없으면 아무것도 하지 않는다.
+    private void HandleSpawnSavables(GameObject chunkObject)
+    {
+        if (m_PendingSavables == null || m_PendingSavables.Count == 0)
+            return;
+
+        ChunkSavableSpawner spawner = chunkObject.GetComponent<ChunkSavableSpawner>();
+        if (spawner != null)
+            spawner.SpawnSavables(m_PendingSavables);
     }
 
     // 청크 좌표와 실제로 구워진 터레인 크기를 이용해 청크를 월드 공간의 올바른 위치로 옮긴다.
