@@ -7,6 +7,7 @@ public class MapSaveData
 {
     public int Seed;
     public string InventoryJson;
+    public string CodexJson;
     public List<SavableEntry> Savables = new();
 }
 

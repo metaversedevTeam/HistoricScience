@@ -19,6 +19,8 @@ public class IngameSceneManager : MonoBehaviour
     [SerializeField] private MapChunkLoader _chunkLoader;
     // 저장/복원 대상 인벤토리
     [SerializeField] private ResourceInventory _resourceInventory;
+    // 저장/복원 대상 도감
+    [SerializeField] private ItemCodex _itemCodex;
 
     // 이번 씬에서 열린 맵 파일의 원본 데이터
     private MapSaveData _saveData;
@@ -38,6 +40,7 @@ public class IngameSceneManager : MonoBehaviour
         if (!HandleCreateMapData()) return;
 
         HandleRestoreInventory();
+        HandleRestoreCodex();
 
         // 청크가 구워질 때마다 각 청크의 스포너가 자기 영역의 저장 오브젝트를 이 목록에서 꺼내 소환한다.
         _pendingSavables = _saveData.Savables != null ? new List<SavableEntry>(_saveData.Savables) : new List<SavableEntry>();
@@ -62,7 +65,7 @@ public class IngameSceneManager : MonoBehaviour
             return false;
         }
 
-        MapSaveData saveData = _mapSaveUtil.GetSaveData(_mapData, _resourceInventory, HandleCollectSavables());
+        MapSaveData saveData = _mapSaveUtil.GetSaveData(_mapData, _resourceInventory, _itemCodex, HandleCollectSavables());
 
         // 아직 청크가 로드되지 않아 소환되지 못한 오브젝트는 씬에 없으므로, 원본 항목을 그대로 이어 붙여 유실을 막는다.
         if (_pendingSavables != null)
@@ -110,14 +113,25 @@ public class IngameSceneManager : MonoBehaviour
         _resourceInventory.ApplyJson(_saveData.InventoryJson);
     }
 
-    // 씬에 살아 있는 모든 ISavable 구현체를 찾아 목록으로 만든다. 별도 필드로 저장되는 인벤토리는 제외한다.
+    // 저장된 도감 상태를 복원한다.
+    private void HandleRestoreCodex()
+    {
+        if (_itemCodex == null || string.IsNullOrEmpty(_saveData.CodexJson))
+            return;
+
+        _itemCodex.ApplyJson(_saveData.CodexJson);
+    }
+
+    // 씬에 살아 있는 모든 ISavable 구현체를 찾아 목록으로 만든다. 별도 필드로 저장되는 인벤토리와 도감은 제외한다.
     private List<ISavable> HandleCollectSavables()
     {
         List<ISavable> savables = new();
 
         foreach (MonoBehaviour behaviour in FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None))
         {
-            if (behaviour is ISavable savable && !ReferenceEquals(savable, _resourceInventory))
+            if (behaviour is ISavable savable
+                && !ReferenceEquals(savable, _resourceInventory)
+                && !ReferenceEquals(savable, _itemCodex))
                 savables.Add(savable);
         }
 
