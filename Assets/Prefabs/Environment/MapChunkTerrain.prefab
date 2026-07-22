@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 8723176566083072883}
   - component: {fileID: 8365578988269883798}
   - component: {fileID: 4437218856120974311}
+  - component: {fileID: -7966869899655571490}
   m_Layer: 6
   m_Name: MapChunkTerrain
   m_TagString: Untagged
@@ -109,8 +110,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_WeightRange: {x: 0.5, y: 2}
-  m_UseRandomSeed: 1
-  m_RandomSeed: 0
   m_BoundaryNoiseScale: 20
   m_BoundaryNoiseStrength: 0.003
   m_MaxInfluenceDistance: 0.6
@@ -140,6 +139,7 @@ MonoBehaviour:
   m_BlendRadius: 3
   m_MapViewSize: 3
   m_MapViewOrigin: {x: 0, y: 0}
+  m_EditorPaintSeed: 0
 --- !u!114 &4437218856120974311
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -156,3 +156,17 @@ MonoBehaviour:
   m_ItemDataList: {fileID: 11400000, guid: 23b254639cfcfe1429b71ef4685fa432, type: 2}
   m_MinSpawnHeight: 12
   m_MaxAttemptsPerSpawn: 8
+--- !u!114 &-7966869899655571490
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7487192341888620568}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0194c4ab175157e47868be5c8fc7e699, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Terrain: {fileID: 5896736372485518151}
+  m_Registry: {fileID: 11400000, guid: 035e7822ec05b4c47b27c3789000157e, type: 2}

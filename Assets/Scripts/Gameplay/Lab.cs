@@ -2,10 +2,12 @@ using System.Collections.Generic;
 using UnityEngine;
 
 // 선택되었을 때 작업대 UI를 여는 명령을 제공하는 연구소 오브젝트
-public class Lab : MonoBehaviour, ICommandable
+public class Lab : MonoBehaviour, ICommandable, ISavable
 {
     [SerializeField] private WorkbenchUI _workbenchUiPrefab;
     [SerializeField] private Sprite _workbenchButtonIcon;
+    // 저장/복원 기능을 제공하는 컴포지션. PrefabId는 인스펙터에서 설정한다.
+    [SerializeField] private SavableHandler _savable = new();
 
     private SelectableObject _selectable;
     private PlayerManager _selectedBy;
@@ -67,4 +69,12 @@ public class Lab : MonoBehaviour, ICommandable
         if (_selectedBy == null) return;
         UIManager.Instance.OpenUI(_workbenchUiPrefab, _selectedBy.ResourceInventory);
     }
+
+    public string PrefabId => _savable.PrefabId;
+
+    // 현재 상태를 JSON 문자열로 캡처한다.
+    public string CaptureJson() => _savable.CaptureJson(transform);
+
+    // JSON 문자열로 상태를 복원한다.
+    public void ApplyJson(string json) => _savable.ApplyJson(transform, json);
 }
