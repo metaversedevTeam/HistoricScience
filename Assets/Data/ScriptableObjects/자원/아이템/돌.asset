@@ -15,7 +15,8 @@ MonoBehaviour:
   _name: "\uB3CC"
   _iconSprite: {fileID: 21300000, guid: 690788c1d1c4a0b42815f8d3ed42836d, type: 3}
   _id: 1
-  _ingredient: []
+  _recipe: []
+  _editorGridSize: {x: 3, y: 3}
   _sourcePrefab: {fileID: 1564132085319456066, guid: 16ae46c1890f76945aff52fbb3efca24, type: 3}
   _spawnBiomes:
   - {fileID: 11400000, guid: 17b382bad77ec244e9420e62e2439394, type: 2}
@@ -24,3 +25,4 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 011b8d3e13524994b8bf3dab990a2ed9, type: 2}
   - {fileID: 11400000, guid: 54a51f916e7b33b4998e37a57c060571, type: 2}
   _spawnCountPerChunk: 20
+  _craftingTime: 0

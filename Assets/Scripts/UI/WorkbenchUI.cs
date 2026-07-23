@@ -4,7 +4,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-// 작업대 조합 UI — 인벤토리를 페이로드로 받아 열리는 관리형 UI (슬롯 목록 표시, 3x3 격자 조합)
+// 작업대 조합 UI — 인벤토리를 페이로드로 받아 열리는 관리형 UI (슬롯 목록 표시, 격자에 배치된 위치까지 감안한 조합)
 public class WorkbenchUI : OpenableUIBase<ResourceInventory>
 {
     [SerializeField] private GameObject _slotPrefab;
@@ -26,16 +26,10 @@ public class WorkbenchUI : OpenableUIBase<ResourceInventory>
         _warningText.gameObject.SetActive(false);
     }
 
-    // 조합 격자의 각 자식에 CraftingSlotUI를 등록한다.
+    // 조합 격자 하위의 모든 CraftingSlotUI를 수집한다(격자 크기·모양 무관).
     private void InitializeCraftingSlots()
     {
-        _craftingSlots = new CraftingSlotUI[9];
-        for (int i = 0; i < _craftingGrid.childCount && i < 9; i++)
-        {
-            var child = _craftingGrid.GetChild(i);
-            _craftingSlots[i] = child.GetComponent<CraftingSlotUI>()
-                               ?? child.gameObject.AddComponent<CraftingSlotUI>();
-        }
+        _craftingSlots = _craftingGrid.GetComponentsInChildren<CraftingSlotUI>(true);
     }
 
     // 주입받은 인벤토리를 구독하고 슬롯 목록을 구성한다.
@@ -92,14 +86,15 @@ public class WorkbenchUI : OpenableUIBase<ResourceInventory>
     // 격자 배치와 일치하는 조합법을 찾아 재료를 소비하고 결과 아이템을 지급한다.
     private void OnCraftButtonClick()
     {
-        var result = FindMatchingRecipe();
+        var placed = BuildPlacedPattern();
+        var result = FindMatchingRecipe(placed);
         if (result == null)
         {
             ShowWarning("조합법이 없습니다.");
             return;
         }
 
-        var needed = CountIngredients(result);
+        var needed = placed.CountItems();
         foreach (var (resource, count) in needed)
         {
             if (!_inventory.Has(resource, count))
@@ -118,59 +113,28 @@ public class WorkbenchUI : OpenableUIBase<ResourceInventory>
             slot.Clear();
     }
 
-    // 조합 격자 배치와 일치하는 조합법의 결과 아이템을 반환한다. 없으면 null.
-    private ItemData FindMatchingRecipe()
+    // 격자의 점유 슬롯에서 현재 배치 패턴을 만든다.
+    private CraftingPattern BuildPlacedPattern()
     {
+        var cells = new List<(Vector2Int coord, ResourceData item)>();
+        foreach (var slot in _craftingSlots)
+        {
+            if (slot.Item != null)
+                cells.Add((slot.Coord, slot.Item));
+        }
+        return CraftingPattern.FromCells(cells);
+    }
+
+    // 현재 배치와 (위치까지) 일치하는 조합법의 결과 아이템을 반환한다. 없으면 null.
+    private ItemData FindMatchingRecipe(CraftingPattern placed)
+    {
+        if (placed.IsEmpty) return null;
         foreach (var item in _inventory.ItemDataList.Items)
         {
-            if (MatchesRecipe(item))
+            if (item.HasRecipe && placed.Matches(item.ToPattern()))
                 return item;
         }
         return null;
-    }
-
-    // 아이템의 Ingredient 종류·수량이 격자에 놓인 아이템과 일치하는지 확인한다.
-    private bool MatchesRecipe(ItemData item)
-    {
-        var ingredients = item.Ingredient;
-        if (ingredients == null || ingredients.Count == 0) return false;
-
-        var required = CountIngredients(item);
-        var placed = CountPlacedItems();
-
-        if (required.Count != placed.Count) return false;
-        foreach (var (resource, count) in required)
-        {
-            if (!placed.TryGetValue(resource, out var placedCount) || placedCount != count)
-                return false;
-        }
-        return true;
-    }
-
-    // 현재 격자에 놓인 아이템별 수량을 집계한다.
-    private Dictionary<ResourceData, int> CountPlacedItems()
-    {
-        var counts = new Dictionary<ResourceData, int>();
-        foreach (var slot in _craftingSlots)
-        {
-            if (slot.Item == null) continue;
-            counts.TryGetValue(slot.Item, out var current);
-            counts[slot.Item] = current + 1;
-        }
-        return counts;
-    }
-
-    // 조합에 필요한 재료별 소비 수량을 집계한다.
-    private Dictionary<ResourceData, int> CountIngredients(ItemData result)
-    {
-        var counts = new Dictionary<ResourceData, int>();
-        foreach (var ingredient in result.Ingredient)
-        {
-            if (ingredient == null) continue;
-            counts.TryGetValue(ingredient, out var current);
-            counts[ingredient] = current + 1;
-        }
-        return counts;
     }
 
     // 경고 메시지를 표시하고 2초 후 자동으로 숨긴다.

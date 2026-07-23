@@ -156,6 +156,7 @@ GameObject:
   - component: {fileID: 9000000011}
   - component: {fileID: 9000000012}
   - component: {fileID: 9000000013}
+  - component: {fileID: 9000000014}
   m_Layer: 5
   m_Name: Slot_0
   m_TagString: Untagged
@@ -231,6 +232,7 @@ GameObject:
   - component: {fileID: 9000000021}
   - component: {fileID: 9000000022}
   - component: {fileID: 9000000023}
+  - component: {fileID: 9000000024}
   m_Layer: 5
   m_Name: Slot_1
   m_TagString: Untagged
@@ -306,6 +308,7 @@ GameObject:
   - component: {fileID: 9000000031}
   - component: {fileID: 9000000032}
   - component: {fileID: 9000000033}
+  - component: {fileID: 9000000034}
   m_Layer: 5
   m_Name: Slot_2
   m_TagString: Untagged
@@ -381,6 +384,7 @@ GameObject:
   - component: {fileID: 9000000041}
   - component: {fileID: 9000000042}
   - component: {fileID: 9000000043}
+  - component: {fileID: 9000000044}
   m_Layer: 5
   m_Name: Slot_3
   m_TagString: Untagged
@@ -456,6 +460,7 @@ GameObject:
   - component: {fileID: 9000000051}
   - component: {fileID: 9000000052}
   - component: {fileID: 9000000053}
+  - component: {fileID: 9000000054}
   m_Layer: 5
   m_Name: Slot_4
   m_TagString: Untagged
@@ -531,6 +536,7 @@ GameObject:
   - component: {fileID: 9000000061}
   - component: {fileID: 9000000062}
   - component: {fileID: 9000000063}
+  - component: {fileID: 9000000064}
   m_Layer: 5
   m_Name: Slot_5
   m_TagString: Untagged
@@ -606,6 +612,7 @@ GameObject:
   - component: {fileID: 9000000071}
   - component: {fileID: 9000000072}
   - component: {fileID: 9000000073}
+  - component: {fileID: 9000000074}
   m_Layer: 5
   m_Name: Slot_6
   m_TagString: Untagged
@@ -681,6 +688,7 @@ GameObject:
   - component: {fileID: 9000000081}
   - component: {fileID: 9000000082}
   - component: {fileID: 9000000083}
+  - component: {fileID: 9000000084}
   m_Layer: 5
   m_Name: Slot_7
   m_TagString: Untagged
@@ -756,6 +764,7 @@ GameObject:
   - component: {fileID: 9000000091}
   - component: {fileID: 9000000092}
   - component: {fileID: 9000000093}
+  - component: {fileID: 9000000094}
   m_Layer: 5
   m_Name: Slot_8
   m_TagString: Untagged
@@ -2197,3 +2206,120 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &9000000014
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9000000010}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9620701f9a953a347ad8161ca12f1306, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  _coord: {x: 0, y: 0}
+--- !u!114 &9000000024
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9000000020}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9620701f9a953a347ad8161ca12f1306, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  _coord: {x: 1, y: 0}
+--- !u!114 &9000000034
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9000000030}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9620701f9a953a347ad8161ca12f1306, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  _coord: {x: 2, y: 0}
+--- !u!114 &9000000044
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9000000040}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9620701f9a953a347ad8161ca12f1306, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  _coord: {x: 0, y: 1}
+--- !u!114 &9000000054
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9000000050}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9620701f9a953a347ad8161ca12f1306, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  _coord: {x: 1, y: 1}
+--- !u!114 &9000000064
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9000000060}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9620701f9a953a347ad8161ca12f1306, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  _coord: {x: 2, y: 1}
+--- !u!114 &9000000074
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9000000070}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9620701f9a953a347ad8161ca12f1306, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  _coord: {x: 0, y: 2}
+--- !u!114 &9000000084
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9000000080}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9620701f9a953a347ad8161ca12f1306, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  _coord: {x: 1, y: 2}
+--- !u!114 &9000000094
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9000000090}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9620701f9a953a347ad8161ca12f1306, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  _coord: {x: 2, y: 2}
