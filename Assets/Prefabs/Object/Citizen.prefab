@@ -154,7 +154,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _groundLayer:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 64
   _heightOffset: 0
   _raycastUpDistance: 500
   _raycastLength: 1000
