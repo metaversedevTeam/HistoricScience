@@ -28,6 +28,20 @@ public class GroundMover : MonoBehaviour, IMover
         _selfHitable = GetComponent<HitableObject>();
     }
 
+    // 활성화 시 자신을 내브메시 베이커의 추적 대상으로 등록해 주변 내브메시가 구워지게 한다
+    private void OnEnable()
+    {
+        if (DynamicNavMeshBaker.Instance != null)
+            DynamicNavMeshBaker.Instance.AddTarget(transform);
+    }
+
+    // 비활성화 시 내브메시 베이커의 추적 대상에서 자신을 제거한다
+    private void OnDisable()
+    {
+        if (DynamicNavMeshBaker.Instance != null)
+            DynamicNavMeshBaker.Instance.RemoveTarget(transform);
+    }
+
     // 추적 대상이 있으면 매 프레임 따라가기 처리
     private void Update()
     {
@@ -61,15 +75,18 @@ public class GroundMover : MonoBehaviour, IMover
     // 늦게 구워지는 구조에서는 스폰 시점에 에이전트가 내브메시를 못 찾아 영구히 "오프메시" 상태로 남을 수 있어 필요하다.
     private bool EnsureOnNavMesh()
     {
-        if (_agent.isOnNavMesh)
-            return true;
+        Debug.Log("test1");
+        if (_agent.isOnNavMesh){
+             Debug.Log("test2");
+            return true;}
 
         if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, k_NavMeshWarpSearchRadius, NavMesh.AllAreas))
         {
+             Debug.Log("test3");
             _agent.Warp(hit.position);
             return true;
         }
-
+ Debug.Log("test4");
         return false;
     }
 

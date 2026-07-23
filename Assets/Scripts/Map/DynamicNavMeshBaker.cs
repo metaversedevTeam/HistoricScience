@@ -12,6 +12,9 @@ using UnityEngine.AI;
 // https://github.com/Unity-Technologies/NavMeshComponents/blob/master/Assets/Examples/Scripts/LocalNavMeshBuilder.cs
 public class DynamicNavMeshBaker : MonoBehaviour
 {
+    // 씬에서 유일한 인스턴스에 전역 접근을 제공한다. GroundMover 등이 런타임에 자신을 추적 대상으로 등록하는 데 쓴다.
+    public static DynamicNavMeshBaker Instance { get; private set; }
+
     // 이 대상들 각각의 주변을 계속 내브메시로 구운다 (예: 메인 카메라, 조작 중인 유닛들)
     [SerializeField] private List<Transform> m_FollowTargets = new List<Transform>();
     // 구울 영역의 한 변 절반 길이(정사각형 반경)
@@ -38,6 +41,26 @@ public class DynamicNavMeshBaker : MonoBehaviour
 
     // 현재 추적 중인 대상마다 하나씩 만들어 둔 굽기 상태
     private readonly List<TargetBaker> m_Bakers = new List<TargetBaker>();
+
+    // 싱글턴 인스턴스를 등록한다. 이미 다른 인스턴스가 있으면 중복 컴포넌트를 제거한다.
+    private void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Debug.LogWarning("[DynamicNavMeshBaker] 인스턴스가 이미 존재해 중복 컴포넌트를 제거합니다.");
+            Destroy(this);
+            return;
+        }
+
+        Instance = this;
+    }
+
+    // 자신이 등록된 싱글턴 인스턴스면 참조를 비운다.
+    private void OnDestroy()
+    {
+        if (Instance == this)
+            Instance = null;
+    }
 
     // 인스펙터에서 값을 바꿀 때 최대 높이가 항상 최소 높이보다 크도록 보정한다
     private void OnValidate()
