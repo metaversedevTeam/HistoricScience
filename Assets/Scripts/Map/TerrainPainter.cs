@@ -13,12 +13,11 @@ namespace HistoricScience.Test
         // 터레인에 TerrainData가 없을 때 새로 생성할 터레인 크기
         private static readonly Vector3 k_TerrainSize = new Vector3(500f, 100f, 500f);
 
+        [Header("Terrain Settings")]
         // 맵 바이옴 데이터를 생성하는 제공자
         [SerializeField] private MapDataGenerator m_MapDataGenerator;
         // 칠할 대상 터레인
         [SerializeField] private Terrain m_Terrain;
-        // 기즈모 구체의 기본 반지름(가중치에 곱해져 크기가 결정됨)
-        [SerializeField] private float m_GizmoBaseRadius = 5f;
         // 터레인에 칠할 때 바이옴 경계를 부드럽게 섞을 블러 반경(알파맵 셀 단위). 0이면 경계가 그대로 딱딱 떨어진다.
         [SerializeField] private int m_BlendRadius = 3;
         // 터레인에 출력할 맵 영역의 한 변 길이 (정규화 맵 좌표). 1이면 맵의 1x1 영역이 터레인 전체에 칠해지고, 클수록 더 넓은 영역이 축소되어 보인다.
@@ -27,6 +26,12 @@ namespace HistoricScience.Test
         [SerializeField] private Vector2 m_MapViewOrigin = Vector2.zero;
         // 에디터의 Paint 컨텍스트 메뉴에서 지형 굽기를 확인할 때 사용할 고정 시드
         [SerializeField] private int m_EditorPaintSeed = 0;
+
+        [Header("Gizmo Settings")]
+        // 선택 시 바이옴 정점 기즈모를 씬 뷰에 표시할지 여부
+        [SerializeField] private bool m_ShowBiomeGizmos = true;
+        // 기즈모 구체의 기본 반지름(가중치에 곱해져 크기가 결정됨)
+        [SerializeField] private float m_GizmoBaseRadius = 5f;
 
         // MapData로 보로노이 바이옴 정보를 생성하고, 그 결과로 터레인 알파맵과 높이맵을 굽는다.
         [ContextMenu("Paint")]
@@ -277,6 +282,11 @@ namespace HistoricScience.Test
         // 이 게임오브젝트가 선택되었을 때 마지막으로 칠한 바이옴 영역들을 기즈모로 표시한다.
         private void OnDrawGizmosSelected()
         {
+            if (!m_ShowBiomeGizmos)
+            {
+                return;
+            }
+
             if (m_Terrain == null || m_MapDataGenerator == null || m_MapDataGenerator.LastMapData == null)
             {
                 return;
