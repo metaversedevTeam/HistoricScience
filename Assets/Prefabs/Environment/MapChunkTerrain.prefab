@@ -135,12 +135,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_MapDataGenerator: {fileID: 8723176566083072883}
   m_Terrain: {fileID: 5896736372485518151}
-  m_ShowBiomeGizmos: 0
-  m_GizmoBaseRadius: 5
   m_BlendRadius: 3
   m_MapViewSize: 3
   m_MapViewOrigin: {x: 0, y: 0}
   m_EditorPaintSeed: 0
+  m_ShowBiomeGizmos: 0
+  m_GizmoBaseRadius: 5
+  m_ShowOriginGizmo: 1
+  m_OriginGizmoColor: {r: 1, g: 0, b: 1, a: 1}
+  m_OriginGizmoPoleHeight: 30
 --- !u!114 &4437218856120974311
 MonoBehaviour:
   m_ObjectHideFlags: 0

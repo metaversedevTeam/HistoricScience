@@ -32,6 +32,10 @@ namespace HistoricScience.Test
         [SerializeField] private bool m_ShowBiomeGizmos = true;
         // 기즈모 구체의 기본 반지름(가중치에 곱해져 크기가 결정됨)
         [SerializeField] private float m_GizmoBaseRadius = 5f;
+        // 터레인 기준점이 맵 데이터상 어떤 좌표에 대응되는지 기즈모로 표시할지 여부. 켜두면 오브젝트를 선택하지 않아도 항상 표시된다.
+        [SerializeField] private bool m_ShowOriginGizmo = true;
+        // 기준점 기즈모에서 위로 뻗는 기둥의 길이(월드 단위). 멀리서도 기준점을 찾을 수 있게 한다.
+        [SerializeField] private float m_OriginGizmoPoleHeight = 30f;
 
         // MapData로 보로노이 바이옴 정보를 생성하고, 그 결과로 터레인 알파맵과 높이맵을 굽는다.
         [ContextMenu("Paint")]
@@ -279,20 +283,68 @@ namespace HistoricScience.Test
             return result;
         }
 
+        // 선택 여부와 관계없이 터레인 기준점 기즈모를 표시한다.
+        private void OnDrawGizmos()
+        {
+            if (m_Terrain == null || m_Terrain.terrainData == null)
+            {
+                return;
+            }
+
+            HandleDrawOriginGizmo();
+        }
+
         // 이 게임오브젝트가 선택되었을 때 마지막으로 칠한 바이옴 영역들을 기즈모로 표시한다.
         private void OnDrawGizmosSelected()
+        {
+            if (m_Terrain == null || m_Terrain.terrainData == null)
+            {
+                return;
+            }
+
+            HandleDrawBiomeGizmos();
+        }
+
+        // 터레인의 기준점(좌하단 원점)에 구체와 기둥을 그리고, 그 지점이 대응되는 맵 좌표를 라벨로 표시한다.
+        private void HandleDrawOriginGizmo()
+        {
+            if (!m_ShowOriginGizmo)
+            {
+                return;
+            }
+
+            Vector3 worldPosition = HandleMapToWorldPosition(m_MapViewOrigin);
+            Vector3 poleTop = worldPosition + Vector3.up * m_OriginGizmoPoleHeight;
+
+            Gizmos.color = Color.white;
+            Gizmos.DrawSphere(worldPosition, m_GizmoBaseRadius);
+            Gizmos.DrawLine(worldPosition, poleTop);
+
+#if UNITY_EDITOR
+            Vector2 mapViewMax = m_MapViewOrigin + Vector2.one * m_MapViewSize;
+            Vector2 chunkCoordinate = m_MapViewOrigin / m_MapViewSize;
+
+            UnityEditor.Handles.Label(
+                poleTop + Vector3.up * 1f,
+                $"origin: ({m_MapViewOrigin.x:F3}, {m_MapViewOrigin.y:F3})\n" +
+                $"max: ({mapViewMax.x:F3}, {mapViewMax.y:F3})\n" +
+                $"chunk: ({chunkCoordinate.x:F1}, {chunkCoordinate.y:F1}) / view size: {m_MapViewSize:F3}");
+#endif
+        }
+
+        // 터레인에 출력 중인 맵 영역 안의 바이옴 정점들을 기즈모로 표시한다.
+        private void HandleDrawBiomeGizmos()
         {
             if (!m_ShowBiomeGizmos)
             {
                 return;
             }
 
-            if (m_Terrain == null || m_MapDataGenerator == null || m_MapDataGenerator.LastMapData == null)
+            if (m_MapDataGenerator == null || m_MapDataGenerator.LastMapData == null)
             {
                 return;
             }
 
-            // 터레인에 출력 중인 맵 영역 안의 정점만 기즈모로 표시한다.
             Rect mapViewArea = new Rect(m_MapViewOrigin.x, m_MapViewOrigin.y, m_MapViewSize, m_MapViewSize);
             foreach (BiomeRegion region in m_MapDataGenerator.LastMapData.GetRegions(mapViewArea))
             {
