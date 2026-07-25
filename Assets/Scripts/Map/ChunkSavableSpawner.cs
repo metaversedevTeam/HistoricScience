@@ -27,7 +27,8 @@ public class ChunkSavableSpawner : MonoBehaviour
             if (!HandleContains(positionXZ))
                 continue;
 
-            HandleSpawnSavable(pendingEntries[i]);
+            // 시민처럼 청크 사이를 오갈 수 있는 오브젝트이므로 청크의 자식으로 만들지 않는다.
+            m_Registry.SpawnSavable(pendingEntries[i]);
             pendingEntries.RemoveAt(i);
         }
     }
@@ -40,22 +41,5 @@ public class ChunkSavableSpawner : MonoBehaviour
 
         return positionXZ.x >= origin.x && positionXZ.x < origin.x + size.x
             && positionXZ.y >= origin.z && positionXZ.y < origin.z + size.z;
-    }
-
-    // 항목의 프리팹을 레지스트리에서 찾아 소환하고 저장된 상태를 복원한다. 시민처럼 청크 사이를 오갈 수 있는 오브젝트이므로 청크의 자식으로 만들지 않는다.
-    private void HandleSpawnSavable(SavableEntry entry)
-    {
-        GameObject prefab = m_Registry.GetPrefab(entry.PrefabId);
-        if (prefab == null)
-        {
-            Debug.LogError($"ChunkSavableSpawner: PrefabId '{entry.PrefabId}'가 레지스트리에 없어 복원을 건너뜁니다.");
-            return;
-        }
-
-        GameObject instance = Instantiate(prefab);
-        if (instance.TryGetComponent(out ISavable savable))
-            savable.ApplyJson(entry.StateJson);
-        else
-            Debug.LogError($"ChunkSavableSpawner: '{entry.PrefabId}' 프리팹에 ISavable 컴포넌트가 없어 상태를 복원하지 못했습니다.");
     }
 }

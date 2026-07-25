@@ -19,6 +19,26 @@ public class SavablePrefabRegistry : ScriptableObject
     // 조회 속도를 위해 목록에서 만들어 두는 캐시
     private Dictionary<string, GameObject> _lookup;
 
+    // 저장 항목의 프리팹을 찾아 소환하고 저장된 상태를 복원해 인스턴스를 반환한다. 프리팹을 찾지 못하면 null을 반환한다.
+    public GameObject SpawnSavable(SavableEntry entry)
+    {
+        GameObject prefab = GetPrefab(entry.PrefabId);
+        if (prefab == null)
+        {
+            Debug.LogError($"SavablePrefabRegistry({name}): PrefabId '{entry.PrefabId}'가 목록에 없어 소환하지 못했습니다.");
+            return null;
+        }
+
+        GameObject instance = Instantiate(prefab);
+
+        if (instance.TryGetComponent(out ISavable savable))
+            savable.ApplyJson(entry.StateJson);
+        else
+            Debug.LogError($"SavablePrefabRegistry({name}): '{entry.PrefabId}' 프리팹에 ISavable 컴포넌트가 없어 상태를 복원하지 못했습니다.");
+
+        return instance;
+    }
+
     // PrefabId에 해당하는 프리팹을 반환한다. 등록되지 않은 id면 null을 반환한다.
     public GameObject GetPrefab(string prefabId)
     {
