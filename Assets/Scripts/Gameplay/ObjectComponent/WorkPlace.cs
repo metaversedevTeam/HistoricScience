@@ -67,6 +67,47 @@ public class WorkPlace : MonoBehaviour, IStatePart
         return true;
     }
 
+    //일꾼 오브젝트를 자신에게 걸어오게 하고 도착하면 AddWorker로 등록한다; 필요한 컴포넌트가 없거나 지금 받을 수 없으면 false 반환
+    public bool CallWorker(GameObject workerObject)
+    {
+        if (workerObject == null)
+        {
+            Debug.LogError($"WorkPlace({name}): 부를 일꾼 오브젝트가 없습니다.", this);
+            return false;
+        }
+
+        // IWorker와 IMover는 같은 오브젝트의 서로 다른 컴포넌트일 수 있으므로 각각 찾는다.
+        if (!workerObject.TryGetComponent(out IWorker worker))
+        {
+            Debug.LogError($"WorkPlace({name}): '{workerObject.name}'에 IWorker 컴포넌트가 없어 부를 수 없습니다.", workerObject);
+            return false;
+        }
+
+        if (!workerObject.TryGetComponent(out IMover mover))
+        {
+            Debug.LogError($"WorkPlace({name}): '{workerObject.name}'에 IMover 컴포넌트가 없어 부를 수 없습니다.", workerObject);
+            return false;
+        }
+
+        // 어차피 받을 수 없는 일꾼을 헛되이 걸어오게 하지 않는다. 자리는 도착 시점에 다시 확인한다.
+        if (!CanAddWorker(worker))
+            return false;
+
+        // 도착 콜백은 이 이동에만 묶여 있어, 오는 도중 다른 명령을 받으면 IMover가 알아서 폐기한다.
+        return mover.Move(transform, () => HandleWorkerArrived(worker));
+    }
+
+    // 불러온 일꾼이 도착했을 때 자신에게 등록한다. 오는 동안 상황이 바뀌어 받을 수 없게 됐으면 등록하지 않고 그 자리에 둔다.
+    private void HandleWorkerArrived(IWorker worker)
+    {
+        // 일꾼이 오는 동안 일터가 파괴됐을 수 있다. 콜백은 일꾼 쪽에 걸려 있어 그래도 호출된다.
+        if (this == null)
+            return;
+
+        if (!AddWorker(worker))
+            Debug.LogWarning($"WorkPlace({name}): 도착한 일꾼을 등록할 수 없어 그대로 대기시킵니다. 자리가 가득 찼거나 일꾼이 이미 다른 일터에 등록되었습니다.");
+    }
+
     //등록된 worker를 등록해제하고 해당 worker의 인스턴스 생성
     public IWorker RemoveWorker()
     {
