@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -16,10 +17,45 @@ public class GroundMover : MonoBehaviour, IMover
     // 도달 불가한 대상을 계속 재시도하는 비용도 이 간격으로 제한된다.
     private const float k_FollowRepathInterval = 0.25f;
 
+    // 정지 판정에 쓰는 속도 제곱 임계값. 경로 끝에서 이 이하로 느려졌으면 실제로 멈춘 것으로 본다.
+    private const float k_StoppedSqrVelocity = 0.01f;
+
+    // 도착 판정 여유 거리(m). 로컬 회피에 밀리거나 감속 오차로 목적지에서 조금 벗어나 멈춰도 도착으로 인정한다.
+    private const float k_ArrivalTolerance = 0.5f;
+
+    // 추적 대상이 이만큼 움직였을 때만 경로를 다시 잡는다. 멈춰 있는 대상 옆에서 매 주기 경로를 새로 설정하면
+    // 정지 판정이 계속 뒤집혀 이동 종료 이벤트가 반복 발생하므로 필요하다.
+    private const float k_FollowRepathDistance = 0.25f;
+
+    // 목적지 설정 후 이동 시작을 기다려주는 최대 시간(초). 이 안에 출발하지 않으면 이미 목적지에 서 있는
+    // 것으로 보고 정지 판정을 시작한다. 경로만 잡히면 즉시 게이트가 열리므로 실제로는 거의 소모되지 않는다.
+    private const float k_MoveStartGrace = 0.25f;
+
+    // 요청한 목적지에 실제로 도달했을 때 발생
+    public event Action OnArrived;
+
+    // 이동이 어떤 방식으로든 끝나 멈췄을 때 발생(도착, 더 갈 수 없어 멈춤, Stop() 호출)
+    public event Action OnMoveEnd;
+
     private NavMeshAgent  _agent;
     private Transform     _followTarget;
     private HitableObject _selfHitable;
     private float         _nextRepathTime;
+
+    // 이동 명령이 살아 있는지. 이 값이 false면 종료 판정 자체를 하지 않는다.
+    private bool    _hasMoveOrder;
+    // 직전 프레임의 정지 여부. 움직임 → 정지로 바뀌는 순간에만 이벤트를 발생시키기 위한 값이다.
+    private bool    _wasStopped;
+    // 마지막으로 에이전트에 설정한 목적지(내브메시 투영 후)
+    private Vector3 _requestedDestination;
+    // 그 목적지가 요청한 지점 자체이고 경로도 끝까지 이어지는지. 도착과 "갈 수 있는 데까지만 감"을 구분한다.
+    private bool    _destinationReachable;
+    // 마지막 추적 경로를 계산할 때의 대상 위치. 대상이 충분히 움직였는지 판정하는 기준이다.
+    private Vector3 _lastFollowSourcePos;
+    // 목적지 설정 후 에이전트가 실제로 움직이기 시작했는지. 이 값이 false인 동안은 정지 판정을 하지 않는다.
+    private bool    _hasStartedMoving;
+    // 이동 시작을 기다려주는 시한. 이 시각을 넘기면 출발하지 않았어도 정지 판정을 시작한다.
+    private float   _moveStartDeadline;
 
     // NavMeshAgent와 HitableObject 컴포넌트를 캐싱
     private void Awake()
@@ -42,51 +78,167 @@ public class GroundMover : MonoBehaviour, IMover
             DynamicNavMeshBaker.Instance.RemoveTarget(transform);
     }
 
-    // 추적 대상이 있으면 매 프레임 따라가기 처리
+    // 추적 대상이 있으면 따라가기를 처리하고, 매 프레임 이동 종료 여부를 확인
     private void Update()
     {
         if (_followTarget != null)
             HandleFollow();
+
+        HandleMoveEnd();
     }
 
-    // 추적 대상의 경로를 주기적으로 재계산하고 멈춤 거리를 갱신하며 이동. 대상이 일시적으로 도달 불가해도
-    // 추적을 버리지 않고 다음 주기에 재시도해, 내브메시가 뒤늦게 구워지거나 대상이 범위 안으로 돌아오면 이어서 따라간다.
+    // 이동 명령이 살아 있는 동안 정지 상태로 바뀌는 순간에만 이벤트를 발생시킨다. 목적지에 실제로 닿았으면
+    // OnArrived를 먼저 발생시키고, 어떤 경우든 OnMoveEnd를 이어서 발생시킨다.
+    private void HandleMoveEnd()
+    {
+        if (!_hasMoveOrder)
+            return;
+
+        if (!TryBeginStopCheck())
+            return;
+
+        bool stopped     = IsStopped();
+        bool justStopped = stopped && !_wasStopped;
+        _wasStopped = stopped;
+
+        if (!justStopped)
+            return;
+
+        bool arrived = HasReachedDestination();
+
+        // 추적 이동은 대상이 다시 멀어지면 계속 따라가야 하므로 명령을 유지한다. 위치 이동은 여기서 끝난다.
+        // 구독자가 이벤트 안에서 곧바로 새 이동을 명령할 수 있으므로 상태를 먼저 정리하고 호출한다.
+        if (_followTarget == null)
+            _hasMoveOrder = false;
+
+        if (arrived)
+            OnArrived?.Invoke();
+
+        OnMoveEnd?.Invoke();
+    }
+
+    // 정지 판정을 시작해도 되는지 확인한다. SetDestination 직후 몇 프레임은 경로 코너가 아직 준비되지 않아
+    // remainingDistance가 0으로 나오는데, 그 상태는 "출발 전"과 "도착 후"가 구분되지 않아 그대로 판정하면
+    // 이동하자마자 종료로 오인한다. 그래서 실제로 출발한 것이 확인될 때까지 판정을 미룬다.
+    private bool TryBeginStopCheck()
+    {
+        if (_hasStartedMoving)
+            return true;
+
+        if (HasAgentStartedMoving())
+        {
+            _hasStartedMoving = true;
+            return true;
+        }
+
+        // 이미 목적지에 서 있으면 영영 출발하지 않으므로, 유예 시간이 지나면 그대로 정지 판정으로 넘긴다.
+        return Time.time >= _moveStartDeadline;
+    }
+
+    // 경로 계산이 끝나고 에이전트가 실제로 목적지를 향해 움직이기 시작했는지 판정
+    private bool HasAgentStartedMoving()
+    {
+        if (!_agent.isOnNavMesh || _agent.pathPending)
+            return false;
+
+        if (_agent.velocity.sqrMagnitude > k_StoppedSqrVelocity)
+            return true;
+
+        // 남은 거리가 멈춤 거리를 넘었다는 건 경로 코너가 준비됐고 아직 갈 길이 남았다는 뜻이다.
+        return _agent.hasPath && _agent.remainingDistance > _agent.stoppingDistance;
+    }
+
+    // 목적지를 새로 설정한 뒤 경로 코너가 준비될 때까지 정지 판정을 미루는 대기 상태로 되돌린다.
+    private void BeginDestinationSettle()
+    {
+        _hasStartedMoving  = false;
+        _moveStartDeadline = Time.time + k_MoveStartGrace;
+    }
+
+    // 에이전트가 이동을 끝내고 멈췄는지 판정. 경로가 사라졌거나, 경로 끝(멈춤 거리 안)에서 속도가 0에 수렴하면
+    // 정지로 본다. 경로 도중에 다른 유닛에 막혀 잠시 멈춘 경우는 곧 다시 움직이므로 정지로 보지 않는다.
+    private bool IsStopped()
+    {
+        if (!_agent.isOnNavMesh)
+            return true;
+
+        if (_agent.pathPending)
+            return false;
+
+        if (!_agent.hasPath)
+            return true;
+
+        if (_agent.remainingDistance > _agent.stoppingDistance)
+            return false;
+
+        return _agent.velocity.sqrMagnitude <= k_StoppedSqrVelocity;
+    }
+
+    // 멈춘 지점이 요청한 목적지인지 판정한다. 경로가 부분 경로였거나 목적지가 내브메시 밖이라 가장자리까지만
+    // 간 경우를 도착과 구분하기 위해, 목적지까지 갈 수 있었는지와 실제 XZ 거리를 함께 본다.
+    private bool HasReachedDestination()
+    {
+        if (!_destinationReachable)
+            return false;
+
+        Vector2 currentXZ     = new Vector2(transform.position.x, transform.position.z);
+        Vector2 destinationXZ = new Vector2(_requestedDestination.x, _requestedDestination.z);
+
+        return Vector2.Distance(currentXZ, destinationXZ) <= _agent.stoppingDistance + k_ArrivalTolerance;
+    }
+
+    // 추적 대상의 경로를 주기적으로 재계산한다. 대상이 일시적으로 도달 불가해도 추적을 버리지 않고 다음 주기에
+    // 재시도해, 내브메시가 뒤늦게 구워지거나 대상이 범위 안으로 돌아오면 이어서 따라간다.
     private void HandleFollow()
     {
         if (Time.time < _nextRepathTime)
             return;
         _nextRepathTime = Time.time + k_FollowRepathInterval;
 
-        if (!EnsureOnNavMesh())
+        if ((_followTarget.position - _lastFollowSourcePos).sqrMagnitude <= k_FollowRepathDistance * k_FollowRepathDistance)
             return;
 
-        if (!TryResolveDestination(_followTarget.position, out Vector3 destination))
-            return;
+        TrySetFollowDestination();
+    }
+
+    // 추적 대상 쪽으로 목적지와 멈춤 거리를 계산해 에이전트에 설정; 목적지를 잡지 못하면 false 반환
+    private bool TrySetFollowDestination()
+    {
+        // 실패하면 다음 주기에 반드시 다시 시도하도록 기준 위치를 무효화해 둔다.
+        _lastFollowSourcePos = Vector3.positiveInfinity;
+
+        if (!EnsureOnNavMesh())
+            return false;
+
+        if (!TryResolveDestination(_followTarget.position, out Vector3 destination, out bool isExact))
+            return false;
 
         NavMeshPath path = new NavMeshPath();
         if (!_agent.CalculatePath(destination, path) || !IsPathUsable(path))
-            return;
+            return false;
 
         _agent.stoppingDistance = GetStoppingDistance(_followTarget, destination);
         _agent.SetDestination(destination);
+
+        _requestedDestination = destination;
+        _destinationReachable = isExact && path.status == NavMeshPathStatus.PathComplete;
+        _lastFollowSourcePos  = _followTarget.position;
+        BeginDestinationSettle();
+        return true;
     }
 
     // 에이전트가 아직 내브메시 위에 있지 않으면 주변에서 가장 가까운 내브메시로 옮겨 놓는다. 내브메시가 동적으로
     // 늦게 구워지는 구조에서는 스폰 시점에 에이전트가 내브메시를 못 찾아 영구히 "오프메시" 상태로 남을 수 있어 필요하다.
     private bool EnsureOnNavMesh()
     {
-        Debug.Log("test1");
         if (_agent.isOnNavMesh){
-             Debug.Log("test2");
             return true;}
 
         if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, k_NavMeshWarpSearchRadius, NavMesh.AllAreas))
         {
-             Debug.Log("test3");
             _agent.Warp(hit.position);
             return true;
         }
- Debug.Log("test4");
         return false;
     }
 
@@ -102,13 +254,17 @@ public class GroundMover : MonoBehaviour, IMover
     // 베이크 범위 밖 등)도 매핑하지 못해 통째로 실패하므로, 먼저 주변에서 가장 가까운 내브메시 지점을 찾고,
     // 그마저 없으면 에이전트에서 목적지 방향으로 걸어서 닿을 수 있는 마지막 지점(내브메시 가장자리)을 반환해
     // 아무 행동도 하지 않는 대신 갈 수 있는 데까지는 이동하게 한다. EnsureOnNavMesh 이후에 호출해야 한다.
-    private bool TryResolveDestination(Vector3 desired, out Vector3 resolved)
+    // isExact는 요청한 지점 자체를 투영한 결과인지를 알려, 가장자리까지만 가는 경우를 도착으로 세지 않게 한다.
+    private bool TryResolveDestination(Vector3 desired, out Vector3 resolved, out bool isExact)
     {
         if (NavMesh.SamplePosition(desired, out NavMeshHit sampleHit, k_DestinationSampleRadius, NavMesh.AllAreas))
         {
             resolved = sampleHit.position;
+            isExact  = true;
             return true;
         }
+
+        isExact = false;
 
         // Raycast는 선이 내브메시 가장자리에서 끊기면 그 지점을, 끝까지 이어지면 매핑된 도착점을 hit에 채운다.
         // 어느 쪽이든 위치가 유한하면 그대로 쓸 수 있고, 무한대면 투영 자체가 실패한 것이다.
@@ -151,6 +307,14 @@ public class GroundMover : MonoBehaviour, IMover
         return false;
     }
 
+    // 새 이동 명령이 시작될 때 종료 판정 상태를 초기화한다. 이전 이동은 취소된 것이므로 이벤트를 발생시키지 않는다.
+    private void BeginMoveOrder()
+    {
+        _hasMoveOrder = true;
+        _wasStopped   = false;
+        BeginDestinationSettle();
+    }
+
     // 지정 위치로 이동; 위치가 내브메시 밖이면 갈 수 있는 가장 가까운 지점까지 이동하고, 이동 자체가 불가능하면 false 반환
     public bool Move(Vector2 targetPos)
     {
@@ -164,22 +328,37 @@ public class GroundMover : MonoBehaviour, IMover
             : 0f;
         Vector3 desired = new Vector3(targetPos.x, y, targetPos.y);
 
-        if (!TryResolveDestination(desired, out Vector3 destination))
+        if (!TryResolveDestination(desired, out Vector3 destination, out bool isExact))
             return false;
 
         NavMeshPath path = new NavMeshPath();
         if (!_agent.CalculatePath(destination, path) || !IsPathUsable(path))
             return false;
 
+        // 직전 추적 이동에서 늘려 둔 멈춤 거리가 남아 있으면 목적지 앞에서 멈추므로 여기서 되돌린다.
+        _agent.stoppingDistance = 0f;
         _agent.SetDestination(destination);
+
+        _requestedDestination = destination;
+        _destinationReachable = isExact && path.status == NavMeshPathStatus.PathComplete;
+        BeginMoveOrder();
         return true;
     }
 
-    // NavMeshAgent 경로를 초기화하고 추적 대상을 해제해 이동을 중지
+    // NavMeshAgent 경로를 초기화하고 추적 대상을 해제해 이동을 중지; 이동 중이었다면 OnMoveEnd를 발생시킨다
     public void Stop()
     {
-        _followTarget = null;
+        bool wasMoving = _hasMoveOrder;
+
+        _followTarget         = null;
+        _hasMoveOrder         = false;
+        _wasStopped           = false;
+        _hasStartedMoving     = false;
+        _destinationReachable = false;
         _agent.ResetPath();
+
+        if (wasMoving)
+            OnMoveEnd?.Invoke();
     }
 
     // 대상 Transform을 추적 시작; 대상이 내브메시 밖이어도 갈 수 있는 데까지 접근하며, 순환 체인이거나
@@ -191,18 +370,17 @@ public class GroundMover : MonoBehaviour, IMover
         if (IsInFollowChain(targetTransform))
             return false;
 
-        if (!EnsureOnNavMesh())
-            return false;
-
-        if (!TryResolveDestination(targetTransform.position, out Vector3 destination))
-            return false;
-
-        NavMeshPath path = new NavMeshPath();
-        if (!_agent.CalculatePath(destination, path) || !IsPathUsable(path))
-            return false;
-
+        Transform previousTarget = _followTarget;
         _followTarget = targetTransform;
-        _nextRepathTime = 0f; // 새 명령은 다음 Update에서 즉시 경로를 계산한다
+
+        if (!TrySetFollowDestination())
+        {
+            _followTarget = previousTarget;
+            return false;
+        }
+
+        _nextRepathTime = Time.time + k_FollowRepathInterval;
+        BeginMoveOrder();
         return true;
     }
 }
