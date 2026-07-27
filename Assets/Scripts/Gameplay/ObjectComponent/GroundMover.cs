@@ -56,6 +56,12 @@ public class GroundMover : MonoBehaviour, IMover
     private bool    _hasStartedMoving;
     // 이동 시작을 기다려주는 시한. 이 시각을 넘기면 출발하지 않았어도 정지 판정을 시작한다.
     private float   _moveStartDeadline;
+    // Move 호출자가 넘긴 도착 콜백. 그 호출로 시작된 이동에 대해서만 한 번 호출되고 비워진다.
+    private Action  _pendingArrived;
+    // Move(Vector2) 호출자가 넘긴 이동 종료 콜백. 그 호출로 시작된 이동에 대해서만 한 번 호출되고 비워진다.
+    private Action  _pendingMoveEnd;
+    // 이동 명령 세대 번호. Move나 Stop마다 증가시켜, 콜백을 호출하는 도중 새 명령이 들어온 경우를 구분한다.
+    private int     _moveOrderId;
 
     // NavMeshAgent와 HitableObject 컴포넌트를 캐싱
     private void Awake()
@@ -89,6 +95,7 @@ public class GroundMover : MonoBehaviour, IMover
 
     // 이동 명령이 살아 있는 동안 정지 상태로 바뀌는 순간에만 이벤트를 발생시킨다. 목적지에 실제로 닿았으면
     // OnArrived를 먼저 발생시키고, 어떤 경우든 OnMoveEnd를 이어서 발생시킨다.
+    // 이동을 명령한 쪽에 넘겨받은 콜백은 이벤트보다 먼저 호출한다.
     private void HandleMoveEnd()
     {
         if (!_hasMoveOrder)
@@ -106,15 +113,49 @@ public class GroundMover : MonoBehaviour, IMover
 
         bool arrived = HasReachedDestination();
 
+        // 구독자가 이벤트나 콜백 안에서 곧바로 새 이동을 명령할 수 있으므로 상태를 먼저 정리하고 호출한다.
+        // 콜백은 이 이동에만 속하므로, 지금 세대를 기억해 두고 새 명령으로 세대가 바뀌면 호출하지 않는다.
+        int orderId = _moveOrderId;
+
         // 추적 이동은 대상이 다시 멀어지면 계속 따라가야 하므로 명령을 유지한다. 위치 이동은 여기서 끝난다.
-        // 구독자가 이벤트 안에서 곧바로 새 이동을 명령할 수 있으므로 상태를 먼저 정리하고 호출한다.
         if (_followTarget == null)
             _hasMoveOrder = false;
+
+        // 콜백은 이 이동을 명령한 쪽의 후속 처리이므로 이벤트보다 먼저 호출한다. 이벤트를 먼저 발생시키면
+        // 구독자가 그 안에서 새 이동을 명령했을 때, 조건이 이미 충족된 콜백이 무관한 제3자 때문에 취소된다.
+        if (arrived)
+            InvokePendingCallback(ref _pendingArrived, orderId);
+        else if (_followTarget == null)
+            // 도착하지 못한 채 명령이 끝났으므로 도착 콜백은 호출될 기회가 없다. 추적은 명령이 살아 있어
+            // 막혀서 멈춘 뒤에도 다시 따라갈 수 있으므로, 그때는 버리지 않고 다음 도달까지 들고 간다.
+            _pendingArrived = null;
+
+        InvokePendingCallback(ref _pendingMoveEnd, orderId);
 
         if (arrived)
             OnArrived?.Invoke();
 
         OnMoveEnd?.Invoke();
+    }
+
+    // 이동 명령 세대가 그대로일 때만 대기 중인 콜백을 꺼내 비우고 호출한다. 세대가 바뀌었으면 그 콜백은 이미
+    // 폐기됐거나 새 명령에 속한 것이므로 이 이동의 종료로 호출해서는 안 된다.
+    private void InvokePendingCallback(ref Action pending, int orderId)
+    {
+        if (_moveOrderId != orderId)
+            return;
+
+        Action callback = pending;
+        pending = null;
+        callback?.Invoke();
+    }
+
+    // 대기 중인 콜백을 호출하지 않고 버리며 이동 명령 세대를 넘긴다. 새 Move나 Stop으로 이전 이동이 무효가 될 때 호출한다.
+    private void DiscardPendingCallbacks()
+    {
+        _moveOrderId++;
+        _pendingArrived = null;
+        _pendingMoveEnd = null;
     }
 
     // 정지 판정을 시작해도 되는지 확인한다. SetDestination 직후 몇 프레임은 경로 코너가 아직 준비되지 않아
@@ -316,8 +357,12 @@ public class GroundMover : MonoBehaviour, IMover
     }
 
     // 지정 위치로 이동; 위치가 내브메시 밖이면 갈 수 있는 가장 가까운 지점까지 이동하고, 이동 자체가 불가능하면 false 반환
-    public bool Move(Vector2 targetPos)
+    // onArrived/onMoveEnd는 이 호출로 시작된 이동에 대해서만 한 번 호출된다
+    public bool Move(Vector2 targetPos, Action onArrived = null, Action onMoveEnd = null)
     {
+        // 명령이 들어온 시점에 이전 이동은 취소된 것이므로, 이 호출이 실패로 끝나더라도 이전 콜백을 되살리지 않는다.
+        DiscardPendingCallbacks();
+
         _followTarget = null;
 
         if (!EnsureOnNavMesh())
@@ -341,14 +386,20 @@ public class GroundMover : MonoBehaviour, IMover
 
         _requestedDestination = destination;
         _destinationReachable = isExact && path.status == NavMeshPathStatus.PathComplete;
+        _pendingArrived       = onArrived;
+        _pendingMoveEnd       = onMoveEnd;
         BeginMoveOrder();
         return true;
     }
 
-    // NavMeshAgent 경로를 초기화하고 추적 대상을 해제해 이동을 중지; 이동 중이었다면 OnMoveEnd를 발생시킨다
+    // NavMeshAgent 경로를 초기화하고 추적 대상을 해제해 이동을 중지; 이동 중이었다면 OnMoveEnd와 대기 중인 이동 종료 콜백을 호출한다
     public void Stop()
     {
-        bool wasMoving = _hasMoveOrder;
+        bool   wasMoving       = _hasMoveOrder;
+        Action moveEndCallback = _pendingMoveEnd;
+
+        // 목적지에 닿지 못한 채 끝났으므로 도착 콜백은 호출하지 않고 버린다.
+        DiscardPendingCallbacks();
 
         _followTarget         = null;
         _hasMoveOrder         = false;
@@ -357,14 +408,20 @@ public class GroundMover : MonoBehaviour, IMover
         _destinationReachable = false;
         _agent.ResetPath();
 
+        // HandleMoveEnd와 같은 이유로 콜백을 이벤트보다 먼저 호출한다. 이미 캡처해 둔 콜백이라 세대 확인이
+        // 필요 없고, 도착 콜백 안에서 중지된 경우처럼 이동 명령이 먼저 정리됐어도 종료는 종료이므로 호출한다.
+        moveEndCallback?.Invoke();
+
         if (wasMoving)
             OnMoveEnd?.Invoke();
     }
 
     // 대상 Transform을 추적 시작; 대상이 내브메시 밖이어도 갈 수 있는 데까지 접근하며, 순환 체인이거나
-    // 이동 자체가 불가능하면 false 반환
-    public bool Move(Transform targetTransform)
+    // 이동 자체가 불가능하면 false 반환. onArrived는 대상에 처음 도달했을 때 한 번만 호출된다
+    public bool Move(Transform targetTransform, Action onArrived = null)
     {
+        DiscardPendingCallbacks();
+
         if (targetTransform == null) return false;
 
         if (IsInFollowChain(targetTransform))
@@ -380,6 +437,7 @@ public class GroundMover : MonoBehaviour, IMover
         }
 
         _nextRepathTime = Time.time + k_FollowRepathInterval;
+        _pendingArrived = onArrived;
         BeginMoveOrder();
         return true;
     }

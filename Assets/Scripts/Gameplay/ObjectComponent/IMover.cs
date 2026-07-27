@@ -13,9 +13,14 @@ public interface IMover
     event Action OnMoveEnd;
 
     // 지정 위치로 이동; 이동 자체가 불가능하면 false 반환
-    bool Move(Vector2 targetPos);
+    // onArrived/onMoveEnd는 이 호출로 시작된 이동에 대해서만 최대 한 번 호출되는 콜백으로, 발생 조건은 같은 이름의
+    // 이벤트와 같고 이벤트 구독자가 끼어들어 취소하지 못하도록 이벤트보다 먼저 호출된다.
+    // 콜백이 호출되기 전에 Move()가 다시 호출되면 이 이동은 취소된 것이므로, 그 호출의 성공 여부와 관계없이 콜백도 폐기된다.
+    bool Move(Vector2 targetPos, Action onArrived = null, Action onMoveEnd = null);
     // 대상 Transform을 추적; 순환 체인이거나 이동 자체가 불가능하면 false 반환
-    bool Move(Transform targetTransform);
-    // 현재 이동을 즉시 중지
+    // 추적은 대상이 다시 멀어지면 이동이 이어져 종료 시점이 하나로 정해지지 않으므로, 대상에 처음 도달했을 때 한 번 호출되는
+    // onArrived만 받는다. 중간에 막혀 멈춘 것은 도달이 아니므로 그때는 호출되지 않고 추적과 함께 유지된다.
+    bool Move(Transform targetTransform, Action onArrived = null);
+    // 현재 이동을 즉시 중지; 이동 중이었다면 대기 중인 이동 종료 콜백도 호출한다(도착 콜백은 폐기)
     void Stop();
 }
