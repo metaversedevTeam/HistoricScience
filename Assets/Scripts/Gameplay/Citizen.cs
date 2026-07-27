@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// 시민 유닛을 나타내며 선택된 상태에서 우클릭한 대상이 IGatherable이면 채집하고, 아니면 대상 추적 또는 위치 이동을 명령하는 컴포넌트
-public class Citizen : MonoBehaviour, ICommandable, ISavable
+// 시민 유닛을 나타내며 선택된 상태에서 우클릭한 대상이 IGatherable이면 채집하고, 아니면 대상 추적 또는 위치 이동을 명령하는 컴포넌트. 일터에 등록되어 일할 수도 있다.
+public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
 {
     [SerializeField] private Sprite _gatherCommandIcon;
     // 저장/복원 기능을 제공하는 컴포지션. PrefabId는 인스펙터에서 설정한다.
@@ -17,6 +17,9 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable
     private PlayerManager _pendingGatherPlayer;
     private IGatherable _gatherTarget;
     private ResourceInventory _gatherInventory;
+
+    // 현재 소속된 일터. 등록되지 않았으면 null이다.
+    private WorkPlace _currentWorkPlace;
 
     // SelectableObject, IMover, Gatherer 컴포넌트를 캐싱하고 명령 목록을 생성
     private void Awake()
@@ -157,6 +160,25 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable
     {
         _gatherTarget = null;
         _gatherInventory = null;
+    }
+
+    public WorkPlace CurrentWorkPlace => _currentWorkPlace;
+
+    // 일터에 등록되기 직전 호출. 진행 중인 이동·채집과 플레이어 구독을 정리해, 곧바로 캡처될 상태에 남은 명령이 없게 한다.
+    public void OnEnterWorkPlace(WorkPlace workPlace)
+    {
+        _currentWorkPlace = workPlace;
+
+        CancelGatherTargeting();
+        CancelGathering();
+        UnsubscribeFromPlayer();
+        _mover.Stop();
+    }
+
+    // 일터에서 해제되어 새 인스턴스로 복원된 직후 호출. 소속을 비워 다시 다른 일터에 등록될 수 있게 한다.
+    public void OnExitWorkPlace()
+    {
+        _currentWorkPlace = null;
     }
 
     public string PrefabId => _savable.PrefabId;
