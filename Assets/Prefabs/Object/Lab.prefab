@@ -111,6 +111,11 @@ MonoBehaviour:
   _workbenchButtonIcon: {fileID: 21300000, guid: 3a243952cd4c3ca4d81f2271deec5970, type: 3}
   _savable:
     _prefabId: Lab
+  _buildingIcon: {fileID: 21300000, guid: 3a243952cd4c3ca4d81f2271deec5970, type: 3}
+  _buildingMesh: {fileID: -2911862770028113714, guid: 2e526e529e6959d45b6ddf723753817e, type: 3}
+  _buildCost:
+  - Resource: {fileID: 11400000, guid: 66a4c6db477587647a450e30cd792563, type: 2}
+    Count: 3
 --- !u!208 &2633924789195897796
 NavMeshObstacle:
   m_ObjectHideFlags: 0

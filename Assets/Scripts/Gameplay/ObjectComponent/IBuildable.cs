@@ -7,3 +7,11 @@ public interface IBuildable : IIconProvider
     Mesh BuildingMesh { get; }
     IReadOnlyDictionary<ResourceData, int> BuildCost { get; }
 }
+
+// 건설 비용 하나(자원 종류·수량)를 인스펙터에서 지정하기 위한 직렬화 항목
+[System.Serializable]
+public struct BuildCostEntry
+{
+    public ResourceData Resource;
+    public int Count;
+}

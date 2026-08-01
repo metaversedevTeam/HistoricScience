@@ -2,22 +2,47 @@ using System.Collections.Generic;
 using UnityEngine;
 
 // 선택되었을 때 작업대 UI를 여는 명령을 제공하는 연구소 오브젝트
-public class Lab : MonoBehaviour, ICommandable, ISavable
+public class Lab : MonoBehaviour, ICommandable, ISavable, IBuildable
 {
     [SerializeField] private WorkbenchUI _workbenchUiPrefab;
     [SerializeField] private Sprite _workbenchButtonIcon;
     // 저장/복원 기능을 제공하는 컴포지션. PrefabId는 인스펙터에서 설정한다.
     [SerializeField] private SavableHandler _savable = new();
 
+    // 건물 선택 UI에 표시할 아이콘
+    [SerializeField] private Sprite _buildingIcon;
+    // 배치 미리보기 등에 쓰일 건물 형태
+    [SerializeField] private Mesh _buildingMesh;
+    // 인스펙터에서 지정하는 건설 비용 목록
+    [SerializeField] private List<BuildCostEntry> _buildCost = new();
+
     private SelectableObject _selectable;
     private PlayerManager _selectedBy;
     private IReadOnlyList<CommandData> _commands;
+    private IReadOnlyDictionary<ResourceData, int> _buildCostLookup;
 
-    // SelectableObject 컴포넌트를 캐싱하고 명령 목록을 생성
+    public Sprite Icon => _buildingIcon;
+    public Mesh BuildingMesh => _buildingMesh;
+    public IReadOnlyDictionary<ResourceData, int> BuildCost => _buildCostLookup;
+
+    // SelectableObject 컴포넌트를 캐싱하고 명령 목록·건설 비용 조회 테이블을 생성
     private void Awake()
     {
         _selectable = GetComponent<SelectableObject>();
         _commands = new List<CommandData> { new CommandData("작업대 열기", _workbenchButtonIcon, OpenWorkbenchUI) };
+        _buildCostLookup = BuildCostLookup();
+    }
+
+    // 인스펙터에서 지정한 건설 비용 목록을 자원별 조회 테이블로 변환한다.
+    private Dictionary<ResourceData, int> BuildCostLookup()
+    {
+        var lookup = new Dictionary<ResourceData, int>();
+        foreach (var entry in _buildCost)
+        {
+            if (entry.Resource != null)
+                lookup[entry.Resource] = entry.Count;
+        }
+        return lookup;
     }
 
     // 자신의 선택 이벤트를 구독
