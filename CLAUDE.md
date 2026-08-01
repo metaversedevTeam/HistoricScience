@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **HistoricScience** is a Unity 6 (6000.1.17f1) game project using the Universal Render Pipeline (URP 17.1.0). The project is in early development — only `Assets/Scenes/SampleScene.unity` exists; no C# scripts have been written yet.
 
+Figma Design Project's link is https://www.figma.com/design/7f9PqPS2FwR3zAKVI1P1MC/HistoricScience?node-id=0-1&t=fa0TG3DVxqslK3st-1
+
 ## Unity Workflow
 
 Unity projects are edited primarily through the Unity Editor GUI, not the command line. There is no build/lint/test CLI to run from this repo directly. To work with this project:
