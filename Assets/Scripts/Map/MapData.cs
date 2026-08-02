@@ -9,6 +9,9 @@ public sealed class MapData
     // 이 정규화 높이(0~1) 미만의 지형은 해수면 아래로 잠겨 걸을 수 없다. 씬에 배치되는 바다 평면의 높이(터레인 최대 높이 대비)와 같은 값으로 유지해야 한다.
     public const float SeaLevelHeight = 0.12f;
 
+    // 이 정규화 높이(0~1)를 초과하는 지형은 산/절벽 지대로 간주해 걸을 수 없다.
+    public const float WalkableMaxHeight = 0.28f;
+
     // 높이 영향력 계산의 완충값. 가중 거리에 더해져 정점 근처에서 영향력이 발산하는 것을 막고, 클수록 경계의 높이 전환이 넓고 완만해진다.
     private const float k_HeightBlendSoftness = 0.01f;
 
@@ -90,14 +93,14 @@ public sealed class MapData
     }
 
     // 주어진 맵 좌표가 걸을 수 있는 지형인지 판정한다. 지형 표면 높이가 해수면 위이면서 지정한 최대 높이 이하이면 걸을 수 있다. GetHeight만 사용하는 순수 계산이라 Unity 내비게이션/피직스 API에 의존하지 않고 백그라운드 스레드에서도 안전하다.
-    public bool IsWalkable(Vector2 position, float minHeight = SeaLevelHeight, float maxHeight = 1f)
+    public bool IsWalkable(Vector2 position, float minHeight = SeaLevelHeight, float maxHeight = WalkableMaxHeight)
     {
         return HandleIsHeightWalkable(HandleSampleSurfaceHeight(position), minHeight, maxHeight);
     }
 
     // 중심(center)에서 반지름(radius, 정규화 맵 좌표 단위) 안에 걸을 수 없는 지형이 하나라도 있으면 true를 반환한다. 건물 배치처럼 일정 범위 전체가 걸을 수 있어야 하는 경우에 쓴다.
     // 높이 표본 격자 해상도로 원 안의 표본만 검사하므로 비용은 반지름의 제곱에 비례하며, 걸을 수 없는 표본을 처음 만나면 즉시 종료한다. IsWalkable과 마찬가지로 Unity API에 의존하지 않는다.
-    public bool HasUnwalkableWithin(Vector2 center, float radius, float minHeight = SeaLevelHeight, float maxHeight = 1f)
+    public bool HasUnwalkableWithin(Vector2 center, float radius, float minHeight = SeaLevelHeight, float maxHeight = WalkableMaxHeight)
     {
         // 반지름이 표본 격자 한 칸보다 작아 원이 격자점을 하나도 담지 못하더라도 중심점만은 항상 검사한다.
         if (!HandleIsHeightWalkable(HandleSampleSurfaceHeight(center), minHeight, maxHeight))
