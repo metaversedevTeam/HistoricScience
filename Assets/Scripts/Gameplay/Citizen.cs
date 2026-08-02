@@ -5,6 +5,11 @@ using UnityEngine;
 public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
 {
     [SerializeField] private Sprite _gatherCommandIcon;
+    [SerializeField] private Sprite _buildCommandIcon;
+    // 건물 선택 UI 프리팹
+    [SerializeField] private BuildingSelectUI _buildingSelectUiPrefab;
+    // 건물 선택 UI에 나열할, IBuildable을 구현한 건물 프리팹 목록
+    [SerializeField] private List<GameObject> _buildablePrefabs;
     // 저장/복원 기능을 제공하는 컴포지션. PrefabId는 인스펙터에서 설정한다.
     [SerializeField] private SavableHandler _savable = new();
 
@@ -21,13 +26,20 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
     // 현재 소속된 일터. 등록되지 않았으면 null이다.
     private WorkPlace _currentWorkPlace;
 
+    // 열려 있는 건물 선택 UI. 열려 있지 않으면 null이다.
+    private BuildingSelectUI _openBuildingSelectUI;
+
     // SelectableObject, IMover, Gatherer 컴포넌트를 캐싱하고 명령 목록을 생성
     private void Awake()
     {
         _selectable = GetComponent<SelectableObject>();
         _mover = GetComponent<IMover>();
         _gatherer = GetComponent<Gatherer>();
-        _commands = new List<CommandData> { new CommandData("채집", _gatherCommandIcon, BeginGatherTargeting) };
+        _commands = new List<CommandData>
+        {
+            new CommandData("채집", _gatherCommandIcon, BeginGatherTargeting),
+            new CommandData("건물 짓기", _buildCommandIcon, OpenBuildingSelectUI),
+        };
     }
 
     // 자신의 선택 이벤트를 구독
@@ -36,12 +48,13 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
         _selectable.OnSelect += HandleSelect;
     }
 
-    // 자신의 선택 이벤트와 PlayerManager 구독을 해제하고 채집 타겟 지정 대기를 취소
+    // 자신의 선택 이벤트와 PlayerManager 구독을 해제하고 채집 타겟 지정 대기와 건물 선택 UI 구독을 취소
     private void OnDisable()
     {
         _selectable.OnSelect -= HandleSelect;
         UnsubscribeFromPlayer();
         CancelGatherTargeting();
+        UnsubscribeFromBuildingSelectUI();
     }
 
     // 채집 대상이 지정되어 있으면 매 프레임 채집을 시도
@@ -160,6 +173,52 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
     {
         _gatherTarget = null;
         _gatherInventory = null;
+    }
+
+    // 건물 짓기 명령을 실행해 건물 선택 UI를 열고 선택·닫기 결과를 구독한다.
+    private void OpenBuildingSelectUI()
+    {
+        if (_selectedBy == null) return;
+
+        UnsubscribeFromBuildingSelectUI();
+
+        _openBuildingSelectUI = UIManager.Instance.OpenUI(_buildingSelectUiPrefab, CollectBuildables());
+        _openBuildingSelectUI.OnBuildingSelected += HandleBuildingSelected;
+        _openBuildingSelectUI.OnFinishClose += HandleBuildingSelectUIClosed;
+    }
+
+    // 인스펙터에 등록된 건물 프리팹 중 IBuildable을 구현한 것만 골라 반환한다.
+    private IReadOnlyList<IBuildable> CollectBuildables()
+    {
+        var buildables = new List<IBuildable>();
+        foreach (var prefab in _buildablePrefabs)
+        {
+            if (prefab != null && prefab.TryGetComponent(out IBuildable buildable))
+                buildables.Add(buildable);
+        }
+        return buildables;
+    }
+
+    // 건물 선택 UI에서 건물이 선택되면 로그를 남긴다.
+    private void HandleBuildingSelected(IBuildable buildable)
+    {
+        Debug.Log($"Citizen({name}): 건물을 선택했습니다 - {(buildable as Component)?.name}");
+    }
+
+    // 건물 선택 UI가 닫히면 구독을 해제한다.
+    private void HandleBuildingSelectUIClosed(IManagedUI ui)
+    {
+        UnsubscribeFromBuildingSelectUI();
+    }
+
+    // 열려 있는 건물 선택 UI의 이벤트 구독을 해제하고 참조를 비운다.
+    private void UnsubscribeFromBuildingSelectUI()
+    {
+        if (_openBuildingSelectUI == null) return;
+
+        _openBuildingSelectUI.OnBuildingSelected -= HandleBuildingSelected;
+        _openBuildingSelectUI.OnFinishClose -= HandleBuildingSelectUIClosed;
+        _openBuildingSelectUI = null;
     }
 
     public WorkPlace CurrentWorkPlace => _currentWorkPlace;
