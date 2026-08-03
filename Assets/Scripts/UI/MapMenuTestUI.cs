@@ -57,14 +57,7 @@ namespace HistoricScience.Test
             bool overwritten = _mapSaveUtil.TryReadMapFile(slot) != null;
             int seed = HandleResolveSeed();
 
-            MapSaveData saveData = new MapSaveData
-            {
-                Seed = seed,
-                // 빈 문자열은 JsonUtility 파싱에 실패하므로, 내용 없는 유효한 JSON으로 채워 둔다.
-                InventoryJson = "{}",
-            };
-
-            if (!_mapSaveUtil.TrySaveMap(saveData, slot))
+            if (!_mapSaveUtil.TryCreateNewMap(slot, seed))
             {
                 HandleShowStatus($"'{slot}' 맵 생성에 실패했습니다.");
                 return;

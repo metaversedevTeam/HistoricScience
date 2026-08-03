@@ -47,6 +47,19 @@ public class MapSaveUtil : MonoBehaviour
         return m_MapDataGenerator.GenerateMapData(saveData.Seed);
     }
 
+    // 시드만으로 빈 상태의 새 맵 저장 파일을 생성한다. 이미 슬롯이 있으면 덮어쓴다. 성공하면 True 반환
+    public bool TryCreateNewMap(string slot, int seed)
+    {
+        MapSaveData saveData = new MapSaveData
+        {
+            Seed = seed,
+            // 빈 문자열은 JsonUtility 파싱에 실패하므로, 내용 없는 유효한 JSON으로 채워 둔다.
+            InventoryJson = "{}",
+        };
+
+        return TrySaveMap(saveData, slot);
+    }
+
     //MapSaveData를 JSON 포맷으로 로컬에 저장 시도, 성공하면 True 반환
     public bool TrySaveMap(MapSaveData saveData, string slot)
     {
