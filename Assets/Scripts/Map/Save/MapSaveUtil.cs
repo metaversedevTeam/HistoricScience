@@ -10,6 +10,15 @@ public class MapSaveUtil : MonoBehaviour
     // 로드 시 저장된 시드로 MapData를 재생성할 때 사용할 제너레이터
     [SerializeField] private MapDataGenerator m_MapDataGenerator;
 
+    // 새 맵 생성 시 (0,0) 근처에 시작 시민으로 소환할 프리팹. ISavable을 구현한 Citizen 컴포넌트가 있어야 한다.
+    [SerializeField] private Citizen m_InitialCitizenPrefab;
+    // 시작 시민 위치를 찾을 때 (0,0)에서 걸을 수 있는 곳까지 검색할 반경 (정규화 맵 좌표 단위)
+    [SerializeField] private float m_InitialCitizenSearchRadius = 2f;
+    // (0,0) 청크 TerrainPainter의 Map View Size와 반드시 같아야 하는, 맵 좌표를 월드 좌표로 환산할 때 쓰는 값
+    [SerializeField] private float m_OriginMapViewSize = 3f;
+    // (0,0) 청크가 실제로 만들어내는 터레인의 가로/세로 크기(월드 단위)와 반드시 같아야 하는 값
+    [SerializeField] private Vector2 m_OriginTerrainSize = new Vector2(500f, 500f);
+
     //맵 데이터와 저장되어야 하는 오브젝트들을 MapSaveData로 묶어 반환
     public MapSaveData GetSaveData(MapData mapData, ResourceInventory inventory, ItemCodex codex, List<ISavable> savables, CameraController cameraController)
     {
@@ -47,7 +56,8 @@ public class MapSaveUtil : MonoBehaviour
         return m_MapDataGenerator.GenerateMapData(saveData.Seed);
     }
 
-    // 시드만으로 빈 상태의 새 맵 저장 파일을 생성한다. 이미 슬롯이 있으면 덮어쓴다. 성공하면 True 반환
+    // 시드만으로 새 맵 저장 파일을 생성한다. (0,0)에서 가장 가까운 걸을 수 있는 위치에 시작 시민을 두고 카메라도
+    // 그 위치를 보도록 채워 넣는다. 이미 슬롯이 있으면 덮어쓴다. 성공하면 True 반환
     public bool TryCreateNewMap(string slot, int seed)
     {
         MapSaveData saveData = new MapSaveData
@@ -57,7 +67,57 @@ public class MapSaveUtil : MonoBehaviour
             InventoryJson = "{}",
         };
 
+        HandlePlaceInitialCitizenAndCamera(saveData, seed);
+
         return TrySaveMap(saveData, slot);
+    }
+
+    // (0,0)에서 가장 가까운 걸을 수 있는 위치를 찾아 시작 시민의 저장 항목과 카메라 위치를 saveData에 채운다.
+    private void HandlePlaceInitialCitizenAndCamera(MapSaveData saveData, int seed)
+    {
+        Debug.Log(nameof(m_MapDataGenerator) + ": " + m_MapDataGenerator);
+        Debug.Log(nameof(m_InitialCitizenPrefab) + ": " + m_InitialCitizenPrefab);
+        if (m_MapDataGenerator == null || m_InitialCitizenPrefab == null)
+            return;
+
+        MapData mapData = m_MapDataGenerator.GenerateMapData(seed);
+        if (mapData == null)
+            return;
+
+        if (!mapData.TryGetNearestWalkablePosition(Vector2.zero, out Vector2 spawnMapPosition, m_InitialCitizenSearchRadius))
+            Debug.LogWarning("MapSaveUtil: 검색 반경 안에서 걸을 수 있는 위치를 찾지 못해 (0,0) 위치에 시작 시민을 둡니다.");
+
+        Vector2 spawnWorldPosition = HandleMapToWorldXZ(spawnMapPosition);
+
+        saveData.Savables.Add(new SavableEntry
+        {
+            PrefabId = m_InitialCitizenPrefab.PrefabId,
+            StateJson = JsonUtility.ToJson(new InitialPositionState { X = spawnWorldPosition.x, Z = spawnWorldPosition.y }),
+        });
+
+        saveData.CameraJson = JsonUtility.ToJson(new InitialCameraState { Position = spawnWorldPosition });
+    }
+
+    // (0,0) 청크 TerrainPainter가 쓰는 것과 같은 변환식(원점이 (0,0)인 경우)으로, 맵 좌표를 월드 XZ 좌표로 바꾼다.
+    private Vector2 HandleMapToWorldXZ(Vector2 mapPosition)
+    {
+        return mapPosition / m_OriginMapViewSize * m_OriginTerrainSize;
+    }
+
+    // SavableHandler가 저장하는 것과 같은 필드만 담은, 시작 시민 위치 JSON 직렬화용 값 묶음
+    [Serializable]
+    private struct InitialPositionState
+    {
+        public float X;
+        public float Z;
+        public float YAngle;
+    }
+
+    // CameraController가 저장하는 것과 같은 필드만 담은, 시작 카메라 위치 JSON 직렬화용 값 묶음
+    [Serializable]
+    private struct InitialCameraState
+    {
+        public Vector2 Position;
     }
 
     //MapSaveData를 JSON 포맷으로 로컬에 저장 시도, 성공하면 True 반환

@@ -930,6 +930,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_MapDataGenerator: {fileID: 416800658}
+  m_InitialCitizenPrefab: {fileID: 4581206732114982103, guid: 34e93f6778c62bb47849c233e64a2344, type: 3}
+  m_InitialCitizenSearchRadius: 2
+  m_OriginMapViewSize: 3
+  m_OriginTerrainSize: {x: 500, y: 500}
 --- !u!4 &416800657
 Transform:
   m_ObjectHideFlags: 0
