@@ -7,6 +7,7 @@ using UnityEngine.InputSystem.UI;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using TMPro;
 
 // Hologram/BuildingPlacementController 프리팹과, 그 결과를 눈으로 확인할 테스트 씬을 생성하는 에디터 도구
 public static class BuildingPlacementPrefabTool
@@ -14,6 +15,8 @@ public static class BuildingPlacementPrefabTool
     private const string HologramMaterialPath = "Assets/Art/Materials/Hologram.mat";
     private const string HologramPrefabPath = "Assets/Prefabs/Gameplay/Hologram.prefab";
     private const string ControllerPrefabPath = "Assets/Prefabs/Gameplay/BuildingPlacementController.prefab";
+    private const string BuildCostRowPrefabPath = "Assets/Prefabs/UI/BuildCostRowUI.prefab";
+    private const string BuildCostUiPrefabPath = "Assets/Prefabs/UI/BuildCostUI.prefab";
     private const string CitizenPrefabPath = "Assets/Prefabs/Object/Citizen.prefab";
     private const string ChunkPrefabPath = "Assets/Prefabs/Environment/MapChunkTerrain.prefab";
     private const string SeaPrefabPath = "Assets/Prefabs/Environment/Sea.prefab";
@@ -29,11 +32,13 @@ public static class BuildingPlacementPrefabTool
 
         Material hologramMaterial = CreateOrUpdateHologramMaterial();
         Hologram hologramPrefab = CreateOrUpdateHologramPrefab(hologramMaterial);
-        BuildingPlacementController controllerPrefab = CreateOrUpdateControllerPrefab(hologramPrefab);
+        BuildCostRowUI costRowPrefab = CreateOrUpdateBuildCostRowPrefab();
+        BuildCostUI costUiPrefab = CreateOrUpdateBuildCostUiPrefab(costRowPrefab);
+        BuildingPlacementController controllerPrefab = CreateOrUpdateControllerPrefab(hologramPrefab, costUiPrefab);
         WireCitizenPrefab(controllerPrefab);
         CreateTestScene();
 
-        Debug.Log($"[BuildingPlacementPrefabTool] '{HologramPrefabPath}', '{ControllerPrefabPath}' 프리팹과 '{TestScenePath}' 테스트 씬을 생성했습니다.");
+        Debug.Log($"[BuildingPlacementPrefabTool] '{HologramPrefabPath}', '{BuildCostRowPrefabPath}', '{BuildCostUiPrefabPath}', '{ControllerPrefabPath}' 프리팹과 '{TestScenePath}' 테스트 씬을 생성했습니다.");
     }
 
     // 프리팹을 저장할 폴더가 없으면 생성한다.
@@ -88,14 +93,15 @@ public static class BuildingPlacementPrefabTool
         return prefabAsset.GetComponent<Hologram>();
     }
 
-    // BuildingPlacementController 컴포넌트를 홀로그램/Ground 레이어와 연결한 프리팹을 만들거나 갱신한다.
-    private static BuildingPlacementController CreateOrUpdateControllerPrefab(Hologram hologramPrefab)
+    // BuildingPlacementController 컴포넌트를 홀로그램/건설 비용 UI/Ground 레이어와 연결한 프리팹을 만들거나 갱신한다.
+    private static BuildingPlacementController CreateOrUpdateControllerPrefab(Hologram hologramPrefab, BuildCostUI costUiPrefab)
     {
         var root = new GameObject("BuildingPlacementController");
         var controller = root.AddComponent<BuildingPlacementController>();
 
         var so = new SerializedObject(controller);
         so.FindProperty("_hologramPrefab").objectReferenceValue = hologramPrefab;
+        so.FindProperty("_buildCostUiPrefab").objectReferenceValue = costUiPrefab;
         so.FindProperty("_groundLayer").intValue = LayerMask.GetMask("Ground");
         so.ApplyModifiedPropertiesWithoutUndo();
 
@@ -103,6 +109,89 @@ public static class BuildingPlacementPrefabTool
         Object.DestroyImmediate(root);
 
         return prefabAsset.GetComponent<BuildingPlacementController>();
+    }
+
+    // 자원 아이콘 + 보유/필요 수량 텍스트로 구성된 건설 비용 행 프리팹을 만들거나 갱신한다.
+    private static BuildCostRowUI CreateOrUpdateBuildCostRowPrefab()
+    {
+        var root = new GameObject("BuildCostRowUI", typeof(RectTransform), typeof(VerticalLayoutGroup));
+        var rootRect = root.GetComponent<RectTransform>();
+        rootRect.sizeDelta = new Vector2(70f, 90f);
+
+        var layout = root.GetComponent<VerticalLayoutGroup>();
+        layout.childAlignment = TextAnchor.MiddleCenter;
+        layout.childControlWidth = false;
+        layout.childControlHeight = false;
+        layout.spacing = 4f;
+
+        var iconGO = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+        iconGO.transform.SetParent(root.transform, false);
+        var iconRect = iconGO.GetComponent<RectTransform>();
+        iconRect.sizeDelta = new Vector2(48f, 48f);
+        var icon = iconGO.GetComponent<Image>();
+
+        var textGO = new GameObject("CountText", typeof(RectTransform));
+        textGO.transform.SetParent(root.transform, false);
+        var textRect = textGO.GetComponent<RectTransform>();
+        textRect.sizeDelta = new Vector2(70f, 30f);
+        var countText = textGO.AddComponent<TextMeshProUGUI>();
+        countText.alignment = TextAlignmentOptions.Center;
+        countText.fontSize = 24f;
+        countText.text = "0 / 0";
+
+        var row = root.AddComponent<BuildCostRowUI>();
+        var so = new SerializedObject(row);
+        so.FindProperty("_icon").objectReferenceValue = icon;
+        so.FindProperty("_countText").objectReferenceValue = countText;
+        so.ApplyModifiedPropertiesWithoutUndo();
+
+        GameObject prefabAsset = PrefabUtility.SaveAsPrefabAsset(root, BuildCostRowPrefabPath);
+        Object.DestroyImmediate(root);
+
+        return prefabAsset.GetComponent<BuildCostRowUI>();
+    }
+
+    // 건설 비용 행들을 가로로 나열해 보여주는 건설 비용 UI 프리팹을 만들거나 갱신한다. UIManager의 공용 Canvas 아래 배치되므로 자체 Canvas는 두지 않는다.
+    private static BuildCostUI CreateOrUpdateBuildCostUiPrefab(BuildCostRowUI rowPrefab)
+    {
+        var root = new GameObject("BuildCostUI", typeof(RectTransform), typeof(Image));
+        var rootRect = root.GetComponent<RectTransform>();
+        rootRect.anchorMin = new Vector2(0.5f, 0f);
+        rootRect.anchorMax = new Vector2(0.5f, 0f);
+        rootRect.pivot = new Vector2(0.5f, 0f);
+        rootRect.sizeDelta = new Vector2(600f, 110f);
+        rootRect.anchoredPosition = new Vector2(0f, 240f);
+
+        var background = root.GetComponent<Image>();
+        background.color = new Color(0f, 0f, 0f, 0.5f);
+
+        var containerGO = new GameObject("RowContainer", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+        containerGO.transform.SetParent(root.transform, false);
+        var containerRect = containerGO.GetComponent<RectTransform>();
+        containerRect.anchorMin = Vector2.zero;
+        containerRect.anchorMax = Vector2.one;
+        containerRect.offsetMin = Vector2.zero;
+        containerRect.offsetMax = Vector2.zero;
+
+        var layout = containerGO.GetComponent<HorizontalLayoutGroup>();
+        layout.padding = new RectOffset(10, 10, 10, 10);
+        layout.spacing = 20f;
+        layout.childAlignment = TextAnchor.MiddleCenter;
+        layout.childControlWidth = false;
+        layout.childControlHeight = false;
+        layout.childForceExpandWidth = false;
+        layout.childForceExpandHeight = false;
+
+        var costUi = root.AddComponent<BuildCostUI>();
+        var so = new SerializedObject(costUi);
+        so.FindProperty("_rowPrefab").objectReferenceValue = rowPrefab;
+        so.FindProperty("_rowContainer").objectReferenceValue = containerRect;
+        so.ApplyModifiedPropertiesWithoutUndo();
+
+        GameObject prefabAsset = PrefabUtility.SaveAsPrefabAsset(root, BuildCostUiPrefabPath);
+        Object.DestroyImmediate(root);
+
+        return prefabAsset.GetComponent<BuildCostUI>();
     }
 
     // Citizen 프리팹의 위치 지정 컨트롤러 필드가 비어 있으면 새로 만든 프리팹을 연결한다.

@@ -45,6 +45,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _hologramPrefab: {fileID: 6037620406772658010, guid: 9f7d4f42196f10040b8260d5ae698eb9, type: 3}
+  _buildCostUiPrefab: {fileID: 7932998278463481218, guid: a150dd98f37d3964c8fe33503e48293e, type: 3}
   _groundLayer:
     serializedVersion: 2
     m_Bits: 64

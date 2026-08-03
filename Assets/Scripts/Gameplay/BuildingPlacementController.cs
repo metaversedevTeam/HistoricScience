@@ -10,6 +10,7 @@ public class BuildingPlacementController : SelectableObject, ICommandable
     private enum PlacementState { Positioning, Confirmed }
 
     [SerializeField] private Hologram _hologramPrefab;
+    [SerializeField] private BuildCostUI _buildCostUiPrefab;
     [SerializeField] private LayerMask _groundLayer;
     [SerializeField] private Color _validColor = new Color(0.2f, 0.5f, 1f, 0.5f);
     [SerializeField] private Color _invalidColor = new Color(1f, 0.2f, 0.2f, 0.5f);
@@ -18,6 +19,7 @@ public class BuildingPlacementController : SelectableObject, ICommandable
     private IBuildable _buildable;
     private GameObject _buildingPrefab;
     private Hologram _hologram;
+    private BuildCostUI _openBuildCostUI;
     private Camera _camera;
     private PlacementState _state;
     private bool _isValidPosition;
@@ -123,7 +125,7 @@ public class BuildingPlacementController : SelectableObject, ICommandable
         return Mathf.Max(bounds.extents.x, bounds.extents.z);
     }
 
-    // 현재 홀로그램 위치를 확정해 선택 상태로 전환하고, 카메라가 그 위치를 중심으로 이동하도록 만든다.
+    // 현재 홀로그램 위치를 확정해 선택 상태로 전환하고, 카메라가 그 위치를 중심으로 이동하도록 만들며, 건설 비용 UI를 연다.
     private void ConfirmPlacement()
     {
         _state = PlacementState.Confirmed;
@@ -131,6 +133,9 @@ public class BuildingPlacementController : SelectableObject, ICommandable
 
         transform.position = _hologramWorldPosition;
         _playerManager.SelectExternally(this);
+
+        var costData = new BuildCostData(_buildable.BuildCost, _playerManager.ResourceInventory);
+        _openBuildCostUI = UIManager.Instance.OpenUI(_buildCostUiPrefab, costData);
     }
 
     // 확정 후 다른 대상을 선택하는 등으로 선택이 풀리면 배치를 취소한다.
@@ -184,7 +189,7 @@ public class BuildingPlacementController : SelectableObject, ICommandable
         FinishPlacement();
     }
 
-    // 홀로그램을 파괴하고, 확정 단계(스스로가 선택 상태)였다면 선택도 해제한 뒤 컨트롤러 자신도 파괴한다.
+    // 홀로그램과 열려 있는 건설 비용 UI를 정리하고, 확정 단계(스스로가 선택 상태)였다면 선택도 해제한 뒤 컨트롤러 자신도 파괴한다.
     // 확정 전(ESC 취소)에는 원래 선택돼 있던 시민 등을 건드리지 않도록 선택 해제를 건너뛴다.
     private void FinishPlacement()
     {
@@ -192,6 +197,12 @@ public class BuildingPlacementController : SelectableObject, ICommandable
 
         if (_hologram != null)
             Destroy(_hologram.gameObject);
+
+        if (_openBuildCostUI != null)
+        {
+            _openBuildCostUI.Close();
+            _openBuildCostUI = null;
+        }
 
         if (_state == PlacementState.Confirmed)
             _playerManager.DeselectExternally();
