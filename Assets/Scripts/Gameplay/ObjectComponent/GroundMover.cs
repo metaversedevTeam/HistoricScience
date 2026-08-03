@@ -358,7 +358,7 @@ public class GroundMover : MonoBehaviour, IMover
 
     // 지정 위치로 이동; 위치가 내브메시 밖이면 갈 수 있는 가장 가까운 지점까지 이동하고, 이동 자체가 불가능하면 false 반환
     // onArrived/onMoveEnd는 이 호출로 시작된 이동에 대해서만 한 번 호출된다
-    public bool Move(Vector2 targetPos, Action onArrived = null, Action onMoveEnd = null)
+    public bool Move(Vector2 targetPos, Action onArrived = null, Action onMoveEnd = null, float stoppingDistance = 0f)
     {
         // 명령이 들어온 시점에 이전 이동은 취소된 것이므로, 이 호출이 실패로 끝나더라도 이전 콜백을 되살리지 않는다.
         DiscardPendingCallbacks();
@@ -380,8 +380,8 @@ public class GroundMover : MonoBehaviour, IMover
         if (!_agent.CalculatePath(destination, path) || !IsPathUsable(path))
             return false;
 
-        // 직전 추적 이동에서 늘려 둔 멈춤 거리가 남아 있으면 목적지 앞에서 멈추므로 여기서 되돌린다.
-        _agent.stoppingDistance = 0f;
+        // 인자로 받은 멈춤 거리를 적용한다(기본 0). 직전 추적 이동에서 늘려 둔 값이 남아 있을 수 있으므로 항상 덮어쓴다.
+        _agent.stoppingDistance = stoppingDistance;
         _agent.SetDestination(destination);
 
         _requestedDestination = destination;

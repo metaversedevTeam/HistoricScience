@@ -209,7 +209,7 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
         _openBuildingSelectUI.Close();
 
         var placementController = Instantiate(_buildingPlacementControllerPrefab);
-        placementController.BeginPlacement(buildable, (buildable as Component)?.gameObject, _selectedBy);
+        placementController.BeginPlacement(buildable, (buildable as Component)?.gameObject, _selectedBy, _mover, GetComponent<HitableObject>());
     }
 
     // 건물 선택 UI가 닫히면 구독을 해제한다.

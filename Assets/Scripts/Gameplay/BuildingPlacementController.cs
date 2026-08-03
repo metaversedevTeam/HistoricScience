@@ -18,11 +18,14 @@ public class BuildingPlacementController : SelectableObject, ICommandable
     private PlayerManager _playerManager;
     private IBuildable _buildable;
     private GameObject _buildingPrefab;
+    private IMover _mover;
+    private HitableObject _moverHitable;
     private Hologram _hologram;
     private BuildCostUI _openBuildCostUI;
     private Camera _camera;
     private PlacementState _state;
     private bool _isValidPosition;
+    private bool _isMovingToBuildSite;
     private Vector3 _hologramWorldPosition;
     private IReadOnlyList<CommandData> _commands;
 
@@ -46,12 +49,15 @@ public class BuildingPlacementController : SelectableObject, ICommandable
     // 이 오브젝트가 제공하는 명령 목록을 반환한다.
     public IReadOnlyList<CommandData> GetCommands() => _commands;
 
-    // 건물 선택 UI에서 고른 건물로 위치 지정 모드를 시작한다.
-    public void BeginPlacement(IBuildable buildable, GameObject buildingPrefab, PlayerManager playerManager)
+    // 건물 선택 UI에서 고른 건물로 위치 지정 모드를 시작한다. mover는 건축 확정 시 배치 위치까지 걸어갈 시민의 이동 컴포넌트,
+    // moverHitable은 그 시민의 충돌 반경으로, 건물의 반경과 합산해 건물 중심이 아닌 근처에서 멈추게 하는 데 쓰인다.
+    public void BeginPlacement(IBuildable buildable, GameObject buildingPrefab, PlayerManager playerManager, IMover mover, HitableObject moverHitable)
     {
         _buildable = buildable;
         _buildingPrefab = buildingPrefab;
         _playerManager = playerManager;
+        _mover = mover;
+        _moverHitable = moverHitable;
         _state = PlacementState.Positioning;
 
         _hologram = Instantiate(_hologramPrefab);
@@ -144,9 +150,55 @@ public class BuildingPlacementController : SelectableObject, ICommandable
         CancelPlacement();
     }
 
-    // 건축 명령 실행 — 자원이 충분하면 소모하고 실제 건물을 배치한 뒤 위치 지정 모드를 종료한다.
+    // 건축 명령 실행 — 즉시 짓지 않고 시민을 배치 위치 근처까지 걸어가게 하며, 도착하면 HandleArrivedAtBuildSite가 실제 건축을 수행한다.
+    // 이동이 시작되면 건축 위치 지정 UI(홀로그램·명령 버튼·비용 패널)는 비활성화한다.
     private void ExecuteBuild()
     {
+        if (_isMovingToBuildSite) return;
+
+        Vector2 destination = new Vector2(_hologramWorldPosition.x, _hologramWorldPosition.z);
+        bool started = _mover.Move(destination, HandleArrivedAtBuildSite, HandleMoveEndAtBuildSite, ComputeApproachDistance());
+        if (!started)
+        {
+            Debug.LogWarning("[BuildingPlacementController] 건축 위치로 이동할 수 없습니다.");
+            return;
+        }
+
+        _isMovingToBuildSite = true;
+        HidePlacementUI();
+    }
+
+    // 지을 건물과 이동하는 시민의 Hitable 반경을 합산해, 건물 중심이 아니라 그 언저리에서 멈추게 할 거리를 계산한다.
+    private float ComputeApproachDistance()
+    {
+        HitableObject buildingHitable = _buildingPrefab.GetComponent<HitableObject>();
+        float buildingRadius = buildingHitable != null ? buildingHitable.HitRadius : 0f;
+        float moverRadius = _moverHitable != null ? _moverHitable.HitRadius : 0f;
+
+        return buildingRadius + moverRadius;
+    }
+
+    // 이동이 시작되면 건축 UI(명령 버튼·비용 패널)를 숨긴다. 홀로그램은 실제로 건축이 완료될 때(FinishPlacement)까지 배치 위치 표시로 남겨둔다.
+    // 도착 판정은 계속 대기해야 하므로 컨트롤러 자신은 파괴하지 않는다.
+    // 스스로 선택을 해제하는 것이므로, 해제 시 배치를 취소해버리는 HandleDeselected 구독은 먼저 해제해 둔다.
+    private void HidePlacementUI()
+    {
+        _playerManager.OnDeselected -= HandleDeselected;
+
+        if (_openBuildCostUI != null)
+        {
+            _openBuildCostUI.Close();
+            _openBuildCostUI = null;
+        }
+
+        _playerManager.DeselectExternally();
+    }
+
+    // 시민이 배치 위치에 실제로 도착했을 때 호출 — 자원을 확인해 소모하고 건물을 소환한다.
+    private void HandleArrivedAtBuildSite()
+    {
+        _isMovingToBuildSite = false;
+
         if (!HasEnoughResources())
         {
             Debug.LogWarning("[BuildingPlacementController] 자원이 부족해 건축할 수 없습니다.");
@@ -159,7 +211,17 @@ public class BuildingPlacementController : SelectableObject, ICommandable
         FinishPlacement();
     }
 
-    // 취소 명령 실행 — 아무것도 짓지 않고 위치 지정 모드를 종료한다.
+    // 이동이 도착 없이 끝난 경우(길이 막혀 멈춤 등) 경고를 남기고 다시 시도하거나 취소할 수 있게 둔다.
+    // 도착에 성공한 경우에는 HandleArrivedAtBuildSite가 먼저 실행되며 플래그를 이미 내려두므로 여기서는 무시한다.
+    private void HandleMoveEndAtBuildSite()
+    {
+        if (!_isMovingToBuildSite) return;
+
+        _isMovingToBuildSite = false;
+        Debug.LogWarning("[BuildingPlacementController] 건축 위치까지 이동하지 못했습니다.");
+    }
+
+    // 취소 명령 실행 — 아무것도 짓지 않은 채 위치 지정 모드를 종료한다. 이동이 시작되면 UI가 비활성화되어 이 시점에는 아직 이동 전이다.
     private void ExecuteCancel()
     {
         FinishPlacement();
@@ -194,6 +256,12 @@ public class BuildingPlacementController : SelectableObject, ICommandable
     private void FinishPlacement()
     {
         UnsubscribeFromPlayer();
+
+        if (_isMovingToBuildSite)
+        {
+            _isMovingToBuildSite = false;
+            _mover.Stop();
+        }
 
         if (_hologram != null)
             Destroy(_hologram.gameObject);
