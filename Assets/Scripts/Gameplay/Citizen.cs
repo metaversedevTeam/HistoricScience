@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -252,6 +253,18 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
     // 현재 상태를 JSON 문자열로 캡처한다.
     public string CaptureJson() => _savable.CaptureJson(transform);
 
-    // JSON 문자열로 상태를 복원한다.
-    public void ApplyJson(string json) => _savable.ApplyJson(transform, json);
+    // JSON 문자열로 상태를 복원하고 다음 프레임에 지면 높이로 맞춘다.
+    public void ApplyJson(string json)
+    {
+        _savable.ApplyJson(transform, json);
+        StartCoroutine(HandleSnapToGroundNextFrame());
+    }
+
+    // 한 프레임 대기한 뒤 GroundSnapper가 있으면 지면 높이로 맞춘다.
+    private IEnumerator HandleSnapToGroundNextFrame()
+    {
+        yield return null;
+        if (TryGetComponent(out GroundSnapper snapper))
+            snapper.SnapToGround();
+    }
 }
