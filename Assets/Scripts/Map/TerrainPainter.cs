@@ -68,6 +68,13 @@ namespace HistoricScience.Test
             return worldDistance * (m_MapViewSize / m_Terrain.terrainData.size.x);
         }
 
+        // 정규화 맵 좌표를 이 터레인의 출력 설정 기준 터레인 표면 월드 좌표로 변환한다. WorldToMapPosition의 역함수로,
+        // 맵 좌표 기준으로 계산한 결과(예: 가장 가까운 걸을 수 있는 위치)를 다시 씬에 표시해야 할 때 쓴다.
+        public Vector3 MapToWorldPosition(Vector2 mapPosition)
+        {
+            return HandleMapToWorldPosition(mapPosition);
+        }
+
         // 주입받은 시드로 MapData 생성부터 굽기까지 전체 과정을 메인 스레드에서 동기적으로 실행한다. 에디터의 Paint 버튼처럼 즉시 결과가 필요할 때 사용한다.
         public void PaintVoronoiTerrain(int seed)
         {

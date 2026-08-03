@@ -132,6 +132,54 @@ public sealed class MapData
         return false;
     }
 
+    // position에서 가장 가까운 걸을 수 있는 위치를 찾아 result에 채운다. position 자체가 이미 걸을 수 있으면 검색 없이 그 자리를 그대로 반환한다.
+    // searchRadius(정규화 맵 좌표 단위) 안에서 걸을 수 있는 곳을 찾지 못하면 false를 반환하고 result에는 원래 position을 담는다.
+    // HasUnwalkableWithin과 마찬가지로 높이 표본 격자점만 후보로 삼아 비용은 반지름의 제곱에 비례하며, Unity API에 의존하지 않아 백그라운드 스레드에서도 안전하다.
+    public bool TryGetNearestWalkablePosition(Vector2 position, out Vector2 result, float searchRadius, float minHeight = SeaLevelHeight, float maxHeight = WalkableMaxHeight)
+    {
+        if (IsWalkable(position, minHeight, maxHeight))
+        {
+            result = position;
+            return true;
+        }
+
+        Vector2 centerGrid = position * HeightSamplesPerUnit;
+        float gridRadius = Mathf.Abs(searchRadius) * HeightSamplesPerUnit;
+        float gridRadiusSqr = gridRadius * gridRadius;
+
+        int minGridX = Mathf.FloorToInt(centerGrid.x - gridRadius);
+        int maxGridX = Mathf.CeilToInt(centerGrid.x + gridRadius);
+        int minGridY = Mathf.FloorToInt(centerGrid.y - gridRadius);
+        int maxGridY = Mathf.CeilToInt(centerGrid.y + gridRadius);
+
+        bool found = false;
+        float nearestDistanceSqr = float.MaxValue;
+        Vector2Int nearestGrid = default;
+
+        for (int gridY = minGridY; gridY <= maxGridY; gridY++)
+        {
+            for (int gridX = minGridX; gridX <= maxGridX; gridX++)
+            {
+                float dx = gridX - centerGrid.x;
+                float dy = gridY - centerGrid.y;
+                float distanceSqr = dx * dx + dy * dy;
+                // 이미 검색 반경을 벗어났거나 지금까지 찾은 것보다 멀면 더 볼 필요가 없다.
+                if (distanceSqr > gridRadiusSqr || distanceSqr >= nearestDistanceSqr)
+                    continue;
+
+                if (!HandleIsHeightWalkable(GetHeight(new Vector2Int(gridX, gridY)), minHeight, maxHeight))
+                    continue;
+
+                nearestDistanceSqr = distanceSqr;
+                nearestGrid = new Vector2Int(gridX, gridY);
+                found = true;
+            }
+        }
+
+        result = found ? (Vector2)nearestGrid / HeightSamplesPerUnit : position;
+        return found;
+    }
+
     // 맵 좌표를 둘러싼 높이 격자점 4개를 이중선형 보간해, 실제 터레인 표면과 같은 높이(0~1)를 계산한다. (TerrainPainter가 높이맵을 굽는 방식과 동일하다)
     private float HandleSampleSurfaceHeight(Vector2 position)
     {
