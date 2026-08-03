@@ -2,13 +2,13 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
-using UnityEngine.UI;
-using TMPro;
 
 // 선택된 유닛의 ICommandable 명령 목록을 하단 패널에 버튼으로 표시하는, 씬에 상주하는 UI
 public class TempCommandPanelUI : MonoBehaviour
 {
     [SerializeField] private Transform _buttonContainer;
+
+    [SerializeField] private CommandButtonView _commandButtonPrefab;
 
     [SerializeField] private PlayerManager _playerManager;
 
@@ -71,41 +71,12 @@ public class TempCommandPanelUI : MonoBehaviour
         ClearButtons();
     }
 
-    // CommandData 하나에 대응하는 버튼을 생성해 컨테이너에 추가한다.
+    // CommandData 하나에 대응하는 버튼을 프리팹으로부터 생성해 컨테이너에 추가한다.
     private void CreateButton(CommandData cmd)
     {
-        var btnGO = new GameObject(cmd.Name);
-        btnGO.transform.SetParent(_buttonContainer, false);
-
-        var rect = btnGO.AddComponent<RectTransform>();
-        rect.sizeDelta = new Vector2(100f, 100f);
-
-        var img = btnGO.AddComponent<Image>();
-        img.color = new Color(0.15f, 0.15f, 0.15f, 1f);
-
-        var btn = btnGO.AddComponent<Button>();
-        var colors = btn.colors;
-        colors.normalColor      = new Color(0.15f, 0.15f, 0.15f);
-        colors.highlightedColor = new Color(0.35f, 0.35f, 0.35f);
-        colors.pressedColor     = new Color(0.05f, 0.05f, 0.05f);
-        btn.colors = colors;
-        btn.onClick.AddListener(() => cmd.OnExecute?.Invoke());
-
-        var labelGO = new GameObject("Label");
-        labelGO.transform.SetParent(btnGO.transform, false);
-        var labelRect = labelGO.AddComponent<RectTransform>();
-        labelRect.anchorMin = Vector2.zero;
-        labelRect.anchorMax = Vector2.one;
-        labelRect.offsetMin = Vector2.zero;
-        labelRect.offsetMax = Vector2.zero;
-
-        var tmp = labelGO.AddComponent<TextMeshProUGUI>();
-        tmp.text      = cmd.Name;
-        tmp.alignment = TextAlignmentOptions.Center;
-        tmp.fontSize  = 16f;
-        tmp.color     = Color.white;
-
-        _activeButtons.Add(btnGO);
+        var view = Instantiate(_commandButtonPrefab, _buttonContainer);
+        view.Bind(cmd);
+        _activeButtons.Add(view.gameObject);
     }
 
     // 생성된 버튼 오브젝트를 모두 파괴한다.
