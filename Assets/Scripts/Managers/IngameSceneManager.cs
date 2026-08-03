@@ -21,6 +21,8 @@ public class IngameSceneManager : MonoBehaviour
     [SerializeField] private ResourceInventory _resourceInventory;
     // 저장/복원 대상 도감
     [SerializeField] private ItemCodex _itemCodex;
+    // 저장/복원 대상 카메라. 없어도 맵 저장/불러오기 자체는 계속 동작하며 카메라 위치만 복원되지 않는다.
+    [SerializeField] private CameraController _cameraController;
 
     // 이번 씬에서 열린 맵 파일의 원본 데이터
     private MapSaveData _saveData;
@@ -48,6 +50,9 @@ public class IngameSceneManager : MonoBehaviour
 
         _chunkManager.SetSeed(_saveData.Seed);
         await _chunkLoader.BeginLoadingAsync();
+
+        // 청크 로딩이 끝나 주변 지형이 실제로 존재한 뒤에 복원해, 아직 구워지지 않은 지형 위로 카메라가 옮겨지지 않게 한다.
+        HandleRestoreCameraPosition();
     }
 
     // 현재 맵 상태(맵 데이터, 인벤토리, 씬의 모든 ISavable)를 지정한 슬롯에 저장한다. 성공하면 true를 반환한다.
@@ -65,7 +70,7 @@ public class IngameSceneManager : MonoBehaviour
             return false;
         }
 
-        MapSaveData saveData = _mapSaveUtil.GetSaveData(_mapData, _resourceInventory, _itemCodex, HandleCollectSavables());
+        MapSaveData saveData = _mapSaveUtil.GetSaveData(_mapData, _resourceInventory, _itemCodex, HandleCollectSavables(), _cameraController);
 
         // 아직 청크가 로드되지 않아 소환되지 못한 오브젝트는 씬에 없으므로, 원본 항목을 그대로 이어 붙여 유실을 막는다.
         if (_pendingSavables != null)
@@ -122,7 +127,16 @@ public class IngameSceneManager : MonoBehaviour
         _itemCodex.ApplyJson(_saveData.CodexJson);
     }
 
-    // 씬에 살아 있는 모든 ISavable 구현체를 찾아 목록으로 만든다. 별도 필드로 저장되는 인벤토리와 도감은 제외한다.
+    // 저장된 카메라 위치가 있으면 복원한다.
+    private void HandleRestoreCameraPosition()
+    {
+        if (_cameraController == null || string.IsNullOrEmpty(_saveData.CameraJson))
+            return;
+
+        _cameraController.ApplyJson(_saveData.CameraJson);
+    }
+
+    // 씬에 살아 있는 모든 ISavable 구현체를 찾아 목록으로 만든다. 별도 필드로 저장되는 인벤토리·도감·카메라는 제외한다.
     private List<ISavable> HandleCollectSavables()
     {
         List<ISavable> savables = new();
@@ -131,7 +145,8 @@ public class IngameSceneManager : MonoBehaviour
         {
             if (behaviour is ISavable savable
                 && !ReferenceEquals(savable, _resourceInventory)
-                && !ReferenceEquals(savable, _itemCodex))
+                && !ReferenceEquals(savable, _itemCodex)
+                && !ReferenceEquals(savable, _cameraController))
                 savables.Add(savable);
         }
 

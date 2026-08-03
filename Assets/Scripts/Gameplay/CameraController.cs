@@ -1,8 +1,9 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 // 스타크래프트식 RTS 카메라 이동을 담당하는 컨트롤러
-public class CameraController : MonoBehaviour
+public class CameraController : MonoBehaviour, ISavable
 {
     [SerializeField] private PlayerManager _playerManager;
 
@@ -166,5 +167,33 @@ public class CameraController : MonoBehaviour
     public void MoveTo(float x, float z)
     {
         MoveTo(new Vector2(x, z));
+    }
+
+    // 씬에 상주하는 객체라 프리팹 소환에 쓰이지 않는 고정 식별자
+    public string PrefabId => "CameraController";
+
+    // 현재 카메라의 XZ 위치를 JSON 문자열로 캡처한다. Y(고도)는 지형 높이로 다시 계산되므로 저장하지 않는다.
+    public string CaptureJson()
+    {
+        SaveState state = new SaveState { Position = new Vector2(transform.position.x, transform.position.z) };
+        return JsonUtility.ToJson(state);
+    }
+
+    // JSON 문자열에서 카메라의 XZ 위치를 복원한다. MoveTo를 통해 적용되므로 고도는 현재 지형 높이로 다시 계산된다.
+    public void ApplyJson(string json)
+    {
+        if (string.IsNullOrEmpty(json)) return;
+
+        SaveState state = JsonUtility.FromJson<SaveState>(json);
+        if (state == null) return;
+
+        MoveTo(state.Position);
+    }
+
+    // 카메라 위치 저장 상태의 직렬화 래퍼
+    [Serializable]
+    private class SaveState
+    {
+        public Vector2 Position;
     }
 }
