@@ -23,14 +23,14 @@ public class Lab : MonoBehaviour, ICommandable, ISavable, IBuildable
 
     public Sprite Icon => _buildingIcon;
     public Mesh BuildingMesh => _buildingMesh;
-    public IReadOnlyDictionary<ResourceData, int> BuildCost => _buildCostLookup;
+    // 건물 선택 UI 등은 씬에 배치되지 않은 프리팹 에셋의 컴포넌트를 그대로 참조해 Awake가 실행되지 않으므로, 최초 접근 시 지연 계산한다.
+    public IReadOnlyDictionary<ResourceData, int> BuildCost => _buildCostLookup ??= BuildCostLookup();
 
-    // SelectableObject 컴포넌트를 캐싱하고 명령 목록·건설 비용 조회 테이블을 생성
+    // SelectableObject 컴포넌트를 캐싱하고 명령 목록을 생성
     private void Awake()
     {
         _selectable = GetComponent<SelectableObject>();
         _commands = new List<CommandData> { new CommandData("작업대 열기", _workbenchButtonIcon, OpenWorkbenchUI) };
-        _buildCostLookup = BuildCostLookup();
     }
 
     // 인스펙터에서 지정한 건설 비용 목록을 자원별 조회 테이블로 변환한다.

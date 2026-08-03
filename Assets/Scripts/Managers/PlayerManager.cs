@@ -77,4 +77,10 @@ public class PlayerManager : MonoBehaviour
         _currentSelection = null;
         OnDeselected?.Invoke();
     }
+
+    // 클릭이 아닌 코드 경로(건축 위치 지정 모드 등)에서 대상을 선택 상태로 전환한다.
+    public void SelectExternally(SelectableObject target) => Select(target);
+
+    // 클릭이 아닌 코드 경로(건축 위치 지정 모드 등)에서 현재 선택을 해제한다.
+    public void DeselectExternally() => Deselect();
 }

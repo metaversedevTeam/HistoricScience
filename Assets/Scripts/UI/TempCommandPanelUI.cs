@@ -43,7 +43,10 @@ public class TempCommandPanelUI : MonoBehaviour
         if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
         {
             bool over = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
-            string sel = EventSystem.current?.currentSelectedGameObject?.name ?? "none";
+            // EventSystem.current.currentSelectedGameObject가 파괴된 오브젝트를 가리킬 수 있으므로,
+            // Unity의 오버로드된 null 비교(fake-null)를 타지 않는 ?. 대신 명시적으로 null 체크한다.
+            GameObject selectedGameObject = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;
+            string sel = selectedGameObject != null ? selectedGameObject.name : "none";
             _dbg = $"overUI:{over} sel:{sel}";
             Debug.Log($"[CommandPanelUI] click — {_dbg}");
         }
@@ -79,9 +82,13 @@ public class TempCommandPanelUI : MonoBehaviour
         _activeButtons.Add(view.gameObject);
     }
 
-    // 생성된 버튼 오브젝트를 모두 파괴한다.
+    // 생성된 버튼 오브젝트를 모두 파괴한다. 파괴할 버튼이 현재 EventSystem의 선택 상태로 남아있으면
+    // 먼저 선택을 해제해, 다음 프레임에 파괴된 오브젝트를 참조하는 일이 없게 한다.
     private void ClearButtons()
     {
+        if (EventSystem.current != null && _activeButtons.Contains(EventSystem.current.currentSelectedGameObject))
+            EventSystem.current.SetSelectedGameObject(null);
+
         foreach (var go in _activeButtons)
             Destroy(go);
         _activeButtons.Clear();

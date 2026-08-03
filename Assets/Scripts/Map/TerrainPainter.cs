@@ -50,6 +50,24 @@ namespace HistoricScience.Test
             m_MapViewOrigin = new Vector2(chunkCoordinate.x, chunkCoordinate.y) * m_MapViewSize;
         }
 
+        // 이 터레인이 마지막으로 구운 맵 데이터. 굽기 전에는 null이다.
+        public MapData CurrentMapData => m_MapDataGenerator != null ? m_MapDataGenerator.LastMapData : null;
+
+        // 월드 좌표를 이 터레인의 출력 설정 기준 정규화 맵 좌표로 변환한다. HandleMapToWorldPosition의 역함수로, 건축 위치 지정처럼 월드 좌표에서 걷기 가능 여부를 판정해야 할 때 쓴다.
+        public Vector2 WorldToMapPosition(Vector3 worldPosition)
+        {
+            Vector3 local = worldPosition - m_Terrain.transform.position;
+            Vector3 size = m_Terrain.terrainData.size;
+            Vector2 normalizedPosition = new Vector2(local.x / size.x, local.z / size.z);
+            return m_MapViewOrigin + normalizedPosition * m_MapViewSize;
+        }
+
+        // 월드 공간 거리를 이 터레인의 출력 설정 기준 정규화 맵 좌표 거리로 변환한다 (X축 크기 기준).
+        public float WorldToMapDistance(float worldDistance)
+        {
+            return worldDistance * (m_MapViewSize / m_Terrain.terrainData.size.x);
+        }
+
         // 주입받은 시드로 MapData 생성부터 굽기까지 전체 과정을 메인 스레드에서 동기적으로 실행한다. 에디터의 Paint 버튼처럼 즉시 결과가 필요할 때 사용한다.
         public void PaintVoronoiTerrain(int seed)
         {

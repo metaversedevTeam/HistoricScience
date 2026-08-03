@@ -10,6 +10,8 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
     [SerializeField] private BuildingSelectUI _buildingSelectUiPrefab;
     // 건물 선택 UI에 나열할, IBuildable을 구현한 건물 프리팹 목록
     [SerializeField] private List<GameObject> _buildablePrefabs;
+    // 건물 선택 후 위치 지정 모드를 담당하는 컨트롤러 프리팹
+    [SerializeField] private BuildingPlacementController _buildingPlacementControllerPrefab;
     // 저장/복원 기능을 제공하는 컴포지션. PrefabId는 인스펙터에서 설정한다.
     [SerializeField] private SavableHandler _savable = new();
 
@@ -199,10 +201,15 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
         return buildables;
     }
 
-    // 건물 선택 UI에서 건물이 선택되면 로그를 남긴다.
+    // 건물 선택 UI에서 건물이 선택되면 선택 UI를 닫고 위치 지정 모드를 시작한다.
     private void HandleBuildingSelected(IBuildable buildable)
     {
-        Debug.Log($"Citizen({name}): 건물을 선택했습니다 - {(buildable as Component)?.name}");
+        if (_selectedBy == null) return;
+
+        _openBuildingSelectUI.Close();
+
+        var placementController = Instantiate(_buildingPlacementControllerPrefab);
+        placementController.BeginPlacement(buildable, (buildable as Component)?.gameObject, _selectedBy);
     }
 
     // 건물 선택 UI가 닫히면 구독을 해제한다.
