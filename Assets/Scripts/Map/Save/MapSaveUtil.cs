@@ -75,8 +75,6 @@ public class MapSaveUtil : MonoBehaviour
     // (0,0)에서 가장 가까운 걸을 수 있는 위치를 찾아 시작 시민의 저장 항목과 카메라 위치를 saveData에 채운다.
     private void HandlePlaceInitialCitizenAndCamera(MapSaveData saveData, int seed)
     {
-        Debug.Log(nameof(m_MapDataGenerator) + ": " + m_MapDataGenerator);
-        Debug.Log(nameof(m_InitialCitizenPrefab) + ": " + m_InitialCitizenPrefab);
         if (m_MapDataGenerator == null || m_InitialCitizenPrefab == null)
             return;
 
