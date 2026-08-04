@@ -11,10 +11,12 @@ public class ItemData : ResourceData
     // 청크당 자원 소스 목표 소환 개수. 0이면 소환되지 않는다.
     [SerializeField, Min(0)] private int _spawnCountPerChunk;
     [SerializeField, Min(0)] private float _craftingTime;
+    [SerializeField] private Age _itemAge;
 
     public GameObject SourcePrefab => _sourcePrefab;
     public int SpawnCountPerChunk => _spawnCountPerChunk;
     public float CraftingTime => _craftingTime;
+    public Age Age => _itemAge;
 
     // 주어진 바이옴에 이 아이템의 자원 소스가 소환될 수 있는지 검사한다. 바이옴 목록이 비어 있으면 항상 허용된다.
     public bool CanSpawnIn(MapBiome biome)
