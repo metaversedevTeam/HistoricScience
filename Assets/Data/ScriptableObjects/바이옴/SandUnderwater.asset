@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b33314ae3bd31ee4082128b803d05214, type: 3}
+  m_Name: SandUnderwater
+  m_EditorClassIdentifier: 
+  m_BiomeName: SandUnderwater
+  m_TerrainLayer: {fileID: 8574412962073106934, guid: f9268de090adb4049be68d3c9aa25b0b, type: 2}
+  m_GizmoColor: {r: 0.3, g: 0.6, b: 0.8, a: 1}
+  m_ElevationRange: {x: 0, y: 0.35}
+  m_MoistureRange: {x: 0, y: 1}
+  m_IncompatibleBiomes: []
+  m_FallbackBiome: {fileID: 0}
+  m_BaseHeight: 0.02
+  m_HeightNoiseAmplitude: 0.04
+  m_HeightNoiseScale: 2
