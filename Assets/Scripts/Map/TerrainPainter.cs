@@ -13,6 +13,9 @@ namespace HistoricScience.Test
         // 터레인에 TerrainData가 없을 때 새로 생성할 터레인 크기
         private static readonly Vector3 k_TerrainSize = new Vector3(500f, 100f, 500f);
 
+        // 터레인에 TerrainData가 없을 때 런타임에 새로 만들 터레인 크기. 청크 관리자가 청크 하나의 월드 크기를 미리 알아야 할 때 쓴다.
+        public static Vector3 DefaultTerrainSize => k_TerrainSize;
+
         [Header("Terrain Settings")]
         // 맵 바이옴 데이터를 생성하는 제공자
         [SerializeField] private MapDataGenerator m_MapDataGenerator;

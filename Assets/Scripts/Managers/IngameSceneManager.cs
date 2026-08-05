@@ -49,9 +49,12 @@ public class IngameSceneManager : MonoBehaviour
         _chunkManager.SetPendingSavables(_pendingSavables);
 
         _chunkManager.SetSeed(_saveData.Seed);
+
+        // 청크 로더가 카메라를 추적 대상으로 삼으므로, 저장된 위치 주변부터 로딩되도록 XZ를 먼저 복원한다.
+        HandleRestoreCameraPosition();
         await _chunkLoader.BeginLoadingAsync();
 
-        // 청크 로딩이 끝나 주변 지형이 실제로 존재한 뒤에 복원해, 아직 구워지지 않은 지형 위로 카메라가 옮겨지지 않게 한다.
+        // 카메라 고도는 그 자리의 지형 높이로 정해지므로, 주변 지형이 실제로 존재하게 된 뒤 한 번 더 복원해 고도를 맞춘다.
         HandleRestoreCameraPosition();
     }
 

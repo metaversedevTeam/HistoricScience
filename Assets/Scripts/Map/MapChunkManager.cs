@@ -18,6 +18,48 @@ public class MapChunkManager : MonoBehaviour
     // 현재 소환되어 있는 청크 오브젝트를 청크 좌표 기준으로 보관한다.
     private readonly Dictionary<Vector2Int, GameObject> m_ActiveChunks = new Dictionary<Vector2Int, GameObject>();
 
+    // 청크 하나가 월드에서 차지하는 XZ 크기 캐시. 모든 청크가 같은 프리팹에서 나오므로 한 번만 계산해 둔다.
+    private Vector2? m_ChunkWorldSize;
+
+    // 현재 소환되어 있는 청크들의 좌표. 청크 로더가 해제 대상을 고를 때 쓴다.
+    public IReadOnlyCollection<Vector2Int> ActiveChunkCoordinates => m_ActiveChunks.Keys;
+
+    // 청크 하나가 월드에서 차지하는 XZ 크기. 월드 좌표와 청크 좌표를 변환할 때 쓴다.
+    public Vector2 ChunkWorldSize
+    {
+        get
+        {
+            if (m_ChunkWorldSize == null)
+                m_ChunkWorldSize = HandleResolveChunkWorldSize();
+
+            return m_ChunkWorldSize.Value;
+        }
+    }
+
+    // 주어진 좌표에 청크가 소환되어 있는지 반환한다.
+    public bool IsChunkActive(Vector2Int chunkCoordinate)
+    {
+        return m_ActiveChunks.ContainsKey(chunkCoordinate);
+    }
+
+    // 월드 좌표가 속한 청크 좌표를 반환한다. 청크는 이 매니저를 부모로 로컬 좌표에 배치되므로 매니저 위치를 기준으로 계산한다.
+    public Vector2Int WorldToChunkCoordinate(Vector3 worldPosition)
+    {
+        Vector3 localPosition = worldPosition - transform.position;
+        Vector2 chunkSize = ChunkWorldSize;
+
+        return new Vector2Int(Mathf.FloorToInt(localPosition.x / chunkSize.x), Mathf.FloorToInt(localPosition.z / chunkSize.y));
+    }
+
+    // 프리팹 터레인에 데이터가 있으면 그 크기를, 없으면 TerrainPainter가 런타임에 새로 만들 기본 크기를 청크 크기로 쓴다.
+    private Vector2 HandleResolveChunkWorldSize()
+    {
+        Terrain terrain = m_ChunkPrefab != null ? m_ChunkPrefab.GetComponent<Terrain>() : null;
+        Vector3 size = terrain != null && terrain.terrainData != null ? terrain.terrainData.size : TerrainPainter.DefaultTerrainSize;
+
+        return new Vector2(size.x, size.z);
+    }
+
     // 주어진 좌표에 청크 프리팹을 소환하고 곧바로 지형을 굽는다. 이미 소환된 좌표면 기존 오브젝트를 그대로 반환한다.
     public GameObject DrawChunk(Vector2Int chunkCoordinate)
     {
@@ -110,6 +152,11 @@ public class MapChunkManager : MonoBehaviour
             return;
 
         var result = await Task.Run(() => painter.ComputePaint(context.Value));
+
+        // 백그라운드 계산 중에 이 청크가 해제되었을 수 있으므로, 이미 파괴된 터레인을 건드리지 않도록 다시 확인한다.
+        if (chunkObject == null || !m_ActiveChunks.TryGetValue(chunkCoordinate, out GameObject currentChunk) || currentChunk != chunkObject)
+            return;
+
         painter.ApplyPaint(result);
 
         HandlePositionChunk(chunkObject, chunkCoordinate);
