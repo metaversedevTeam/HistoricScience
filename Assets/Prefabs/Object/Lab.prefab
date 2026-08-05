@@ -47,6 +47,7 @@ GameObject:
   - component: {fileID: -8688129064316340764}
   - component: {fileID: 3350215736941017295}
   - component: {fileID: 1914823339339685816}
+  - component: {fileID: 1389444180816335600}
   m_Layer: 0
   m_Name: Lab
   m_TagString: Untagged
@@ -151,6 +152,7 @@ MonoBehaviour:
   _raycastUpDistance: 500
   _raycastLength: 1000
   _snapOnEnable: 1
+  _navMeshSearchRadius: 10
 --- !u!114 &3350215736941017295
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -180,6 +182,18 @@ MonoBehaviour:
   _registry: {fileID: 11400000, guid: 035e7822ec05b4c47b27c3789000157e, type: 2}
   _releasePoint: {fileID: 2886010277946691781}
   _maxWorkerCount: 1
+--- !u!114 &1389444180816335600
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 753727767457213253}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 954fa96719e601648be8f08cf217e0ae, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &6355565149737932900
 GameObject:
   m_ObjectHideFlags: 0

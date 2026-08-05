@@ -104,6 +104,20 @@ public class MapChunkManager : MonoBehaviour
         m_PendingSavables = pendingSavables;
     }
 
+    // 청크가 해제되어 사라지는 오브젝트의 저장 항목을 대기 목록으로 되돌린다. 그 청크가 다시 구워지면 스포너가 이 항목으로 다시 소환한다.
+    // 목록이 설정되지 않아 항목을 맡아 둘 곳이 없으면 false를 반환하므로, 호출자는 이때 오브젝트를 파괴해서는 안 된다.
+    public bool TryAddPendingSavable(SavableEntry entry)
+    {
+        if (m_PendingSavables == null)
+        {
+            Debug.LogError("MapChunkManager: 저장 오브젝트 대기 목록이 설정되지 않아 항목을 되돌릴 수 없습니다.");
+            return false;
+        }
+
+        m_PendingSavables.Add(entry);
+        return true;
+    }
+
     // 이미 소환된 청크의 좌표를 터레인 페인터에 반영해 보로노이 지형을 굽고 월드 위치를 잡는다. 모든 청크에 같은 맵 시드(m_Seed)를
     // 주입하므로, 각 청크는 같은 무한 맵의 서로 다른 영역을 이어서 보여주게 된다.
     public void PaintChunk(Vector2Int chunkCoordinate)

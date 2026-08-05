@@ -13,6 +13,8 @@ public class MapChunkLoader : MonoBehaviour
 {
     // 청크를 실제로 소환/굽는 매니저
     [SerializeField] private MapChunkManager m_ChunkManager;
+    // 해제된 청크에 남아 있던 유닛/건물을 저장 후 파괴하는 언로더. 비워 두면 오브젝트는 해제되지 않고 그대로 남는다.
+    [SerializeField] private ChunkObjectUnloader m_ObjectUnloader;
     // 이 대상들 각각의 주변 청크를 로딩한다 (예: 메인 카메라, 조작 중인 유닛들)
     [SerializeField] private List<Transform> m_FollowTargets = new List<Transform>();
     // 각 추적 대상이 속한 청크를 중심으로 이 반경(청크 단위) 안의 청크까지 로딩한다.
@@ -69,6 +71,10 @@ public class MapChunkLoader : MonoBehaviour
             return;
         }
 
+        // 청크 로딩 자체는 언로더 없이도 동작하므로 중단하지 않고, 유닛/건물이 남는다는 사실만 시작 시점에 한 번 알린다.
+        if (m_ObjectUnloader == null)
+            Debug.LogError("MapChunkLoader: ObjectUnloader가 지정되지 않아 해제된 청크의 유닛/건물이 씬에 그대로 남습니다.");
+
         // 해제 반경이 로딩 반경보다 작으면 경계의 청크가 로딩과 해제를 무한히 반복하므로 최소한 한 칸 크게 맞춘다.
         m_KeepRadius = Mathf.Max(m_KeepRadius, m_LoadRadius + 1);
 
@@ -118,6 +124,7 @@ public class MapChunkLoader : MonoBehaviour
 
                 HandleCollectDesiredChunks();
                 HandleUnloadDistantChunks();
+                HandleUnloadDistantObjects();
                 HandleEnqueueMissingChunks();
 
                 await HandleLoadPendingChunksAsync(token);
@@ -190,6 +197,16 @@ public class MapChunkLoader : MonoBehaviour
 
         foreach (Vector2Int coordinate in m_CoordinateBuffer)
             m_ChunkManager.EraseChunk(coordinate);
+    }
+
+    // 청크 해제로 소환된 청크 밖에 남게 된 유닛/건물을 저장한 뒤 파괴한다. 청크를 지운 직후에 호출해야 한다.
+    private void HandleUnloadDistantObjects()
+    {
+        // 언로더가 없다는 것은 로딩을 시작할 때 이미 알렸으므로, 갱신마다 같은 로그를 반복하지 않는다.
+        if (m_ObjectUnloader == null)
+            return;
+
+        m_ObjectUnloader.UnloadObjectsOutsideActiveChunks();
     }
 
     // 아직 소환되지도, 로딩 중이지도 않은 청크를 가장 가까운 대상에서 가까운 순서로 대기열에 넣는다.
