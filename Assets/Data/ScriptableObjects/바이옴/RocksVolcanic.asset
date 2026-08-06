@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_BiomeName: RocksVolcanic
   m_TerrainLayer: {fileID: 8574412962073106934, guid: 55972b1028db7834da1c5103bae00f43, type: 2}
+  m_BottomMaterial: {fileID: 2100000, guid: 04caab677fa6dce41a06d136fb98a43c, type: 2}
   m_GizmoColor: {r: 0.3, g: 0.1, b: 0.1, a: 1}
   m_ElevationRange: {x: 0.85, y: 1}
   m_MoistureRange: {x: 0, y: 1}

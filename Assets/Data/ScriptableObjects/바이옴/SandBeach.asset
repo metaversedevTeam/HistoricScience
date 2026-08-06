@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_BiomeName: SandBeach
   m_TerrainLayer: {fileID: 8574412962073106934, guid: cb879617c2ba861439274699531a654e, type: 2}
+  m_BottomMaterial: {fileID: 2100000, guid: f3f6662e3ef956e4c8a464db95b27a93, type: 2}
   m_GizmoColor: {r: 0.9, g: 0.85, b: 0.5, a: 1}
   m_ElevationRange: {x: 0.35, y: 0.65}
   m_MoistureRange: {x: 0, y: 0.35}

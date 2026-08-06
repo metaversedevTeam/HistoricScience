@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_BiomeName: Dirt
   m_TerrainLayer: {fileID: 8574412962073106934, guid: 5857077871a69904bacc6bcf26b3e396, type: 2}
+  m_BottomMaterial: {fileID: 2100000, guid: ba4ae29fc6caf90489245a1d7b4e3b4a, type: 2}
   m_GizmoColor: {r: 0.6, g: 0.4, b: 0.2, a: 1}
   m_ElevationRange: {x: 0.35, y: 0.65}
   m_MoistureRange: {x: 0.35, y: 0.45}

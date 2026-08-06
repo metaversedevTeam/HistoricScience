@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_BiomeName: SandUnderwater
   m_TerrainLayer: {fileID: 8574412962073106934, guid: f9268de090adb4049be68d3c9aa25b0b, type: 2}
+  m_BottomMaterial: {fileID: 2100000, guid: 20816e1653b32f740b8bcf68ff070de7, type: 2}
   m_GizmoColor: {r: 0.3, g: 0.6, b: 0.8, a: 1}
   m_ElevationRange: {x: 0, y: 0.35}
   m_MoistureRange: {x: 0, y: 1}

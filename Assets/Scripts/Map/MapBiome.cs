@@ -9,6 +9,8 @@ public class MapBiome : ScriptableObject
     [SerializeField] private string m_BiomeName;
     // 이 바이옴을 터레인에 칠할 때 사용할 터레인 레이어
     [SerializeField] private TerrainLayer m_TerrainLayer;
+    // 이 바이옴 위에 놓이는 바닥에 사용할 머티리얼
+    [SerializeField] private Material m_BottomMaterial;
     // 기즈모로 이 바이옴 영역을 표시할 때 사용할 색상
     [SerializeField] private Color m_GizmoColor = Color.red;
     // 이 바이옴이 배치되는 고도 노이즈 범위(x=최소, y=최대, 0~1). 바이옴 목록의 앞선 바이옴부터 범위를 검사해 처음 맞는 바이옴이 배치된다.
@@ -28,6 +30,7 @@ public class MapBiome : ScriptableObject
 
     public string Name => m_BiomeName;
     public TerrainLayer TerrainLayer => m_TerrainLayer;
+    public Material BottomMaterial => m_BottomMaterial;
     public Color GizmoColor => m_GizmoColor;
     public MapBiome FallbackBiome => m_FallbackBiome;
     public float BaseHeight => m_BaseHeight;
