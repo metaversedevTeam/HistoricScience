@@ -20,6 +20,8 @@ public class BuildingPlacementController : SelectableObject, ICommandable
     private GameObject _buildingPrefab;
     private IMover _mover;
     private HitableObject _moverHitable;
+    private Transform _builderTransform;
+    private float _approachDistance;
     private Hologram _hologram;
     private BuildCostUI _openBuildCostUI;
     private Camera _camera;
@@ -59,6 +61,10 @@ public class BuildingPlacementController : SelectableObject, ICommandable
         _mover = mover;
         _moverHitable = moverHitable;
         _state = PlacementState.Positioning;
+
+        // 배치 자리가 시민과 겹치는지 매 프레임 판정하는 데 쓴다. Hitable은 시민 본체에 붙어 있으므로 그 Transform이 곧 시민의 위치다.
+        _builderTransform = moverHitable != null ? moverHitable.transform : (mover as Component)?.transform;
+        _approachDistance = ComputeApproachDistance();
 
         _hologram = Instantiate(_hologramPrefab);
         _hologram.SetMesh(buildable.BuildingMesh);
@@ -112,16 +118,32 @@ public class BuildingPlacementController : SelectableObject, ICommandable
         return true;
     }
 
-    // 홀로그램 중심과 건물 크기를 반영한 반경 안에 걸을 수 없는 지형이 있는지로 배치 가능 여부를 판정한다.
+    // 홀로그램 중심과 건물 크기를 반영한 반경 안에 걸을 수 없는 지형이 있는지, 그리고 건축할 시민이 그 자리에 너무 가까이 서 있지는 않은지로 배치 가능 여부를 판정한다.
     private bool IsPositionBuildable(Vector3 worldPosition, TerrainPainter terrainPainter)
     {
         if (terrainPainter == null || terrainPainter.CurrentMapData == null || _buildable.BuildingMesh == null)
+            return false;
+
+        if (IsTooCloseToBuilder(worldPosition))
             return false;
 
         Vector2 mapPosition = terrainPainter.WorldToMapPosition(worldPosition);
         float mapRadius = terrainPainter.WorldToMapDistance(HandleGetFootprintRadius());
 
         return !terrainPainter.CurrentMapData.HasUnwalkableWithin(mapPosition, mapRadius);
+    }
+
+    // 건축할 시민이 배치 자리에 너무 가까이 서 있는지 판정한다. 시민은 건축 시 건물과 자신의 반경을 합한 거리(_approachDistance)까지만
+    // 다가와 멈추므로, 그보다 가까운 자리는 건물이 시민을 덮치는 위치라 건축 불가로 본다.
+    private bool IsTooCloseToBuilder(Vector3 worldPosition)
+    {
+        if (_builderTransform == null || _approachDistance <= 0f)
+            return false;
+
+        Vector2 builderXZ = new Vector2(_builderTransform.position.x, _builderTransform.position.z);
+        Vector2 targetXZ = new Vector2(worldPosition.x, worldPosition.z);
+
+        return Vector2.Distance(builderXZ, targetXZ) < _approachDistance;
     }
 
     // 건물 메시의 바운드에서 배치 판정에 쓸 반경(월드 단위)을 계산한다.
@@ -157,7 +179,7 @@ public class BuildingPlacementController : SelectableObject, ICommandable
         if (_isMovingToBuildSite) return;
 
         Vector2 destination = new Vector2(_hologramWorldPosition.x, _hologramWorldPosition.z);
-        bool started = _mover.Move(destination, HandleArrivedAtBuildSite, HandleMoveEndAtBuildSite, ComputeApproachDistance());
+        bool started = _mover.Move(destination, HandleArrivedAtBuildSite, HandleMoveEndAtBuildSite, _approachDistance);
         if (!started)
         {
             Debug.LogWarning("[BuildingPlacementController] 건축 위치로 이동할 수 없습니다.");
@@ -169,9 +191,10 @@ public class BuildingPlacementController : SelectableObject, ICommandable
     }
 
     // 지을 건물과 이동하는 시민의 Hitable 반경을 합산해, 건물 중심이 아니라 그 언저리에서 멈추게 할 거리를 계산한다.
+    // 이 거리는 배치 위치가 시민에게 너무 가까운지를 판정하는 기준으로도 쓰인다.
     private float ComputeApproachDistance()
     {
-        HitableObject buildingHitable = _buildingPrefab.GetComponent<HitableObject>();
+        HitableObject buildingHitable = _buildingPrefab != null ? _buildingPrefab.GetComponent<HitableObject>() : null;
         float buildingRadius = buildingHitable != null ? buildingHitable.HitRadius : 0f;
         float moverRadius = _moverHitable != null ? _moverHitable.HitRadius : 0f;
 
