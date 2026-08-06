@@ -9,11 +9,17 @@ public class BuildingPlacementController : SelectableObject, ICommandable
 {
     private enum PlacementState { Positioning, Confirmed }
 
+    // 겹침 판정 후보를 한 번에 담아 둘 버퍼 크기. 매 프레임 조회라 배열을 재사용하기 위해 필요하다.
+    private const int k_MaxOverlapResults = 64;
+
     [SerializeField] private Hologram _hologramPrefab;
     [SerializeField] private BuildCostUI _buildCostUiPrefab;
     [SerializeField] private LayerMask _groundLayer;
     [SerializeField] private Color _validColor = new Color(0.2f, 0.5f, 1f, 0.5f);
     [SerializeField] private Color _invalidColor = new Color(1f, 0.2f, 0.2f, 0.5f);
+    // 겹침 판정 후보를 모을 때 건물 반경에 더해 줄 여유 거리. HitRadius가 콜라이더보다 큰 오브젝트도 후보에 들어오도록
+    // 넉넉히 잡는다. 가장 큰 HitRadius(현재 연구소 5)보다 작으면 그 오브젝트와의 겹침을 놓칠 수 있다.
+    [SerializeField] private float _hitableSearchPadding = 10f;
 
     private PlayerManager _playerManager;
     private IBuildable _buildable;
@@ -21,7 +27,9 @@ public class BuildingPlacementController : SelectableObject, ICommandable
     private IMover _mover;
     private HitableObject _moverHitable;
     private Transform _builderTransform;
+    private float _buildingHitRadius;
     private float _approachDistance;
+    private readonly Collider[] _overlapBuffer = new Collider[k_MaxOverlapResults];
     private Hologram _hologram;
     private BuildCostUI _openBuildCostUI;
     private Camera _camera;
@@ -64,6 +72,7 @@ public class BuildingPlacementController : SelectableObject, ICommandable
 
         // 배치 자리가 시민과 겹치는지 매 프레임 판정하는 데 쓴다. Hitable은 시민 본체에 붙어 있으므로 그 Transform이 곧 시민의 위치다.
         _builderTransform = moverHitable != null ? moverHitable.transform : (mover as Component)?.transform;
+        _buildingHitRadius = ComputeBuildingHitRadius();
         _approachDistance = ComputeApproachDistance();
 
         _hologram = Instantiate(_hologramPrefab);
@@ -118,13 +127,17 @@ public class BuildingPlacementController : SelectableObject, ICommandable
         return true;
     }
 
-    // 홀로그램 중심과 건물 크기를 반영한 반경 안에 걸을 수 없는 지형이 있는지, 그리고 건축할 시민이 그 자리에 너무 가까이 서 있지는 않은지로 배치 가능 여부를 판정한다.
+    // 홀로그램 중심과 건물 크기를 반영한 반경 안에 걸을 수 없는 지형이 있는지, 건축할 시민이 그 자리에 너무 가까이 서 있지는 않은지,
+    // 그리고 이미 자리를 차지한 다른 오브젝트와 겹치지는 않는지로 배치 가능 여부를 판정한다.
     private bool IsPositionBuildable(Vector3 worldPosition, TerrainPainter terrainPainter)
     {
         if (terrainPainter == null || terrainPainter.CurrentMapData == null || _buildable.BuildingMesh == null)
             return false;
 
         if (IsTooCloseToBuilder(worldPosition))
+            return false;
+
+        if (OverlapsOtherHitable(worldPosition))
             return false;
 
         Vector2 mapPosition = terrainPainter.WorldToMapPosition(worldPosition);
@@ -144,6 +157,39 @@ public class BuildingPlacementController : SelectableObject, ICommandable
         Vector2 targetXZ = new Vector2(worldPosition.x, worldPosition.z);
 
         return Vector2.Distance(builderXZ, targetXZ) < _approachDistance;
+    }
+
+    // 배치 자리에 지을 건물이 다른 HitableObject와 겹치는지 판정한다. 지면은 항상 겹치므로 제외하고 주변 콜라이더를 모은 뒤,
+    // 콜라이더가 자식에 달린 경우가 있어 부모까지 거슬러 올라가 HitableObject를 찾고 두 반경의 합으로 겹침을 판정한다.
+    // 건축을 맡은 시민 자신은 IsTooCloseToBuilder가 따로 판정하므로 여기서는 제외한다.
+    private bool OverlapsOtherHitable(Vector3 worldPosition)
+    {
+        float searchRadius = _buildingHitRadius + _hitableSearchPadding;
+        int count = Physics.OverlapSphereNonAlloc(worldPosition, searchRadius, _overlapBuffer, ~_groundLayer, QueryTriggerInteraction.Ignore);
+
+        for (int i = 0; i < count; i++)
+        {
+            var hitable = _overlapBuffer[i].GetComponentInParent<HitableObject>();
+            if (hitable == null || hitable == _moverHitable)
+                continue;
+
+            if (IsWithinCombinedRadius(worldPosition, hitable))
+                return true;
+        }
+        return false;
+    }
+
+    // 배치 자리와 대상의 XZ 거리가 두 HitRadius의 합보다 가까운지, 즉 서로 겹치는지 판정한다.
+    private bool IsWithinCombinedRadius(Vector3 worldPosition, HitableObject hitable)
+    {
+        float combinedRadius = _buildingHitRadius + hitable.HitRadius;
+        if (combinedRadius <= 0f)
+            return false;
+
+        Vector2 targetXZ = new Vector2(worldPosition.x, worldPosition.z);
+        Vector2 hitableXZ = new Vector2(hitable.transform.position.x, hitable.transform.position.z);
+
+        return Vector2.Distance(targetXZ, hitableXZ) < combinedRadius;
     }
 
     // 건물 메시의 바운드에서 배치 판정에 쓸 반경(월드 단위)을 계산한다.
@@ -190,15 +236,19 @@ public class BuildingPlacementController : SelectableObject, ICommandable
         HidePlacementUI();
     }
 
-    // 지을 건물과 이동하는 시민의 Hitable 반경을 합산해, 건물 중심이 아니라 그 언저리에서 멈추게 할 거리를 계산한다.
-    // 이 거리는 배치 위치가 시민에게 너무 가까운지를 판정하는 기준으로도 쓰인다.
-    private float ComputeApproachDistance()
+    // 지을 건물 프리팹의 Hitable 반경을 읽어 온다. 없으면 0으로 보고 반경 기반 판정을 건너뛰게 한다.
+    private float ComputeBuildingHitRadius()
     {
         HitableObject buildingHitable = _buildingPrefab != null ? _buildingPrefab.GetComponent<HitableObject>() : null;
-        float buildingRadius = buildingHitable != null ? buildingHitable.HitRadius : 0f;
-        float moverRadius = _moverHitable != null ? _moverHitable.HitRadius : 0f;
+        return buildingHitable != null ? buildingHitable.HitRadius : 0f;
+    }
 
-        return buildingRadius + moverRadius;
+    // 지을 건물과 이동하는 시민의 Hitable 반경을 합산해, 건물 중심이 아니라 그 언저리에서 멈추게 할 거리를 계산한다.
+    // 이 거리는 배치 위치가 시민에게 너무 가까운지를 판정하는 기준으로도 쓰인다. ComputeBuildingHitRadius 이후에 호출해야 한다.
+    private float ComputeApproachDistance()
+    {
+        float moverRadius = _moverHitable != null ? _moverHitable.HitRadius : 0f;
+        return _buildingHitRadius + moverRadius;
     }
 
     // 이동이 시작되면 건축 UI(명령 버튼·비용 패널)를 숨긴다. 홀로그램은 실제로 건축이 완료될 때(FinishPlacement)까지 배치 위치 표시로 남겨둔다.
