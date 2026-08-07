@@ -33,10 +33,6 @@ public class DynamicNavMeshBaker : MonoBehaviour
         public AsyncOperation Operation;
         public Coroutine TrackingCoroutine;
         public readonly List<NavMeshBuildSource> Sources = new List<NavMeshBuildSource>();
-        // 마지막으로 구운 볼륨의 중심(XZ). 다른 대상이 이 범위 안에 있으면 그 대상은 다시 구울 필요가 없다.
-        public Vector3 LastBakeCenter;
-        // 한 번이라도 구운 적이 있는지. 아직 없으면 다른 대상이 여기에 겹쳐 있어도 커버된 것으로 볼 수 없다.
-        public bool HasBakedOnce;
     }
 
     // 현재 추적 중인 대상마다 하나씩 만들어 둔 굽기 상태
@@ -120,18 +116,12 @@ public class DynamicNavMeshBaker : MonoBehaviour
         baker.TrackingCoroutine = StartCoroutine(HandleTrackTarget(baker));
     }
 
-    // 대상이 존재하는 동안 그 주변 내브메시를 계속 비동기로 다시 굽는다. 다른 대상이 이미 이 위치를 덮고 있으면
-    // 중복으로 굽지 않고 건너뛴다. 대상이 파괴되면 데이터를 정리하고 멈춘다.
+    // 대상이 존재하는 동안 그 주변 내브메시를 계속 비동기로 다시 굽는다. 다른 대상과 영역이 겹치더라도
+    // 각자 자신의 영역을 굽는다. 대상이 파괴되면 데이터를 정리하고 멈춘다.
     private IEnumerator HandleTrackTarget(TargetBaker baker)
     {
         while (baker.Target != null)
         {
-            if (HandleIsCoveredBySibling(baker))
-            {
-                yield return null;
-                continue;
-            }
-
             HandleUpdateNavMesh(baker, true);
             yield return baker.Operation;
         }
@@ -140,37 +130,10 @@ public class DynamicNavMeshBaker : MonoBehaviour
         m_Bakers.Remove(baker);
     }
 
-    // 이 대상보다 먼저 추가된 다른 대상이, 이미 자신이 구운 영역 중심의 절반 반경 안에 이 대상을 포함하고
-    // 있는지 확인한다. 그렇다면 이 대상은 따로 구울 필요 없이 그 대상의 내브메시를 그냥 같이 쓰면 된다.
-    // 먼저 추가된 대상만 기준으로 삼아, 서로가 서로를 덮었다고 여겨 둘 다 안 굽는 상황을 막는다.
-    private bool HandleIsCoveredBySibling(TargetBaker baker)
-    {
-        if (baker.Target == null) return false;
-
-        Vector3 position = baker.Target.position;
-        float coverageRadius = m_BakeRadius * 0.5f;
-        int selfIndex = m_Bakers.IndexOf(baker);
-
-        for (int i = 0; i < selfIndex; i++)
-        {
-            TargetBaker sibling = m_Bakers[i];
-            if (sibling.Target == null || !sibling.HasBakedOnce) continue;
-
-            float dx = position.x - sibling.LastBakeCenter.x;
-            float dz = position.z - sibling.LastBakeCenter.z;
-            if (dx * dx + dz * dz <= coverageRadius * coverageRadius)
-                return true;
-        }
-
-        return false;
-    }
-
     // 대상 주변 볼륨의 지형 소스를 모아 내브메시 데이터를 갱신한다. 동기/비동기 여부를 선택할 수 있다.
     private void HandleUpdateNavMesh(TargetBaker baker, bool async)
     {
         Bounds bounds = HandleGetBounds(baker.Target);
-        baker.LastBakeCenter = bounds.center;
-        baker.HasBakedOnce = true;
 
         baker.Sources.Clear();
         List<NavMeshBuildMarkup> markups = new List<NavMeshBuildMarkup>();
