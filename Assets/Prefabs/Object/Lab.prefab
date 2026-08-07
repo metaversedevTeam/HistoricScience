@@ -49,6 +49,7 @@ GameObject:
   - component: {fileID: 1914823339339685816}
   - component: {fileID: 1389444180816335600}
   - component: {fileID: 4006666494119802976}
+  - component: {fileID: 5410398347682673528}
   m_Layer: 0
   m_Name: Lab
   m_TagString: Untagged
@@ -216,6 +217,29 @@ MonoBehaviour:
   _applyOnEnable: 1
   _raycastUpDistance: 500
   _raycastLength: 1000
+--- !u!136 &5410398347682673528
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 753727767457213253}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 3
+  m_Height: 1
+  m_Direction: 1
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1 &6355565149737932900
 GameObject:
   m_ObjectHideFlags: 0
