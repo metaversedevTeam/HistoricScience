@@ -143,6 +143,7 @@ MonoBehaviour:
   _buildingSelectUiPrefab: {fileID: 4189165314681838476, guid: 0d782583c8f54b2c857c2aee0672d336, type: 3}
   _buildablePrefabs:
   - {fileID: 753727767457213253, guid: 4dc7a3bbb63f6384cb22731100466160, type: 3}
+  - {fileID: 2878647143197780136, guid: f74ac44a49c2b2d4b990c6a65e50d334, type: 3}
   _buildingPlacementControllerPrefab: {fileID: 7075955041872678840, guid: d1ec6923f51fea84fb5b11f8be25c92d, type: 3}
   _savable:
     _prefabId: Citizen
