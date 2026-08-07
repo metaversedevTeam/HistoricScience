@@ -9,6 +9,10 @@ public abstract class ResourceData : ScriptableObject
     public Sprite IconSprite => _iconSprite;
     [SerializeField] private Sprite _iconSprite;
 
+    // 창고 등 상세 패널에 표시할 한 줄 설명
+    public string Description => _description;
+    [SerializeField, TextArea(2, 4)] private string _description;
+
     public int Id => _id;
     [SerializeField, HideInInspector] private int _id = -1;
 

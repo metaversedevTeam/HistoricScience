@@ -9,8 +9,8 @@ public static class UIProceduralSpriteFactory
 {
     public const string OutputFolder = "Assets/Art/Sprites/UI/Generated";
 
-    // 생성할 둥근 사각형 반지름 목록 (배지/게이지, 상태바, 아이콘 박스, 카드, 패널, 알약형 순)
-    private static readonly int[] Radii = { 6, 8, 10, 12, 16, 20 };
+    // 생성할 둥근 사각형 반지름 목록 (배지/게이지, 상태바, 아이콘 박스, 카드, 창고 슬롯, 미리보기 박스, 패널 순)
+    private static readonly int[] Radii = { 6, 8, 10, 12, 14, 16, 20 };
 
     private const float StrokeWidth = 2f;
     private const int IconSize = 64;
@@ -33,6 +33,7 @@ public static class UIProceduralSpriteFactory
         SaveIcon("Icon_Clock", BuildIcon(SdClock));
         SaveIcon("Icon_Star", BuildIcon(SdStar));
         SaveIcon("Icon_Close", BuildIcon(SdClose));
+        SaveIcon("Icon_CircleX", BuildIcon(SdCircleX));
 
         AssetDatabase.Refresh();
     }
@@ -224,6 +225,15 @@ public static class UIProceduralSpriteFactory
         float stroke1 = SdCapsule(p, new Vector2(-11f, -11f), new Vector2(11f, 11f), 4f);
         float stroke2 = SdCapsule(p, new Vector2(-11f, 11f), new Vector2(11f, -11f), 4f);
         return Mathf.Min(stroke1, stroke2);
+    }
+
+    // 원 안의 X 아이콘 — 아이콘 스프라이트가 없는 아이템의 자리표시자.
+    private static float SdCircleX(Vector2 p)
+    {
+        float ring = SdRing(p, Vector2.zero, 20f, 3f);
+        float stroke1 = SdCapsule(p, new Vector2(-8f, -8f), new Vector2(8f, 8f), 3f);
+        float stroke2 = SdCapsule(p, new Vector2(-8f, 8f), new Vector2(8f, -8f), 3f);
+        return Mathf.Min(ring, Mathf.Min(stroke1, stroke2));
     }
 
     // 별 테두리 아이콘 — 바깥 별에서 안쪽 별을 뺀 링 형태로 만든다.
