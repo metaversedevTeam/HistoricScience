@@ -58,6 +58,9 @@ public class BuildingPlacementController : SelectableObject, ICommandable
         UnsubscribeFromMover();
     }
 
+    // 건축 명령 후 시민이 배치 위치로 이동하고 있는 중인지 여부. 이동 중에는 시민에게 새 건축 명령을 받지 않기 위해 쓴다.
+    public bool IsMovingToBuildSite => _isMovingToBuildSite;
+
     // 이 오브젝트가 제공하는 명령 목록을 반환한다.
     public IReadOnlyList<CommandData> GetCommands() => _commands;
 

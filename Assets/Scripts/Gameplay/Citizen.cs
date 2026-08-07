@@ -32,6 +32,9 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
     // 열려 있는 건물 선택 UI. 열려 있지 않으면 null이다.
     private BuildingSelectUI _openBuildingSelectUI;
 
+    // 건물 선택 후 생성한 위치 지정 컨트롤러. 배치가 끝나면 스스로 파괴되므로 그 시점부터 null이 된다.
+    private BuildingPlacementController _placementController;
+
     // SelectableObject, IMover, Gatherer 컴포넌트를 캐싱하고 명령 목록을 생성
     private void Awake()
     {
@@ -178,10 +181,11 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
         _gatherInventory = null;
     }
 
-    // 건물 짓기 명령을 실행해 건물 선택 UI를 열고 선택·닫기 결과를 구독한다.
+    // 건물 짓기 명령을 실행해 건물 선택 UI를 열고 선택·닫기 결과를 구독한다. 이미 건축 위치로 이동 중이면 열지 않는다.
     private void OpenBuildingSelectUI()
     {
         if (_selectedBy == null) return;
+        if (IsMovingToBuildSite()) return;
 
         UnsubscribeFromBuildingSelectUI();
 
@@ -209,8 +213,14 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
 
         _openBuildingSelectUI.Close();
 
-        var placementController = Instantiate(_buildingPlacementControllerPrefab);
-        placementController.BeginPlacement(buildable, (buildable as Component)?.gameObject, _selectedBy, _mover, GetComponent<HitableObject>());
+        _placementController = Instantiate(_buildingPlacementControllerPrefab);
+        _placementController.BeginPlacement(buildable, (buildable as Component)?.gameObject, _selectedBy, _mover, GetComponent<HitableObject>());
+    }
+
+    // 건축 명령을 받아 배치 위치로 이동하는 중인지 확인한다. 배치가 끝난 컨트롤러는 파괴되어 null로 판정된다.
+    private bool IsMovingToBuildSite()
+    {
+        return _placementController != null && _placementController.IsMovingToBuildSite;
     }
 
     // 건물 선택 UI가 닫히면 구독을 해제한다.
