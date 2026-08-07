@@ -37,6 +37,9 @@ public class GroundMover : MonoBehaviour, IMover
     // 이동이 어떤 방식으로든 끝나 멈췄을 때 발생(도착, 더 갈 수 없어 멈춤, Stop() 호출)
     public event Action OnMoveEnd;
 
+    // 대기 중이던 콜백이 있는 이동이 새 Move() 명령으로 대체돼 취소됐을 때 발생
+    public event Action OnMoveOrderReplaced;
+
     private NavMeshAgent  _agent;
     private Transform     _followTarget;
     private HitableObject _selfHitable;
@@ -148,6 +151,18 @@ public class GroundMover : MonoBehaviour, IMover
         Action callback = pending;
         pending = null;
         callback?.Invoke();
+    }
+
+    // 새 이동 명령이 이전 명령을 대체할 때 호출한다. 이전 명령의 콜백을 버리고, 그 결과를 기다리던 쪽에 취소를 알린다.
+    // 버릴 콜백이 없었으면 알려 줄 대상도 없으므로 이벤트를 발생시키지 않는다.
+    private void ReplaceMoveOrder()
+    {
+        bool hadPendingCallback = _pendingArrived != null || _pendingMoveEnd != null;
+
+        DiscardPendingCallbacks();
+
+        if (hadPendingCallback)
+            OnMoveOrderReplaced?.Invoke();
     }
 
     // 대기 중인 콜백을 호출하지 않고 버리며 이동 명령 세대를 넘긴다. 새 Move나 Stop으로 이전 이동이 무효가 될 때 호출한다.
@@ -361,7 +376,7 @@ public class GroundMover : MonoBehaviour, IMover
     public bool Move(Vector2 targetPos, Action onArrived = null, Action onMoveEnd = null, float stoppingDistance = 0f)
     {
         // 명령이 들어온 시점에 이전 이동은 취소된 것이므로, 이 호출이 실패로 끝나더라도 이전 콜백을 되살리지 않는다.
-        DiscardPendingCallbacks();
+        ReplaceMoveOrder();
 
         _followTarget = null;
 
@@ -420,7 +435,7 @@ public class GroundMover : MonoBehaviour, IMover
     // 이동 자체가 불가능하면 false 반환. onArrived는 대상에 처음 도달했을 때 한 번만 호출된다
     public bool Move(Transform targetTransform, Action onArrived = null)
     {
-        DiscardPendingCallbacks();
+        ReplaceMoveOrder();
 
         if (targetTransform == null) return false;
 

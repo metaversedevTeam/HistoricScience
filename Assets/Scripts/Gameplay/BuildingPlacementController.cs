@@ -7,7 +7,8 @@ using UnityEngine.InputSystem;
 // 건축할 건물의 배치 위치를 지정하는 위치 지정 모드를 담당하는 컨트롤러. 마우스로 홀로그램 위치를 옮기다 좌클릭으로 확정하면 선택 상태로 전환되어 건축/취소 명령을 제공한다.
 public class BuildingPlacementController : SelectableObject, ICommandable
 {
-    private enum PlacementState { Positioning, Confirmed }
+    // Positioning: 마우스로 자리를 고르는 중, Confirmed: 자리를 확정해 스스로가 선택된 상태, Building: 건축 명령 후 시민이 이동 중이라 선택이 이미 풀린 상태
+    private enum PlacementState { Positioning, Confirmed, Building }
 
     // 겹침 판정 후보를 한 번에 담아 둘 버퍼 크기. 매 프레임 조회라 배열을 재사용하기 위해 필요하다.
     private const int k_MaxOverlapResults = 64;
@@ -50,10 +51,11 @@ public class BuildingPlacementController : SelectableObject, ICommandable
         };
     }
 
-    // 파괴 전 PlayerManager 구독을 해제
+    // 파괴 전 PlayerManager와 시민 이동 컴포넌트 구독을 해제
     private void OnDisable()
     {
         UnsubscribeFromPlayer();
+        UnsubscribeFromMover();
     }
 
     // 이 오브젝트가 제공하는 명령 목록을 반환한다.
@@ -233,6 +235,8 @@ public class BuildingPlacementController : SelectableObject, ICommandable
         }
 
         _isMovingToBuildSite = true;
+        // 이 Move 호출 자체도 이전 명령을 대체하며 이벤트를 발생시키므로, 스스로를 취소하지 않도록 호출이 끝난 뒤에 구독한다.
+        _mover.OnMoveOrderReplaced += HandleMoveOrderReplaced;
         HidePlacementUI();
     }
 
@@ -254,9 +258,11 @@ public class BuildingPlacementController : SelectableObject, ICommandable
     // 이동이 시작되면 건축 UI(명령 버튼·비용 패널)를 숨긴다. 홀로그램은 실제로 건축이 완료될 때(FinishPlacement)까지 배치 위치 표시로 남겨둔다.
     // 도착 판정은 계속 대기해야 하므로 컨트롤러 자신은 파괴하지 않는다.
     // 스스로 선택을 해제하는 것이므로, 해제 시 배치를 취소해버리는 HandleDeselected 구독은 먼저 해제해 둔다.
+    // 이후 플레이어가 다른 대상을 선택할 수 있으므로, 정리 시 그 선택까지 풀어버리지 않도록 상태를 Building으로 옮긴다.
     private void HidePlacementUI()
     {
         _playerManager.OnDeselected -= HandleDeselected;
+        _state = PlacementState.Building;
 
         if (_openBuildCostUI != null)
         {
@@ -284,7 +290,8 @@ public class BuildingPlacementController : SelectableObject, ICommandable
         FinishPlacement();
     }
 
-    // 이동이 도착 없이 끝난 경우(길이 막혀 멈춤 등) 경고를 남기고 다시 시도하거나 취소할 수 있게 둔다.
+    // 이동이 도착 없이 끝난 경우(길이 막혀 멈춤 등) 경고를 남기고 배치를 정리한다. 이 시점에는 이미 선택이 풀려 컨트롤러를 다시 조작할 수 없으므로,
+    // 소환해 둔 홀로그램을 남겨두지 않고 컨트롤러와 함께 파괴한다.
     // 도착에 성공한 경우에는 HandleArrivedAtBuildSite가 먼저 실행되며 플래그를 이미 내려두므로 여기서는 무시한다.
     private void HandleMoveEndAtBuildSite()
     {
@@ -292,6 +299,17 @@ public class BuildingPlacementController : SelectableObject, ICommandable
 
         _isMovingToBuildSite = false;
         Debug.LogWarning("[BuildingPlacementController] 건축 위치까지 이동하지 못했습니다.");
+        FinishPlacement();
+    }
+
+    // 시민에게 새 이동·채집 명령이 내려와 건축 위치로 가던 이동이 취소됐을 때 호출 — 도착할 방법이 사라졌으므로 홀로그램과 컨트롤러를 정리한다.
+    // 시민은 이미 새 명령을 수행 중이므로 그 이동을 멈추지 않도록 플래그를 먼저 내리고 FinishPlacement를 호출한다.
+    private void HandleMoveOrderReplaced()
+    {
+        if (!_isMovingToBuildSite) return;
+
+        _isMovingToBuildSite = false;
+        FinishPlacement();
     }
 
     // 취소 명령 실행 — 아무것도 짓지 않은 채 위치 지정 모드를 종료한다. 이동이 시작되면 UI가 비활성화되어 이 시점에는 아직 이동 전이다.
@@ -329,6 +347,7 @@ public class BuildingPlacementController : SelectableObject, ICommandable
     private void FinishPlacement()
     {
         UnsubscribeFromPlayer();
+        UnsubscribeFromMover();
 
         if (_isMovingToBuildSite)
         {
@@ -356,6 +375,13 @@ public class BuildingPlacementController : SelectableObject, ICommandable
     {
         if (_playerManager == null) return;
         _playerManager.OnDeselected -= HandleDeselected;
+    }
+
+    // 구독 중인 시민 이동 컴포넌트의 이벤트를 해제한다.
+    private void UnsubscribeFromMover()
+    {
+        if (_mover == null) return;
+        _mover.OnMoveOrderReplaced -= HandleMoveOrderReplaced;
     }
 
     // 마우스 포인터가 UI 위에 있는지 확인한다.
