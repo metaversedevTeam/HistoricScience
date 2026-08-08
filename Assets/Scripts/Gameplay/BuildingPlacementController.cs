@@ -30,6 +30,7 @@ public class BuildingPlacementController : SelectableObject, ICommandable
     private Transform _builderTransform;
     private float _buildingHitRadius;
     private float _approachDistance;
+    private float _footprintRadius;
     private readonly Collider[] _overlapBuffer = new Collider[k_MaxOverlapResults];
     private Hologram _hologram;
     private BuildCostUI _openBuildCostUI;
@@ -81,7 +82,9 @@ public class BuildingPlacementController : SelectableObject, ICommandable
         _approachDistance = ComputeApproachDistance();
 
         _hologram = Instantiate(_hologramPrefab);
-        _hologram.SetMesh(buildable.BuildingMesh);
+        _hologram.SetModel(buildable.BuildingModel);
+        // 소환한 모델의 크기는 매 프레임 바뀌지 않으므로 판정에 쓸 반경을 여기서 한 번만 구해 둔다.
+        _footprintRadius = ComputeFootprintRadius();
     }
 
     // 위치 지정 단계에서만 매 프레임 홀로그램 추적 처리를 수행
@@ -136,7 +139,7 @@ public class BuildingPlacementController : SelectableObject, ICommandable
     // 그리고 이미 자리를 차지한 다른 오브젝트와 겹치지는 않는지로 배치 가능 여부를 판정한다.
     private bool IsPositionBuildable(Vector3 worldPosition, TerrainPainter terrainPainter)
     {
-        if (terrainPainter == null || terrainPainter.CurrentMapData == null || _buildable.BuildingMesh == null)
+        if (terrainPainter == null || terrainPainter.CurrentMapData == null || _buildable.BuildingModel == null)
             return false;
 
         if (IsTooCloseToBuilder(worldPosition))
@@ -146,7 +149,7 @@ public class BuildingPlacementController : SelectableObject, ICommandable
             return false;
 
         Vector2 mapPosition = terrainPainter.WorldToMapPosition(worldPosition);
-        float mapRadius = terrainPainter.WorldToMapDistance(HandleGetFootprintRadius());
+        float mapRadius = terrainPainter.WorldToMapDistance(_footprintRadius);
 
         return !terrainPainter.CurrentMapData.HasUnwalkableWithin(mapPosition, mapRadius);
     }
@@ -197,10 +200,10 @@ public class BuildingPlacementController : SelectableObject, ICommandable
         return Vector2.Distance(targetXZ, hitableXZ) < combinedRadius;
     }
 
-    // 건물 메시의 바운드에서 배치 판정에 쓸 반경(월드 단위)을 계산한다.
-    private float HandleGetFootprintRadius()
+    // 홀로그램에 소환된 모델의 크기에서 배치 판정에 쓸 반경(월드 단위)을 계산한다. SetModel 이후에 호출해야 한다.
+    private float ComputeFootprintRadius()
     {
-        Bounds bounds = _buildable.BuildingMesh.bounds;
+        Bounds bounds = _hologram.ModelBounds;
         return Mathf.Max(bounds.extents.x, bounds.extents.z);
     }
 

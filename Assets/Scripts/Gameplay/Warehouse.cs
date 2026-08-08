@@ -12,8 +12,8 @@ public class Warehouse : MonoBehaviour, ICommandable, ISavable, IBuildable
 
     // 건물 선택 UI에 표시할 아이콘
     [SerializeField] private Sprite _buildingIcon;
-    // 배치 미리보기 등에 쓰일 건물 형태
-    [SerializeField] private Mesh _buildingMesh;
+    // 배치 미리보기 홀로그램으로 소환할 모델 오브젝트
+    [SerializeField] private GameObject _buildingModel;
     // 인스펙터에서 지정하는 건설 비용 목록
     [SerializeField] private List<BuildCostEntry> _buildCost = new();
 
@@ -26,7 +26,7 @@ public class Warehouse : MonoBehaviour, ICommandable, ISavable, IBuildable
     private WarehouseUI _openWarehouseUI;
 
     public Sprite Icon => _buildingIcon;
-    public Mesh BuildingMesh => _buildingMesh;
+    public GameObject BuildingModel => _buildingModel;
     // 건물 선택 UI 등은 씬에 배치되지 않은 프리팹 에셋의 컴포넌트를 그대로 참조해 Awake가 실행되지 않으므로, 최초 접근 시 지연 계산한다.
     public IReadOnlyDictionary<ResourceData, int> BuildCost => _buildCostLookup ??= BuildCostLookup();
 

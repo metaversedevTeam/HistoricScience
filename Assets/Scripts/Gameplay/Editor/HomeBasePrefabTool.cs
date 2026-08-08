@@ -115,7 +115,7 @@ public static class HomeBasePrefabTool
         bottomSo.ApplyModifiedPropertiesWithoutUndo();
     }
 
-    // HomeBase 컴포넌트를 붙이고 도감 UI·아이콘·배치 미리보기 메시·건설 비용·저장 식별 키를 연결한다.
+    // HomeBase 컴포넌트를 붙이고 도감 UI·아이콘·배치 미리보기 모델·건설 비용·저장 식별 키를 연결한다.
     private static void AddHomeBaseComponent(GameObject root, GameObject model)
     {
         HomeBase homeBase = root.AddComponent<HomeBase>();
@@ -128,7 +128,7 @@ public static class HomeBasePrefabTool
         so.FindProperty("_itemCodexUiPrefab").objectReferenceValue = codexUiPrefab != null ? codexUiPrefab.GetComponent<ItemCodexUI>() : null;
         so.FindProperty("_codexButtonIcon").objectReferenceValue = codexIcon;
         so.FindProperty("_buildingIcon").objectReferenceValue = codexIcon;
-        so.FindProperty("_buildingMesh").objectReferenceValue = FindModelMesh(model);
+        so.FindProperty("_buildingModel").objectReferenceValue = model;
         so.FindProperty("_savable._prefabId").stringValue = PrefabId;
 
         SerializedProperty cost = so.FindProperty("_buildCost");
@@ -138,17 +138,6 @@ public static class HomeBasePrefabTool
         costEntry.FindPropertyRelative("Count").intValue = StoneBuildCost;
 
         so.ApplyModifiedPropertiesWithoutUndo();
-    }
-
-    // 배치 홀로그램에 쓸 메시를 모델에서 찾는다. 없으면 배치 판정이 항상 실패하므로 경고를 남긴다.
-    private static Mesh FindModelMesh(GameObject model)
-    {
-        MeshFilter filter = model.GetComponentInChildren<MeshFilter>();
-        if (filter != null && filter.sharedMesh != null)
-            return filter.sharedMesh;
-
-        Debug.LogWarning($"[HomeBasePrefabTool] '{ModelPrefabPath}'에서 메시를 찾지 못해 배치 미리보기 메시가 비어 있습니다.");
-        return null;
     }
 
     // 모델의 모든 렌더러를 합친 크기를 루트 로컬 공간 기준으로 계산한다. 콜라이더·판정 반경을 모델에 맞추는 데 쓴다.

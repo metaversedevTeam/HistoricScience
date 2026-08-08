@@ -187,7 +187,7 @@ MonoBehaviour:
   _savable:
     _prefabId: Warehouse
   _buildingIcon: {fileID: 21300000, guid: cdbcdae90dfc03741926ca6a4dd76b51, type: 3}
-  _buildingMesh: {fileID: 7158796146257112550, guid: dcc6bc755b9cbbc4b833e303eed92560, type: 3}
+  _buildingModel: {fileID: 6111111111111111111}
   _buildCost:
   - Resource: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
     Count: 8
@@ -338,5 +338,10 @@ PrefabInstance:
 --- !u!4 &8141579714814620352 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 8993655891697604494, guid: f8bcecbcaec361d4f8e2b71a965a0f5e, type: 3}
+  m_PrefabInstance: {fileID: 879136509212566862}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &6111111111111111111 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 3265502659246817283, guid: f8bcecbcaec361d4f8e2b71a965a0f5e, type: 3}
   m_PrefabInstance: {fileID: 879136509212566862}
   m_PrefabAsset: {fileID: 0}

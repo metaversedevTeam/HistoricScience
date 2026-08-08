@@ -73,18 +73,14 @@ public static class BuildingPlacementPrefabTool
         return material;
     }
 
-    // MeshFilter/MeshRenderer/Hologram 컴포넌트로 구성된 홀로그램 프리팹을 만들거나 갱신한다.
+    // 홀로그램 프리팹을 만들거나 갱신한다. 형태는 건물의 모델 오브젝트를 소환해 만들므로, 프리팹 자체는 Hologram 컴포넌트와 덮어씌울 재질만 가진다.
     private static Hologram CreateOrUpdateHologramPrefab(Material material)
     {
-        var root = new GameObject("Hologram", typeof(MeshFilter), typeof(MeshRenderer));
-        var meshRenderer = root.GetComponent<MeshRenderer>();
-        meshRenderer.sharedMaterial = material;
-        meshRenderer.shadowCastingMode = ShadowCastingMode.Off;
+        var root = new GameObject("Hologram");
 
         var hologram = root.AddComponent<Hologram>();
         var so = new SerializedObject(hologram);
-        so.FindProperty("_meshFilter").objectReferenceValue = root.GetComponent<MeshFilter>();
-        so.FindProperty("_meshRenderer").objectReferenceValue = meshRenderer;
+        so.FindProperty("_hologramMaterial").objectReferenceValue = material;
         so.ApplyModifiedPropertiesWithoutUndo();
 
         GameObject prefabAsset = PrefabUtility.SaveAsPrefabAsset(root, HologramPrefabPath);
