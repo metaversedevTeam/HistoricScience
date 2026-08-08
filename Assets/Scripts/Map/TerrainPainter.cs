@@ -120,8 +120,13 @@ namespace HistoricScience.Test
         // 준비된 데이터로 알파맵과 높이맵을 계산한다. Terrain을 직접 건드리지 않는 순수 계산이라 백그라운드 스레드에서 호출해도 안전하다.
         public (float[,,] Alphamap, float[,] Heightmap) ComputePaint((MapData MapData, MapBiome[] Biomes, TerrainLayer[] Layers, int AlphamapWidth, int AlphamapHeight, int HeightmapResolution) context)
         {
-            float[,,] alphamap = HandleBuildAlphamap(context.AlphamapWidth, context.AlphamapHeight, context.MapData, context.Biomes, context.Layers);
-            alphamap = HandleSmoothAlphamap(alphamap, m_BlendRadius);
+            // 블러가 터레인 밖(이웃 청크가 칠할 영역)까지 참고할 수 있도록 반경만큼 여백을 두고 계산한 뒤, 블러가 끝나면 여백을 잘라낸다.
+            // 여백이 없으면 가장자리 셀이 자기 청크 안쪽 값만 평균내어, 이웃 청크와 그라데이션이 어긋난 이음매가 생긴다.
+            int padding = Mathf.Max(m_BlendRadius, 0);
+
+            float[,,] paddedAlphamap = HandleBuildAlphamap(context.AlphamapWidth, context.AlphamapHeight, padding, context.MapData, context.Biomes, context.Layers);
+            paddedAlphamap = HandleSmoothAlphamap(paddedAlphamap, m_BlendRadius);
+            float[,,] alphamap = HandleCropAlphamapPadding(paddedAlphamap, context.AlphamapWidth, context.AlphamapHeight, padding);
 
             float[,] heightmap = HandleBuildHeightmap(context.HeightmapResolution, context.MapData);
 
@@ -183,23 +188,61 @@ namespace HistoricScience.Test
             return layers;
         }
 
-        // 각 알파맵 셀의 정규화 좌표에 대해 MapData가 반환하는 바이옴에 해당하는 터레인 레이어로 100% 칠한 알파맵을 만든다.
-        private float[,,] HandleBuildAlphamap(int width, int height, MapData mapData, MapBiome[] biomes, TerrainLayer[] layers)
+        // 각 알파맵 셀의 정규화 좌표에 대해 MapData가 반환하는 바이옴에 해당하는 터레인 레이어로 100% 칠한 알파맵을,
+        // 상하좌우로 padding 셀만큼 여백을 덧붙인 크기로 만든다. 여백 영역은 터레인 밖의 맵 좌표를 그대로 샘플링한다.
+        private float[,,] HandleBuildAlphamap(int width, int height, int padding, MapData mapData, MapBiome[] biomes, TerrainLayer[] layers)
         {
             int layerCount = layers.Length;
-            float[,,] alphamap = new float[height, width, layerCount];
+            int paddedWidth = width + padding * 2;
+            int paddedHeight = height + padding * 2;
+            float[,,] alphamap = new float[paddedHeight, paddedWidth, layerCount];
 
-            for (int z = 0; z < height; z++)
+            for (int z = 0; z < paddedHeight; z++)
             {
-                for (int x = 0; x < width; x++)
+                for (int x = 0; x < paddedWidth; x++)
                 {
-                    Vector2 mapPosition = HandleTerrainToMapPosition(new Vector2((float)x / width, (float)z / height));
+                    Vector2 mapPosition = HandleTerrainToMapPosition(new Vector2(
+                        HandleAlphamapCellToNormalized(x - padding, width),
+                        HandleAlphamapCellToNormalized(z - padding, height)));
+
                     MapBiome biome = mapData.GetBiome(mapPosition);
                     int layer = System.Array.IndexOf(biomes, biome);
 
                     for (int l = 0; l < layerCount; l++)
                     {
                         alphamap[z, x, l] = l == layer ? 1f : 0f;
+                    }
+                }
+            }
+
+            return alphamap;
+        }
+
+        // 알파맵 셀 좌표를 0~1 정규화 터레인 좌표로 변환한다. 터레인 셰이더가 컨트롤 텍스처를 (uv × (해상도-1) + 0.5) / 해상도 로 샘플링해
+        // 양 끝 셀이 터레인 가장자리에 정확히 걸치므로, 높이맵과 똑같이 resolution-1로 나눈다. 그래야 이웃 청크와 경계 셀의 맵 좌표가 일치한다.
+        private float HandleAlphamapCellToNormalized(int cell, int resolution)
+        {
+            return (float)cell / Mathf.Max(resolution - 1, 1);
+        }
+
+        // 여백을 두고 계산한 알파맵에서 실제 터레인에 해당하는 가운데 영역만 잘라낸다.
+        private float[,,] HandleCropAlphamapPadding(float[,,] paddedAlphamap, int width, int height, int padding)
+        {
+            if (padding <= 0)
+            {
+                return paddedAlphamap;
+            }
+
+            int layerCount = paddedAlphamap.GetLength(2);
+            float[,,] alphamap = new float[height, width, layerCount];
+
+            for (int z = 0; z < height; z++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    for (int l = 0; l < layerCount; l++)
+                    {
+                        alphamap[z, x, l] = paddedAlphamap[z + padding, x + padding, l];
                     }
                 }
             }
