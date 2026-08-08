@@ -34,6 +34,7 @@ public static class UIProceduralSpriteFactory
         SaveIcon("Icon_Star", BuildIcon(SdStar));
         SaveIcon("Icon_Close", BuildIcon(SdClose));
         SaveIcon("Icon_CircleX", BuildIcon(SdCircleX));
+        SaveIcon("Icon_Box", BuildIcon(SdBox));
 
         AssetDatabase.Refresh();
     }
@@ -234,6 +235,15 @@ public static class UIProceduralSpriteFactory
         float stroke1 = SdCapsule(p, new Vector2(-8f, -8f), new Vector2(8f, 8f), 3f);
         float stroke2 = SdCapsule(p, new Vector2(-8f, 8f), new Vector2(8f, -8f), 3f);
         return Mathf.Min(ring, Mathf.Min(stroke1, stroke2));
+    }
+
+    // 상자 아이콘 — 창고 명령 버튼용. 둥근 사각형 테두리에 뚜껑 선과 가운데 잠금 띠를 얹는다.
+    private static float SdBox(Vector2 p)
+    {
+        float frame = Mathf.Abs(SdRoundedBox(p, new Vector2(20f, 16f), 3f)) - 1.8f;
+        float lid = SdCapsule(p, new Vector2(-20f, 6f), new Vector2(20f, 6f), 3.2f);
+        float strap = SdCapsule(p, new Vector2(0f, -16f), new Vector2(0f, 6f), 3.2f);
+        return Mathf.Min(frame, Mathf.Min(lid, strap));
     }
 
     // 별 테두리 아이콘 — 바깥 별에서 안쪽 별을 뺀 링 형태로 만든다.

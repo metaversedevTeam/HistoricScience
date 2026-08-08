@@ -4,9 +4,9 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-// 창고 UI — 인벤토리를 페이로드로 받아 보유 아이템을 시대 필터·이름 검색으로 추려 격자에 보여주고,
+// 창고 UI — 인벤토리를 페이로드로 받아 보유 아이템을 시대별 카테고리 필터·이름 검색으로 추려 격자에 보여주고,
 // 선택한 아이템의 상세 정보와 창고 저장 공간 사용량을 표시하는 관리형 UI.
-// 시대 탭은 도감의 알약형 탭 컴포넌트(CodexAgeTabUI)를 그대로 재사용한다.
+// 카테고리 탭은 도감의 알약형 탭 컴포넌트(CodexAgeTabUI)를 그대로 재사용한다.
 public class WarehouseUI : OpenableUIBase<ResourceInventory>
 {
     [Header("탭")]

@@ -21,3 +21,5 @@ MonoBehaviour:
     Prefab: {fileID: 753727767457213253, guid: 23cdd92ec85b1904084b2b56623b10a4, type: 3}
   - PrefabId: HomeBase
     Prefab: {fileID: 2878647143197780136, guid: f74ac44a49c2b2d4b990c6a65e50d334, type: 3}
+  - PrefabId: Warehouse
+    Prefab: {fileID: 192673115591004814, guid: 37122b2af8ff4c64194a9ec786b70171, type: 3}

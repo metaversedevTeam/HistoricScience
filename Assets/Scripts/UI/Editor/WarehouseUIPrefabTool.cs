@@ -4,12 +4,12 @@ using UnityEngine;
 using UnityEngine.UI;
 
 // Figma의 '창고 ui' 프레임을 프리팹(패널·슬롯·카테고리 탭)으로 만들어 내는 에디터 도구.
-// 시대 탭은 도감의 알약형 탭 컴포넌트(CodexAgeTabUI)를 창고 색상으로 다시 칠해 재사용한다.
+// 카테고리 탭은 도감의 알약형 탭 컴포넌트(CodexAgeTabUI)를 창고 색상으로 다시 칠해 재사용한다.
 public static class WarehouseUIPrefabTool
 {
     public const string PanelPrefabPath = "Assets/Prefabs/UI/WarehouseUI.prefab";
     public const string SlotPrefabPath = "Assets/Prefabs/UI/Warehouse/WarehouseSlot.prefab";
-    public const string TabPrefabPath = "Assets/Prefabs/UI/Warehouse/WarehouseAgeTab.prefab";
+    public const string TabPrefabPath = "Assets/Prefabs/UI/Warehouse/WarehouseCategoryTab.prefab";
 
     private const string FontAssetPath = "Assets/UI/Fonts/Test/BMHANNA_11YRS_OTF SDF.asset";
 
@@ -17,7 +17,7 @@ public static class WarehouseUIPrefabTool
     private const float ScreenPadding = 32f;
     private const float ContentTop = -97f;
     private const float ContentHeight = 867f;
-    private const float AgePanelWidth = 220f;
+    private const float CategoryPanelWidth = 220f;
     private const float GridPanelX = 276f;
     private const float GridPanelWidth = 1168f;
     private const float DetailPanelX = 1468f;
@@ -26,8 +26,11 @@ public static class WarehouseUIPrefabTool
     private const float BottomBarWidth = 1856f;
     private const float BottomBarHeight = 72f;
     private const float PanelPadding = 16f;
-    private const float SlotSize = 132f;
+    // 격자 폭(1136)을 6열과 열 간격 12로 나눈 슬롯 한 칸의 크기
+    private const float SlotWidth = 179.3333f;
+    private const float SlotHeight = 184.75f;
     private const float SlotSpacing = 12f;
+    private const int SlotColumnCount = 6;
 
     // 색상 팔레트
     private static readonly Color PanelFill = new Color32(0x02, 0x01, 0x08, 0xCC);
@@ -59,10 +62,10 @@ public static class WarehouseUIPrefabTool
 
     // ─────────────────────────────── 탭 프리팹 ───────────────────────────────
 
-    // 시대 필터 탭 프리팹을 만든다. 세로 목록에서 패널 폭 전체로 늘어난다.
+    // 카테고리 필터 탭 프리팹을 만든다. 세로 목록에서 패널 폭 전체로 늘어난다.
     private static GameObject BuildTabPrefab()
     {
-        GameObject root = NewUIObject("WarehouseAgeTab", null);
+        GameObject root = NewUIObject("WarehouseCategoryTab", null);
         root.GetComponent<RectTransform>().sizeDelta = new Vector2(188f, 44f);
 
         Image fill = AddImage(root, UIProceduralSpriteFactory.LoadFill(14), PanelFill);
@@ -78,7 +81,7 @@ public static class WarehouseUIPrefabTool
 
         GameObject labelGO = NewUIObject("Label", root.transform);
         StretchFull(labelGO.GetComponent<RectTransform>());
-        TextMeshProUGUI label = AddText(labelGO, "시대", 15f, new Color32(0xAF, 0xAF, 0xAF, 0xFF), TextAlignmentOptions.Center);
+        TextMeshProUGUI label = AddText(labelGO, "카테고리", 24f, new Color32(0xAF, 0xAF, 0xAF, 0xFF), TextAlignmentOptions.Center);
 
         var tab = root.AddComponent<CodexAgeTabUI>();
         var so = new SerializedObject(tab);
@@ -103,7 +106,7 @@ public static class WarehouseUIPrefabTool
     private static GameObject BuildSlotPrefab()
     {
         GameObject root = NewUIObject("WarehouseSlot", null);
-        root.GetComponent<RectTransform>().sizeDelta = new Vector2(SlotSize, SlotSize);
+        root.GetComponent<RectTransform>().sizeDelta = new Vector2(SlotWidth, SlotHeight);
 
         Image slotFill = AddImage(root, UIProceduralSpriteFactory.LoadFill(14), BoxFill);
         Image outline = AddStretchedImage(root, "Outline", UIProceduralSpriteFactory.LoadLine(14), PanelOutline);
@@ -116,7 +119,7 @@ public static class WarehouseUIPrefabTool
 
         // 아이콘 영역
         GameObject iconAreaGO = NewUIObject("IconArea", root.transform);
-        PlaceTopLeft(iconAreaGO, 10f, -10f, 112f, 89f);
+        PlaceTopLeft(iconAreaGO, 10f, -10f, SlotWidth - 20f, 133.75f);
         AddImage(iconAreaGO, UIProceduralSpriteFactory.LoadFill(10), InnerFill);
 
         GameObject iconGO = NewUIObject("Icon", iconAreaGO.transform);
@@ -132,16 +135,16 @@ public static class WarehouseUIPrefabTool
 
         // 이름 + 수량
         GameObject metaGO = NewUIObject("Meta", root.transform);
-        PlaceTopLeft(metaGO, 10f, -107f, 112f, 15f);
+        PlaceTopLeft(metaGO, 10f, -151.75f, SlotWidth - 20f, 23f);
 
         GameObject nameGO = NewUIObject("Name", metaGO.transform);
-        PlaceTopLeft(nameGO, 0f, 0f, 70f, 15f);
-        TextMeshProUGUI nameText = AddText(nameGO, "아이템", 12f, TextPrimary, TextAlignmentOptions.MidlineLeft);
+        PlaceTopLeft(nameGO, 0f, 0f, 100f, 23f);
+        TextMeshProUGUI nameText = AddText(nameGO, "아이템", 18f, TextPrimary, TextAlignmentOptions.MidlineLeft);
         nameText.overflowMode = TextOverflowModes.Ellipsis;
 
         GameObject countGO = NewUIObject("Count", metaGO.transform);
-        PlaceTopRight(countGO, 0f, 0f, 60f, 15f);
-        TextMeshProUGUI countText = AddText(countGO, "x0", 12f, new Color32(0x16, 0xA3, 0x4A, 0xFF), TextAlignmentOptions.MidlineRight);
+        PlaceTopRight(countGO, 0f, 0f, 59f, 23f);
+        TextMeshProUGUI countText = AddText(countGO, "x0", 18f, new Color32(0x16, 0xA3, 0x4A, 0xFF), TextAlignmentOptions.MidlineRight);
 
         var slot = root.AddComponent<WarehouseSlotUI>();
         var so = new SerializedObject(slot);
@@ -173,7 +176,7 @@ public static class WarehouseUIPrefabTool
         AddImage(dimGO, null, Dim);
 
         Button closeButton = BuildHeader(root);
-        RectTransform tabParent = BuildAgePanel(root);
+        RectTransform tabParent = BuildCategoryPanel(root);
         BuildGridPanel(root, out TMP_InputField searchInput, out ScrollRect scrollRect, out RectTransform slotParent);
         BuildDetailPanel(root, out Image detailIcon, out Image detailPlaceholder, out RectTransform detailInfo,
             out TextMeshProUGUI detailName, out TextMeshProUGUI detailDescription,
@@ -230,14 +233,14 @@ public static class WarehouseUIPrefabTool
         return button;
     }
 
-    // 좌측 시대 필터 패널을 만들고, 탭이 세로로 쌓일 부모를 반환한다.
-    private static RectTransform BuildAgePanel(GameObject root)
+    // 좌측 카테고리 필터 패널을 만들고, 탭이 세로로 쌓일 부모를 반환한다.
+    private static RectTransform BuildCategoryPanel(GameObject root)
     {
-        GameObject panelGO = BuildPanelBox(root, "AgePanel", ScreenPadding, AgePanelWidth);
+        GameObject panelGO = BuildPanelBox(root, "CategoryPanel", ScreenPadding, CategoryPanelWidth);
 
         GameObject labelGO = NewUIObject("Label", panelGO.transform);
         PlaceTopLeft(labelGO, PanelPadding, -PanelPadding, 188f, 18f);
-        AddText(labelGO, "시대", 14f, TextPrimary, TextAlignmentOptions.MidlineLeft);
+        AddText(labelGO, "카테고리", 14f, TextPrimary, TextAlignmentOptions.MidlineLeft);
 
         GameObject tabsGO = NewUIObject("Tabs", panelGO.transform);
         PlaceTopLeft(tabsGO, PanelPadding, -46f, 188f, ContentHeight - 62f);
@@ -288,10 +291,10 @@ public static class WarehouseUIPrefabTool
         content.sizeDelta = Vector2.zero;
 
         var grid = contentGO.AddComponent<GridLayoutGroup>();
-        grid.cellSize = new Vector2(SlotSize, SlotSize);
+        grid.cellSize = new Vector2(SlotWidth, SlotHeight);
         grid.spacing = new Vector2(SlotSpacing, SlotSpacing);
         grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-        grid.constraintCount = 6;
+        grid.constraintCount = SlotColumnCount;
         grid.childAlignment = TextAnchor.UpperLeft;
 
         var fitter = contentGO.AddComponent<ContentSizeFitter>();
@@ -377,28 +380,28 @@ public static class WarehouseUIPrefabTool
         detailPlaceholder.raycastTarget = false;
 
         GameObject infoGO = NewUIObject("Info", panelGO.transform);
-        PlaceTopLeft(infoGO, PanelPadding, -291f, contentWidth, 56f);
+        PlaceTopLeft(infoGO, PanelPadding, -291f, contentWidth, 110f);
         detailInfo = infoGO.GetComponent<RectTransform>();
 
         GameObject nameGO = NewUIObject("Name", infoGO.transform);
-        PlaceTopLeft(nameGO, 0f, 0f, contentWidth, 28f);
-        detailName = AddText(nameGO, "아이템 이름", 22f, TextPrimary, TextAlignmentOptions.TopLeft);
+        PlaceTopLeft(nameGO, 0f, 0f, contentWidth, 50f);
+        detailName = AddText(nameGO, "아이템 이름", 40f, TextPrimary, TextAlignmentOptions.TopLeft);
 
         GameObject descriptionGO = NewUIObject("Description", infoGO.transform);
-        PlaceTopLeft(descriptionGO, 0f, -38f, contentWidth, 18f);
-        detailDescription = AddText(descriptionGO, "아이템 설명", 14f, TextMuted, TextAlignmentOptions.TopLeft);
+        PlaceTopLeft(descriptionGO, 0f, -60f, contentWidth, 50f);
+        detailDescription = AddText(descriptionGO, "아이템 설명", 20f, TextMuted, TextAlignmentOptions.TopLeft);
 
         GameObject quantityGO = NewUIObject("Quantity", panelGO.transform);
-        PlaceTopLeft(quantityGO, PanelPadding, -397f, contentWidth, 18f);
+        PlaceTopLeft(quantityGO, PanelPadding, -451f, contentWidth, 45f);
         detailQuantity = quantityGO.GetComponent<RectTransform>();
 
         GameObject quantityLabelGO = NewUIObject("Label", quantityGO.transform);
-        PlaceTopLeft(quantityLabelGO, 0f, 0f, 120f, 18f);
-        AddText(quantityLabelGO, "수량", 14f, TextStrong, TextAlignmentOptions.MidlineLeft);
+        PlaceTopLeft(quantityLabelGO, 0f, 0f, 160f, 45f);
+        AddText(quantityLabelGO, "수량", 36f, TextStrong, TextAlignmentOptions.MidlineLeft);
 
         GameObject quantityValueGO = NewUIObject("Value", quantityGO.transform);
-        PlaceTopRight(quantityValueGO, 0f, 0f, 160f, 18f);
-        detailQuantityText = AddText(quantityValueGO, "x0", 14f, new Color32(0x16, 0xA3, 0x4A, 0xFF), TextAlignmentOptions.MidlineRight);
+        PlaceTopRight(quantityValueGO, 0f, 0f, 160f, 45f);
+        detailQuantityText = AddText(quantityValueGO, "x0", 36f, new Color32(0x16, 0xA3, 0x4A, 0xFF), TextAlignmentOptions.MidlineRight);
     }
 
     // 저장 공간 사용량 문구와 게이지가 들어가는 하단 바를 만든다.
@@ -410,12 +413,12 @@ public static class WarehouseUIPrefabTool
         AddStretchedImage(barGO, "Outline", UIProceduralSpriteFactory.LoadLine(20), PanelOutline);
 
         GameObject labelGO = NewUIObject("Label", barGO.transform);
-        PlaceTopLeft(labelGO, PanelPadding, -15f, 300f, 18f);
-        AddText(labelGO, "저장 공간", 14f, TextStrong, TextAlignmentOptions.MidlineLeft);
+        PlaceTopLeft(labelGO, PanelPadding, -3f, 300f, 30f);
+        AddText(labelGO, "저장 공간", 24f, TextStrong, TextAlignmentOptions.MidlineLeft);
 
         GameObject valueGO = NewUIObject("Value", barGO.transform);
-        PlaceTopLeft(valueGO, PanelPadding, -39f, 300f, 18f);
-        capacityText = AddText(valueGO, "0/30", 14f, TextMuted, TextAlignmentOptions.MidlineLeft);
+        PlaceTopLeft(valueGO, PanelPadding, -39f, 300f, 30f);
+        capacityText = AddText(valueGO, "0/30", 24f, TextMuted, TextAlignmentOptions.MidlineLeft);
 
         GameObject trackGO = NewUIObject("ProgressTrack", barGO.transform);
         PlaceTopLeft(trackGO, 1320f, -30f, 520f, 12f);
