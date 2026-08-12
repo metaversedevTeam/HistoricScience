@@ -9,8 +9,8 @@ public static class UIProceduralSpriteFactory
 {
     public const string OutputFolder = "Assets/Art/Sprites/UI/Generated";
 
-    // 생성할 둥근 사각형 반지름 목록 (배지/게이지, 상태바, 아이콘 박스, 카드, 창고 슬롯, 미리보기 박스, 패널 순)
-    private static readonly int[] Radii = { 6, 8, 10, 12, 14, 16, 20 };
+    // 생성할 둥근 사각형 반지름 목록 (배지/게이지, 상태바, 아이콘 박스, 카드, 창고 슬롯, 미리보기 박스, 패널, 메뉴 패널 순)
+    private static readonly int[] Radii = { 6, 8, 10, 12, 14, 16, 20, 24 };
 
     private const float StrokeWidth = 2f;
     private const int IconSize = 64;
