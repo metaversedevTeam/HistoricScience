@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -6,44 +7,46 @@ using UnityEngine.UI;
 public class CraftingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
     IBeginDragHandler, IDragHandler, IEndDragHandler
 {
+    // 배치된 아이템이 바뀔 때마다 발행된다. 결과 미리보기처럼 격자 전체를 다시 읽어야 하는 쪽이 구독한다.
+    public event Action OnItemChanged;
+
     public ItemData Item { get; private set; }
 
     // 이 슬롯의 격자 좌표(x=열, y=행). 비직사각형 배치도 지원하도록 인스펙터에서 명시적으로 지정한다.
     [SerializeField] private Vector2Int _coord;
     public Vector2Int Coord => _coord;
 
-    private Image _image;
-    private Color _emptyColor;
+    // 칸의 테두리·배경과 별개로 아이템 그림만 그리는 자식 이미지
+    [SerializeField] private Image _icon;
+
+    // 창고에서 새 재료를 받아도 되는지 판정하는 규칙. 남은 보유량을 아는 작업대가 넣어 준다.
+    private Func<ItemData, bool> _canPlace;
 
     private Canvas _rootCanvas;
     private RectTransform _dragIconRect;
 
-    private void Awake()
-    {
-        _image = GetComponent<Image>();
-        _emptyColor = _image.color;
-    }
+    // 창고에서 재료를 받을 수 있는지 판정하는 규칙을 등록한다.
+    public void SetPlacementRule(Func<ItemData, bool> canPlace) => _canPlace = canPlace;
 
     // 슬롯에 아이템을 배치하고 아이콘을 갱신한다.
     public void SetItem(ItemData item)
     {
         Item = item;
+
         if (item == null)
         {
-            _image.sprite = null;
-            _image.color = _emptyColor;
-        }
-        else if (item.IconSprite != null)
-        {
-            _image.sprite = item.IconSprite;
-            _image.color = Color.white;
+            _icon.gameObject.SetActive(false);
+            _icon.sprite = null;
         }
         else
         {
+            _icon.gameObject.SetActive(true);
+            _icon.sprite = item.IconSprite;
             // 아이콘이 없어도 점유 상태임을 밝은 색으로 표시한다.
-            _image.sprite = null;
-            _image.color = new Color(0.55f, 0.55f, 0.55f, 1f);
+            _icon.color = item.IconSprite != null ? Color.white : new Color(0.55f, 0.55f, 0.55f, 1f);
         }
+
+        OnItemChanged?.Invoke();
     }
 
     // 슬롯을 비운다.
@@ -56,10 +59,16 @@ public class CraftingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
         var dragged = eventData.pointerDrag;
         if (dragged == null) return;
 
-        // 인벤토리 슬롯에서 온 드롭: 아이템을 이 칸에 복사한다.
+        // 창고 슬롯에서 온 드롭: 아이템을 이 칸에 복사한다.
         var fromInventory = dragged.GetComponent<ItemSlotUI>();
         if (fromInventory != null)
         {
+            // 빈 칸을 끌어온 경우에는 놓여 있던 재료를 지우지 않고 무시한다.
+            if (fromInventory.Item == null) return;
+
+            // 같은 재료를 다시 놓는 것은 총량이 그대로라 항상 허용한다. 다른 재료라면 한 개를 새로 쓰는 셈이다.
+            if (fromInventory.Item != Item && _canPlace != null && !_canPlace(fromInventory.Item)) return;
+
             SetItem(fromInventory.Item);
             return;
         }

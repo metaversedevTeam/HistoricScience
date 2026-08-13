@@ -4,18 +4,31 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-// 작업대 조합 UI — 인벤토리를 페이로드로 받아 열리는 관리형 UI (슬롯 목록 표시, 격자에 배치된 위치까지 감안한 조합)
+// 작업대 조합 UI — 인벤토리를 페이로드로 받아 열리는 관리형 UI (창고 격자 표시, 격자에 배치된 위치까지 감안한 조합)
 public class WorkbenchUI : OpenableUIBase<ResourceInventory>
 {
-    [SerializeField] private GameObject _slotPrefab;
+    [Header("창고 격자")]
+    [SerializeField] private ItemSlotUI _slotPrefab;
     [SerializeField] private RectTransform _slotsContent;
+    // 보유 종류가 적어도 빈 칸을 그려 창고 격자를 채우는 최소 칸 수 (디자인 기준 6열 x 5행)
+    [SerializeField, Min(0)] private int _minSlotCount = 30;
+
+    [Header("제작대")]
     [SerializeField] private RectTransform _craftingGrid;
+    [SerializeField] private Image _resultIcon;
     [SerializeField] private Button _craftButton;
-    [SerializeField] private Button _closeButton;
     [SerializeField] private TextMeshProUGUI _warningText;
+
+    [Header("헤더")]
+    [SerializeField] private Button _closeButton;
+    // 시민 할당 배지. 작업대에 일꾼 정보를 넘기는 경로가 아직 없어 항상 숨긴다.
+    [SerializeField] private GameObject _workerBadge;
+    // 제작 진행 게이지. 제작이 즉시 끝나므로 아직 숨긴다.
+    [SerializeField] private GameObject _progressRow;
 
     private ResourceInventory _inventory;
     private CraftingSlotUI[] _craftingSlots;
+    private readonly List<ItemSlotUI> _slots = new();
     private Coroutine _warningCoroutine;
 
     private void Awake()
@@ -24,15 +37,55 @@ public class WorkbenchUI : OpenableUIBase<ResourceInventory>
         _craftButton.onClick.AddListener(OnCraftButtonClick);
         _closeButton.onClick.AddListener(OnCloseButtonClick);
         _warningText.gameObject.SetActive(false);
+
+        // 대응하는 데이터 소스가 생기기 전까지는 디자인 요소만 남기고 꺼 둔다.
+        if (_workerBadge != null) _workerBadge.SetActive(false);
+        if (_progressRow != null) _progressRow.SetActive(false);
+
+        RefreshResultPreview();
     }
 
-    // 조합 격자 하위의 모든 CraftingSlotUI를 수집한다(격자 크기·모양 무관).
+    // 조합 격자 하위의 모든 CraftingSlotUI를 수집해 배치 규칙과 변경 알림을 연결한다(격자 크기·모양 무관).
     private void InitializeCraftingSlots()
     {
         _craftingSlots = _craftingGrid.GetComponentsInChildren<CraftingSlotUI>(true);
+
+        foreach (var slot in _craftingSlots)
+        {
+            slot.SetPlacementRule(CanPlaceInCraftingGrid);
+            slot.OnItemChanged += HandleCraftingGridChanged;
+        }
     }
 
-    // 주입받은 인벤토리를 구독하고 슬롯 목록을 구성한다.
+    // 격자 배치가 바뀌면 결과 미리보기와 창고에 남아 보이는 수량을 함께 갱신한다.
+    private void HandleCraftingGridChanged()
+    {
+        RefreshResultPreview();
+
+        // 열리기 전이나 풀로 돌아가는 중에는 채울 인벤토리가 없다.
+        if (_inventory != null) PopulateSlots();
+    }
+
+    // 격자에 재료를 한 개 더 올릴 여유가 있는지 판정한다.
+    private bool CanPlaceInCraftingGrid(ItemData item)
+    {
+        if (item == null || _inventory == null) return false;
+        return GetRemainingCount(item) > 0;
+    }
+
+    // 창고에 남아 보이는 수량 — 보유량에서 조합 격자에 이미 올려둔 몫을 뺀 값.
+    private int GetRemainingCount(ItemData item)
+    {
+        int placed = 0;
+        foreach (var slot in _craftingSlots)
+        {
+            if (slot.Item == item) placed++;
+        }
+
+        return _inventory.Get(item) - placed;
+    }
+
+    // 주입받은 인벤토리를 구독하고 창고 격자를 구성한다.
     protected override void ApplyData(ResourceInventory data)
     {
         _inventory = data;
@@ -57,30 +110,43 @@ public class WorkbenchUI : OpenableUIBase<ResourceInventory>
         _warningText.gameObject.SetActive(false);
     }
 
-    // 인벤토리 변경 시 슬롯 목록을 갱신한다.
+    // 인벤토리 변경 시 창고 격자를 갱신한다.
     private void HandleInventoryChanged(ItemData item, int newCount) => PopulateSlots();
 
     // 닫기 버튼 클릭 시 UI를 닫는다.
     private void OnCloseButtonClick() => Close();
 
-    // 기존 슬롯을 제거하고 인벤토리의 아이템마다 슬롯을 새로 생성한다.
+    // 창고에 남아 있는 아이템으로 격자를 채우고, 남는 칸은 빈 칸으로 그린다.
+    // 조합 격자에 올려둔 재료는 아직 소비되지 않았지만 창고에서는 빠진 것처럼 보여 준다.
     private void PopulateSlots()
     {
-        ClearSlots();
+        int filledCount = 0;
         foreach (var item in _inventory.ItemDataList.Items)
         {
-            var count = _inventory.Get(item);
-            if (count == 0) continue;
-            var slot = Instantiate(_slotPrefab, _slotsContent).GetComponent<ItemSlotUI>();
-            slot.Setup(item, count);
+            var count = GetRemainingCount(item);
+            if (count <= 0) continue;
+
+            GetOrCreateSlot(filledCount).Setup(item, count);
+            filledCount++;
         }
+
+        int slotCount = Mathf.Max(_minSlotCount, filledCount);
+        for (int i = filledCount; i < slotCount; i++)
+            GetOrCreateSlot(i).SetupEmpty();
+
+        // 보유 종류가 줄어 남는 슬롯은 격자에서 감춘다.
+        for (int i = slotCount; i < _slots.Count; i++)
+            _slots[i].gameObject.SetActive(false);
     }
 
-    // Content 아래의 슬롯 오브젝트를 모두 제거한다.
-    private void ClearSlots()
+    // index번째 슬롯을 켜서 반환하고, 아직 없으면 새로 만들어 재사용 목록에 넣는다.
+    private ItemSlotUI GetOrCreateSlot(int index)
     {
-        for (int i = _slotsContent.childCount - 1; i >= 0; i--)
-            Destroy(_slotsContent.GetChild(i).gameObject);
+        while (_slots.Count <= index)
+            _slots.Add(Instantiate(_slotPrefab, _slotsContent));
+
+        _slots[index].gameObject.SetActive(true);
+        return _slots[index];
     }
 
     // 격자 배치와 일치하는 조합법을 찾아 재료를 소비하고 결과 아이템을 지급한다.
@@ -129,12 +195,28 @@ public class WorkbenchUI : OpenableUIBase<ResourceInventory>
     private ItemData FindMatchingRecipe(CraftingPattern placed)
     {
         if (placed.IsEmpty) return null;
+        // 열기 전에도 격자 변경 이벤트가 올 수 있어 인벤토리가 없으면 판정을 건너뛴다.
+        if (_inventory == null) return null;
+
         foreach (var item in _inventory.ItemDataList.Items)
         {
             if (item.HasRecipe && placed.Matches(item.ToPattern()))
                 return item;
         }
         return null;
+    }
+
+    // 현재 배치로 만들어질 아이템을 결과 슬롯에 미리 보여준다. 맞는 조합법이 없으면 빈 슬롯으로 둔다.
+    private void RefreshResultPreview()
+    {
+        ItemData result = FindMatchingRecipe(BuildPlacedPattern());
+        bool hasResult = result != null;
+
+        _resultIcon.gameObject.SetActive(hasResult);
+        if (!hasResult) return;
+
+        _resultIcon.sprite = result.IconSprite;
+        _resultIcon.color = result.IconSprite != null ? Color.white : new Color(0.55f, 0.55f, 0.55f, 1f);
     }
 
     // 경고 메시지를 표시하고 2초 후 자동으로 숨긴다.

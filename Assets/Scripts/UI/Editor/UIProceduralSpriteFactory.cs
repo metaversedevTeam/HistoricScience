@@ -35,6 +35,9 @@ public static class UIProceduralSpriteFactory
         SaveIcon("Icon_Close", BuildIcon(SdClose));
         SaveIcon("Icon_CircleX", BuildIcon(SdCircleX));
         SaveIcon("Icon_Box", BuildIcon(SdBox));
+        SaveIcon("Icon_Anvil", BuildIcon(SdAnvil));
+        SaveIcon("Icon_Users", BuildIcon(SdUsers));
+        SaveIcon("Icon_ArrowRight", BuildIcon(SdArrowRight));
 
         AssetDatabase.Refresh();
     }
@@ -244,6 +247,35 @@ public static class UIProceduralSpriteFactory
         float lid = SdCapsule(p, new Vector2(-20f, 6f), new Vector2(20f, 6f), 3.2f);
         float strap = SdCapsule(p, new Vector2(0f, -16f), new Vector2(0f, 6f), 3.2f);
         return Mathf.Min(frame, Mathf.Min(lid, strap));
+    }
+
+    // 모루 아이콘 — 작업대 UI 제목용. 윗판·허리·받침을 겹쳐 통짜 실루엣으로 만든다.
+    private static float SdAnvil(Vector2 p)
+    {
+        float top = SdRoundedBox(p - new Vector2(0f, 10f), new Vector2(20f, 5f), 2f);
+        float horn = SdCapsule(p, new Vector2(16f, 8f), new Vector2(25f, 13f), 5f);
+        float waist = SdRoundedBox(p - new Vector2(0f, -2f), new Vector2(7f, 8f), 2f);
+        float basePlate = SdRoundedBox(p - new Vector2(0f, -14f), new Vector2(16f, 5f), 2f);
+        return Mathf.Min(Mathf.Min(top, horn), Mathf.Min(waist, basePlate));
+    }
+
+    // 사람 둘 아이콘 — 일꾼 할당 배지용. 머리 원과 어깨 둥근 사각형을 좌우로 겹친다.
+    private static float SdUsers(Vector2 p)
+    {
+        float backHead = (p - new Vector2(9f, 9f)).magnitude - 6f;
+        float backBody = SdRoundedBox(p - new Vector2(9f, -9f), new Vector2(10f, 7f), 7f);
+        float frontHead = (p - new Vector2(-7f, 8f)).magnitude - 7.5f;
+        float frontBody = SdRoundedBox(p - new Vector2(-7f, -10f), new Vector2(12f, 8f), 8f);
+        return Mathf.Min(Mathf.Min(backHead, backBody), Mathf.Min(frontHead, frontBody));
+    }
+
+    // 오른쪽 화살표 아이콘 — 조합 격자에서 결과 슬롯으로 이어지는 표시용.
+    private static float SdArrowRight(Vector2 p)
+    {
+        float shaft = SdCapsule(p, new Vector2(-18f, 0f), new Vector2(14f, 0f), 4f);
+        float upper = SdCapsule(p, new Vector2(14f, 0f), new Vector2(4f, 10f), 4f);
+        float lower = SdCapsule(p, new Vector2(14f, 0f), new Vector2(4f, -10f), 4f);
+        return Mathf.Min(shaft, Mathf.Min(upper, lower));
     }
 
     // 별 테두리 아이콘 — 바깥 별에서 안쪽 별을 뺀 링 형태로 만든다.

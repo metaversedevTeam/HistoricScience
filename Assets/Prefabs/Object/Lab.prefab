@@ -117,7 +117,7 @@ MonoBehaviour:
   _savable:
     _prefabId: Lab
   _buildingIcon: {fileID: 21300000, guid: 3a243952cd4c3ca4d81f2271deec5970, type: 3}
-  _buildingModel: {fileID: 6222222222222222222}
+  _buildingModel: {fileID: 5457373065823405292}
   _buildCost:
   - Resource: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
     Count: 3
@@ -754,13 +754,13 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 06b47dd1106571e45a617c8431d80079, type: 3}
+--- !u!1 &5457373065823405292 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 3432047537443761108, guid: 06b47dd1106571e45a617c8431d80079, type: 3}
+  m_PrefabInstance: {fileID: 7214044149327507256}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &6340088802551403159 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 3738528384589020591, guid: 06b47dd1106571e45a617c8431d80079, type: 3}
-  m_PrefabInstance: {fileID: 7214044149327507256}
-  m_PrefabAsset: {fileID: 0}
---- !u!1 &6222222222222222222 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 3432047537443761108, guid: 06b47dd1106571e45a617c8431d80079, type: 3}
   m_PrefabInstance: {fileID: 7214044149327507256}
   m_PrefabAsset: {fileID: 0}
