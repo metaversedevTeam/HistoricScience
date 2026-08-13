@@ -346,6 +346,8 @@ public static class WarehouseUIPrefabTool
         input.customCaretColor = true;
         input.selectionColor = new Color(0.18f, 0.42f, 1f, 0.4f);
         input.lineType = TMP_InputField.LineType.SingleLine;
+        // 한글 IME 조합 중인 글자에 밑줄이 그어지지 않도록 리치 텍스트를 끈다
+        input.richText = false;
 
         return input;
     }
