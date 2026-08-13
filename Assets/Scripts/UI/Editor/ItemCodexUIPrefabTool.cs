@@ -24,6 +24,8 @@ public static class ItemCodexUIPrefabTool
     private const float CardSpacing = 28f;
     private const float CloseButtonSize = 46f;
     private const float CloseButtonGap = 8f;
+    // 썸네일이 썸네일 프레임을 꽉 채우도록 남기는 사방 여백
+    private const float ThumbnailPadding = 8f;
 
     // 색상 팔레트
     private static readonly Color PanelFill = Hex(0x08, 0x0B, 0x14);
@@ -116,7 +118,7 @@ public static class ItemCodexUIPrefabTool
         Image thumbOutline = AddStretchedImage(thumbFrameGO, "Outline", UIProceduralSpriteFactory.LoadLine(8), Hex(0x1B, 0x3A, 0x6B));
 
         GameObject thumbGO = NewUIObject("Thumbnail", thumbFrameGO.transform);
-        StretchWithPadding(thumbGO.GetComponent<RectTransform>(), 26f);
+        StretchWithPadding(thumbGO.GetComponent<RectTransform>(), ThumbnailPadding);
         Image thumbnail = AddImage(thumbGO, null, Color.white);
         thumbnail.preserveAspect = true;
         thumbnail.raycastTarget = false;
