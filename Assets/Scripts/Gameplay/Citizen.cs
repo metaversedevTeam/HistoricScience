@@ -91,11 +91,12 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
         UnsubscribeFromPlayer();
     }
 
-    // 우클릭한 대상이 IGatherable이면 채집을 시작하고, 아니면 대상을 추적하거나 클릭한 위치로 이동하며 진행 중이던 채집과 채집 타겟 지정 대기를 취소
+    // 우클릭한 대상이 IGatherable이면 채집을 시작하고, 아니면 대상을 추적하거나 클릭한 위치로 이동하며 진행 중이던 채집과 채집 타겟 지정 대기, 건축 위치 지정을 취소
     private void HandleRightClick(Vector2 pos, ClickableObject clickable)
     {
         CancelGatherTargeting();
         CancelGathering();
+        CancelBuildingPlacement();
 
         if (clickable == null)
         {
@@ -146,6 +147,9 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
     // 지정한 대상을 채집 대상으로 설정하고 대상에게 이동을 시작한다.
     private void BeginGathering(IGatherable gatherable, ResourceInventory inventory, Transform targetTransform)
     {
+        // 채집도 대상까지 이동하는 명령이므로, 채집 타겟 지정을 거쳐 들어온 경우까지 포함해 여기서 건축 위치 지정을 정리한다.
+        CancelBuildingPlacement();
+
         _gatherTarget = gatherable;
         _gatherInventory = inventory;
         _mover.Move(targetTransform);
@@ -217,6 +221,15 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
         _placementController.BeginPlacement(buildable, (buildable as Component)?.gameObject, _selectedBy, _mover, GetComponent<HitableObject>());
     }
 
+    // 진행 중이던 건축 위치 지정을 취소해 홀로그램과 위치 지정 모드를 정리한다. 시민이 다른 곳으로 이동하면 그 자리에 짓기로 한 위치는 의미를 잃기 때문이다.
+    // 이미 건축 명령을 받아 배치 위치로 이동 중인 경우는 컨트롤러가 스스로 무시하므로, 진행 중인 건축은 여기서 취소되지 않는다.
+    private void CancelBuildingPlacement()
+    {
+        if (_placementController == null) return;
+
+        _placementController.CancelPlacement();
+    }
+
     // 건축 명령을 받아 배치 위치로 이동하는 중인지 확인한다. 배치가 끝난 컨트롤러는 파괴되어 null로 판정된다.
     private bool IsMovingToBuildSite()
     {
@@ -241,13 +254,14 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
 
     public WorkPlace CurrentWorkPlace => _currentWorkPlace;
 
-    // 일터에 등록되기 직전 호출. 진행 중인 이동·채집과 플레이어 구독을 정리해, 곧바로 캡처될 상태에 남은 명령이 없게 한다.
+    // 일터에 등록되기 직전 호출. 진행 중인 이동·채집·건축 위치 지정과 플레이어 구독을 정리해, 곧바로 캡처될 상태에 남은 명령이 없게 한다.
     public void OnEnterWorkPlace(WorkPlace workPlace)
     {
         _currentWorkPlace = workPlace;
 
         CancelGatherTargeting();
         CancelGathering();
+        CancelBuildingPlacement();
         UnsubscribeFromPlayer();
         _mover.Stop();
     }

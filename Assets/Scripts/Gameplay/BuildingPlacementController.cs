@@ -342,9 +342,11 @@ public class BuildingPlacementController : SelectableObject, ICommandable
             _playerManager.ResourceInventory.Remove(cost.Key, cost.Value);
     }
 
-    // 위치 지정 모드를 취소한다.
-    private void CancelPlacement()
+    // 위치 지정 모드를 취소한다. 건축 명령 후 시민이 배치 위치로 이동 중인 단계에서는 그 이동까지 멈춰버리지 않도록 취소를 무시한다.
+    public void CancelPlacement()
     {
+        if (_state == PlacementState.Building) return;
+
         FinishPlacement();
     }
 
