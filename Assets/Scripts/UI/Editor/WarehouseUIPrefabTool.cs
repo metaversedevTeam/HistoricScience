@@ -31,6 +31,9 @@ public static class WarehouseUIPrefabTool
     private const float SlotHeight = 184.75f;
     private const float SlotSpacing = 12f;
     private const int SlotColumnCount = 6;
+    // 아이콘이 아이콘 영역을 꽉 채우도록 남기는 사방 여백
+    private const float SlotIconPadding = 8f;
+    private const float DetailIconPadding = 16f;
 
     // 색상 팔레트
     private static readonly Color PanelFill = new Color32(0x02, 0x01, 0x08, 0xCC);
@@ -123,7 +126,7 @@ public static class WarehouseUIPrefabTool
         AddImage(iconAreaGO, UIProceduralSpriteFactory.LoadFill(10), InnerFill);
 
         GameObject iconGO = NewUIObject("Icon", iconAreaGO.transform);
-        PlaceCentered(iconGO, 0f, 0f, 44f, 44f);
+        StretchWithPadding(iconGO.GetComponent<RectTransform>(), SlotIconPadding);
         Image icon = AddImage(iconGO, null, TextPrimary);
         icon.preserveAspect = true;
         icon.raycastTarget = false;
@@ -369,7 +372,7 @@ public static class WarehouseUIPrefabTool
         AddImage(previewInnerGO, UIProceduralSpriteFactory.LoadFill(12), InnerFill);
 
         GameObject iconGO = NewUIObject("Icon", previewInnerGO.transform);
-        PlaceCentered(iconGO, 0f, 0f, 72f, 72f);
+        StretchWithPadding(iconGO.GetComponent<RectTransform>(), DetailIconPadding);
         detailIcon = AddImage(iconGO, null, TextPrimary);
         detailIcon.preserveAspect = true;
         detailIcon.raycastTarget = false;
