@@ -97,10 +97,10 @@ CapsuleCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Radius: 4.478133
+  m_Radius: 5
   m_Height: 8.956266
   m_Direction: 1
-  m_Center: {x: 0, y: 3.0000005, z: 0}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!208 &5961919485262563631
 NavMeshObstacle:
   m_ObjectHideFlags: 0
@@ -111,11 +111,11 @@ NavMeshObstacle:
   m_Enabled: 1
   serializedVersion: 3
   m_Shape: 0
-  m_Extents: {x: 4.478133, y: 4.478133, z: 4.478133}
+  m_Extents: {x: 5, y: 4.478133, z: 5}
   m_MoveThreshold: 0.1
   m_Carve: 0
   m_CarveOnlyStationary: 1
-  m_Center: {x: 0, y: 3.0000005, z: 0}
+  m_Center: {x: 0, y: 0, z: 0}
   m_TimeToStationary: 0.5
 --- !u!114 &9108723106831604853
 MonoBehaviour:
@@ -150,7 +150,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _hitEnabled: 1
-  _hitRadius: 4.478133
+  _hitRadius: 5
 --- !u!114 &25601730645505129
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -187,7 +187,7 @@ MonoBehaviour:
   _savable:
     _prefabId: Warehouse
   _buildingIcon: {fileID: 21300000, guid: cdbcdae90dfc03741926ca6a4dd76b51, type: 3}
-  _buildingModel: {fileID: 6111111111111111111}
+  _buildingModel: {fileID: 2405543018358711629}
   _buildCost:
   - Resource: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
     Count: 8
@@ -335,13 +335,13 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: f8bcecbcaec361d4f8e2b71a965a0f5e, type: 3}
+--- !u!1 &2405543018358711629 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 3265502659246817283, guid: f8bcecbcaec361d4f8e2b71a965a0f5e, type: 3}
+  m_PrefabInstance: {fileID: 879136509212566862}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &8141579714814620352 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 8993655891697604494, guid: f8bcecbcaec361d4f8e2b71a965a0f5e, type: 3}
-  m_PrefabInstance: {fileID: 879136509212566862}
-  m_PrefabAsset: {fileID: 0}
---- !u!1 &6111111111111111111 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 3265502659246817283, guid: f8bcecbcaec361d4f8e2b71a965a0f5e, type: 3}
   m_PrefabInstance: {fileID: 879136509212566862}
   m_PrefabAsset: {fileID: 0}
