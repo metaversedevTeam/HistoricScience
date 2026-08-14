@@ -36,6 +36,9 @@ public class IngameSceneManager : MonoBehaviour
     // 이번 씬의 맵 데이터를 반환한다. 씬 진입이 끝나기 전에는 null이다.
     public MapData MapData => _mapData;
 
+    // 이번 씬에서 열린 맵 파일의 슬롯 이름. 저장 대상 슬롯을 바깥에서 알아야 할 때(일시정지 화면 등) 쓴다.
+    public string CurrentSlot => _currentSlot;
+
     private async void Start()
     {
         if (!HandleOpenMapFile()) return;

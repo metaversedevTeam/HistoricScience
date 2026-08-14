@@ -34,7 +34,10 @@ public class UIManager : MonoBehaviour
 
     // 열린 순서를 유지하는 활성(Opening·Open) 인스턴스 큐 — 닫기가 시작되면 순서와 무관하게 자기 자신을 스스로 제거한다
     private readonly LinkedList<IManagedUI> activeQueue = new LinkedList<IManagedUI>();
-    
+
+    // 열려 있는 관리형 UI가 하나라도 있는지 여부. 다른 시스템(일시정지 화면 등)이 ESC 우선순위를 판단할 때 쓴다.
+    public bool HasOpenUI => activeQueue.Count > 0;
+
     private void Awake()
     {
         if (_instance != null && _instance != this)
