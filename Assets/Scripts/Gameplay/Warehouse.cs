@@ -34,7 +34,11 @@ public class Warehouse : MonoBehaviour, ICommandable, ISavable, IBuildable
     private void Awake()
     {
         _selectable = GetComponent<SelectableObject>();
-        _commands = new List<CommandData> { new CommandData("창고 열기", _warehouseButtonIcon, OpenWarehouseUI) };
+        _commands = new List<CommandData>
+        {
+            new CommandData("창고 열기", _warehouseButtonIcon, OpenWarehouseUI),
+            new CommandData("철거", null, ExecuteDemolish),
+        };
     }
 
     // 자신의 선택 이벤트를 구독
@@ -122,6 +126,15 @@ public class Warehouse : MonoBehaviour, ICommandable, ISavable, IBuildable
 
         _openWarehouseUI.OnFinishClose -= HandleWarehouseUIClosed;
         _openWarehouseUI = null;
+    }
+
+    // 선택을 해제하고 건물을 철거한다.
+    private void ExecuteDemolish()
+    {
+        if (_selectedBy != null)
+            _selectedBy.DeselectExternally();
+
+        Destroy(gameObject);
     }
 
     public string PrefabId => _savable.PrefabId;

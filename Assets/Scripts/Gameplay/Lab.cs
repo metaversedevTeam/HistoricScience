@@ -31,7 +31,11 @@ public class Lab : MonoBehaviour, ICommandable, ISavable, IBuildable
     private void Awake()
     {
         _selectable = GetComponent<SelectableObject>();
-        _commands = new List<CommandData> { new CommandData("작업대 열기", _workbenchButtonIcon, OpenWorkbenchUI) };
+        _commands = new List<CommandData>
+        {
+            new CommandData("작업대 열기", _workbenchButtonIcon, OpenWorkbenchUI),
+            new CommandData("철거", null, ExecuteDemolish),
+        };
     }
 
     // 인스펙터에서 지정한 건설 비용 목록을 자원별 조회 테이블로 변환한다.
@@ -94,6 +98,15 @@ public class Lab : MonoBehaviour, ICommandable, ISavable, IBuildable
     {
         if (_selectedBy == null) return;
         UIManager.Instance.OpenUI(_workbenchUiPrefab, _selectedBy.ResourceInventory);
+    }
+
+    // 선택을 해제하고 건물을 철거한다.
+    private void ExecuteDemolish()
+    {
+        if (_selectedBy != null)
+            _selectedBy.DeselectExternally();
+
+        Destroy(gameObject);
     }
 
     public string PrefabId => _savable.PrefabId;
