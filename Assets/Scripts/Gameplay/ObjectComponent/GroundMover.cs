@@ -31,6 +31,15 @@ public class GroundMover : MonoBehaviour, IMover
     // 것으로 보고 정지 판정을 시작한다. 경로만 잡히면 즉시 게이트가 열리므로 실제로는 거의 소모되지 않는다.
     private const float k_MoveStartGrace = 0.25f;
 
+    // 목적지 XZ의 지면 높이를 구할 때 자신의 위치 기준 이 높이(m)만큼 위에서부터 아래로 레이를 쏜다. 터레인 최대 높이보다 충분히 커야 한다.
+    private const float k_GroundRaycastUpDistance = 500f;
+
+    // 지면 높이를 구하는 레이캐스트의 총 길이(m). 위 시작 높이를 지나 터레인 아래까지 닿을 만큼 충분히 커야 한다.
+    private const float k_GroundRaycastLength = 1000f;
+
+    // 목적지의 지면 높이를 찾을 때 감지할 지면 레이어. 비워두면 Awake에서 "Ground" 레이어를 자동으로 찾는다.
+    [SerializeField] private LayerMask _groundLayer;
+
     // 요청한 목적지에 실제로 도달했을 때 발생
     public event Action OnArrived;
 
@@ -66,11 +75,26 @@ public class GroundMover : MonoBehaviour, IMover
     // 이동 명령 세대 번호. Move나 Stop마다 증가시켜, 콜백을 호출하는 도중 새 명령이 들어온 경우를 구분한다.
     private int     _moveOrderId;
 
-    // NavMeshAgent와 HitableObject 컴포넌트를 캐싱
+    // NavMeshAgent와 HitableObject 컴포넌트를 캐싱하고 지면 레이어를 확보
     private void Awake()
     {
         _agent       = GetComponent<NavMeshAgent>();
         _selfHitable = GetComponent<HitableObject>();
+
+        HandleResolveGroundLayer();
+    }
+
+    // Ground 레이어가 미설정된 경우 자동으로 찾아 할당한다.
+    private void HandleResolveGroundLayer()
+    {
+        if (_groundLayer.value != 0)
+            return;
+
+        int idx = LayerMask.NameToLayer("Ground");
+        if (idx >= 0)
+            _groundLayer = 1 << idx;
+        else
+            Debug.LogWarning("[GroundMover] 'Ground' 레이어를 찾을 수 없습니다. Inspector에서 직접 설정해주세요.");
     }
 
     // 활성화 시 자신을 내브메시 베이커의 추적 대상으로 등록해 주변 내브메시가 구워지게 한다
@@ -371,6 +395,20 @@ public class GroundMover : MonoBehaviour, IMover
         BeginDestinationSettle();
     }
 
+    // 목적지 XZ의 지면 높이를 아래로 레이캐스트해 구한다. 맵이 청크 터레인 여러 개로 이루어져 있어 Terrain.activeTerrain은
+    // 목적지가 속하지 않은 다른 청크를 가리킬 수 있고, 그 청크의 SampleHeight는 가장자리 값으로 잘려 수십 m씩 어긋난 높이를
+    // 돌려준다. 그 높이로는 목적지가 내브메시에서 수직으로 멀어져 NavMesh.SamplePosition이 실패하므로 반드시 레이캐스트로 구한다.
+    // 지면을 찾지 못하면 자신의 현재 높이를 쓴다. 자신은 지면 위에 서 있으므로 0보다 실제 지면에 가깝다.
+    private float GetGroundHeight(Vector2 targetPos)
+    {
+        Vector3 origin = new Vector3(targetPos.x, transform.position.y + k_GroundRaycastUpDistance, targetPos.y);
+
+        if (Physics.Raycast(origin, Vector3.down, out RaycastHit hit, k_GroundRaycastLength, _groundLayer))
+            return hit.point.y;
+
+        return transform.position.y;
+    }
+
     // 지정 위치로 이동; 위치가 내브메시 밖이면 갈 수 있는 가장 가까운 지점까지 이동하고, 이동 자체가 불가능하면 false 반환
     // onArrived/onMoveEnd는 이 호출로 시작된 이동에 대해서만 한 번 호출된다
     public bool Move(Vector2 targetPos, Action onArrived = null, Action onMoveEnd = null, float stoppingDistance = 0f)
@@ -383,10 +421,7 @@ public class GroundMover : MonoBehaviour, IMover
         if (!EnsureOnNavMesh())
             return false;
 
-        float y = Terrain.activeTerrain != null
-            ? Terrain.activeTerrain.SampleHeight(new Vector3(targetPos.x, 0f, targetPos.y))
-            : 0f;
-        Vector3 desired = new Vector3(targetPos.x, y, targetPos.y);
+        Vector3 desired = new Vector3(targetPos.x, GetGroundHeight(targetPos), targetPos.y);
 
         if (!TryResolveDestination(desired, out Vector3 destination, out bool isExact))
             return false;
