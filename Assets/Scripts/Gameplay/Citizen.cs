@@ -16,6 +16,13 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
     // 저장/복원 기능을 제공하는 컴포지션. PrefabId는 인스펙터에서 설정한다.
     [SerializeField] private SavableHandler _savable = new();
 
+    // 시민 모델의 애니메이터. 이동·채집 상태를 파라미터로 전달한다.
+    [SerializeField] private Animator _animator;
+
+    // 애니메이터 파라미터 이름. 매 프레임 문자열 비교를 피하기 위해 해시로 캐싱한다.
+    private static readonly int k_IsMovingParam = Animator.StringToHash("IsMoving");
+    private static readonly int k_IsGatheringParam = Animator.StringToHash("IsGathering");
+
     private SelectableObject _selectable;
     private IMover _mover;
     private Gatherer _gatherer;
@@ -28,6 +35,9 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
 
     // 현재 소속된 일터. 등록되지 않았으면 null이다.
     private WorkPlace _currentWorkPlace;
+
+    // 이동 중인지 여부. IMover의 이동 시작·종료 이벤트로 갱신한다.
+    private bool _isMoving;
 
     // 열려 있는 건물 선택 UI. 열려 있지 않으면 null이다.
     private BuildingSelectUI _openBuildingSelectUI;
@@ -48,25 +58,30 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
         };
     }
 
-    // 자신의 선택 이벤트를 구독
+    // 자신의 선택 이벤트와 이동 시작·종료 이벤트를 구독
     private void OnEnable()
     {
         _selectable.OnSelect += HandleSelect;
+        _mover.OnMoveOrdered += HandleMoveOrdered;
+        _mover.OnMoveEnd += HandleMoveEnd;
     }
 
-    // 자신의 선택 이벤트와 PlayerManager 구독을 해제하고 채집 타겟 지정 대기와 건물 선택 UI 구독을 취소
+    // 자신의 선택 이벤트와 이동 이벤트, PlayerManager 구독을 해제하고 채집 타겟 지정 대기와 건물 선택 UI 구독을 취소
     private void OnDisable()
     {
         _selectable.OnSelect -= HandleSelect;
+        _mover.OnMoveOrdered -= HandleMoveOrdered;
+        _mover.OnMoveEnd -= HandleMoveEnd;
         UnsubscribeFromPlayer();
         CancelGatherTargeting();
         UnsubscribeFromBuildingSelectUI();
     }
 
-    // 채집 대상이 지정되어 있으면 매 프레임 채집을 시도
+    // 채집 대상이 지정되어 있으면 매 프레임 채집을 시도하고, 그 결과를 애니메이션에 반영
     private void Update()
     {
         HandleGathering();
+        HandleAnimation();
     }
 
     // 이 오브젝트가 제공하는 명령 목록을 반환한다.
@@ -183,6 +198,28 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
     {
         _gatherTarget = null;
         _gatherInventory = null;
+    }
+
+    // 이동이 시작되면 이동 중으로 표시한다.
+    private void HandleMoveOrdered()
+    {
+        _isMoving = true;
+    }
+
+    // 이동이 끝나면 이동 중 표시를 해제한다.
+    private void HandleMoveEnd()
+    {
+        _isMoving = false;
+    }
+
+    // 현재 이동·채집 상태를 애니메이터 파라미터로 전달한다. 채집은 쿨타임 때문에 실제 채집 성공 여부가 끊기므로,
+    // 대상까지 이동을 끝내고 채집 대상을 들고 있는 상태를 채집 중으로 본다.
+    private void HandleAnimation()
+    {
+        if (_animator == null) return;
+
+        _animator.SetBool(k_IsMovingParam, _isMoving);
+        _animator.SetBool(k_IsGatheringParam, !_isMoving && _gatherTarget != null);
     }
 
     // 건물 짓기 명령을 실행해 건물 선택 UI를 열고 선택·닫기 결과를 구독한다. 이미 건축 위치로 이동 중이면 열지 않는다.
