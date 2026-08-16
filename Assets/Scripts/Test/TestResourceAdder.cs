@@ -37,7 +37,7 @@ namespace HistoricScience.Test
         // 설정된 아이템을 _amount만큼 인벤토리에 추가한다.
         private void AddItem()
         {
-            _inventory.Add(_itemData, _amount);
+            _inventory.Add(_itemData, _amount, transform.position);
             Debug.Log($"TestResourceAdder: '{_itemData.name}' {_amount}개를 추가했습니다. (현재 {_inventory.Get(_itemData)}개)");
         }
 

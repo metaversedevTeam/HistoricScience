@@ -4,8 +4,8 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-// 작업대 조합 UI — 인벤토리를 페이로드로 받아 열리는 관리형 UI (창고 격자 표시, 격자에 배치된 위치까지 감안한 조합)
-public class WorkbenchUI : OpenableUIBase<ResourceInventory>
+// 작업대 조합 UI — 인벤토리와 작업대 위치를 페이로드로 받아 열리는 관리형 UI (창고 격자 표시, 격자에 배치된 위치까지 감안한 조합)
+public class WorkbenchUI : OpenableUIBase<WorkbenchData>
 {
     [Header("창고 격자")]
     [SerializeField] private ItemSlotUI _slotPrefab;
@@ -27,6 +27,10 @@ public class WorkbenchUI : OpenableUIBase<ResourceInventory>
     [SerializeField] private GameObject _progressRow;
 
     private ResourceInventory _inventory;
+
+    // 조합 결과를 획득한 위치로 넘길 작업대의 월드 좌표
+    private Vector3 _workbenchWorldPosition;
+
     private CraftingSlotUI[] _craftingSlots;
     private readonly List<ItemSlotUI> _slots = new();
     private Coroutine _warningCoroutine;
@@ -85,10 +89,11 @@ public class WorkbenchUI : OpenableUIBase<ResourceInventory>
         return _inventory.Get(item) - placed;
     }
 
-    // 주입받은 인벤토리를 구독하고 창고 격자를 구성한다.
-    protected override void ApplyData(ResourceInventory data)
+    // 주입받은 인벤토리를 구독하고 창고 격자를 구성한다. 작업대 위치는 조합 결과의 획득 위치로 쓴다.
+    protected override void ApplyData(WorkbenchData data)
     {
-        _inventory = data;
+        _inventory = data.Inventory;
+        _workbenchWorldPosition = data.WorldPosition;
         _inventory.OnAddItem += HandleInventoryChanged;
         _inventory.OnRemoveItem += HandleInventoryChanged;
         PopulateSlots();
@@ -173,7 +178,7 @@ public class WorkbenchUI : OpenableUIBase<ResourceInventory>
         foreach (var (resource, count) in needed)
             _inventory.Remove(resource, count);
 
-        _inventory.Add(result, 1);
+        _inventory.Add(result, 1, _workbenchWorldPosition);
 
         foreach (var slot in _craftingSlots)
             slot.Clear();
@@ -234,5 +239,19 @@ public class WorkbenchUI : OpenableUIBase<ResourceInventory>
     {
         yield return new WaitForSeconds(seconds);
         _warningText.gameObject.SetActive(false);
+    }
+}
+
+// 작업대 UI에 전달되는 페이로드 — 재료·결과를 주고받을 인벤토리와, 조합 결과의 획득 위치로 쓸 작업대의 월드 좌표
+public readonly struct WorkbenchData
+{
+    public readonly ResourceInventory Inventory;
+    public readonly Vector3 WorldPosition;
+
+    // 인벤토리와 작업대 월드 좌표로 페이로드를 구성한다.
+    public WorkbenchData(ResourceInventory inventory, Vector3 worldPosition)
+    {
+        Inventory = inventory;
+        WorldPosition = worldPosition;
     }
 }

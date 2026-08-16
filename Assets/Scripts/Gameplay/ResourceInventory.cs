@@ -7,6 +7,10 @@ public class ResourceInventory : MonoBehaviour, ISavable
     public event Action<ItemData,int> OnAddItem;
     public event Action<ItemData,int> OnRemoveItem;
 
+    // 월드 좌표와 함께 아이템이 추가되었을 때 발생한다. (아이템, 이번에 추가된 수량, 추가된 월드 좌표)
+    // 획득 팝업처럼 "어디서 얻었는지"가 필요한 표현이 구독한다.
+    public event Action<ItemData,int,Vector3> OnAddItemAt;
+
     public ItemDataList ItemDataList => _itemDataList;
 
     [SerializeField] private ItemDataList _itemDataList;
@@ -23,12 +27,27 @@ public class ResourceInventory : MonoBehaviour, ISavable
     public int Get(ResourceData data) =>
         _counts.TryGetValue(data.Id, out var count) ? count : 0;
 
-    // 자원을 지정한 수량만큼 추가한다.
+    // 자원을 지정한 수량만큼 추가한다. 획득 위치를 알 수 없는 경로(UI 조합 등)에서 쓴다.
     public void Add(ResourceData data, int amount)
     {
-        if (!_counts.ContainsKey(data.Id)) return;
+        AddInternal(data, amount);
+    }
+
+    // 자원을 지정한 수량만큼 추가하고, 획득한 월드 좌표를 함께 알린다.
+    public void Add(ResourceData data, int amount, Vector3 worldPosition)
+    {
+        if (!AddInternal(data, amount)) return;
+        if (data is ItemData item) OnAddItemAt?.Invoke(item, amount, worldPosition);
+    }
+
+    // 실제 보유량을 늘리고 획득 이벤트를 발화한다. 목록에 없는 자원이면 아무것도 하지 않고 false를 반환한다.
+    private bool AddInternal(ResourceData data, int amount)
+    {
+        if (!_counts.ContainsKey(data.Id)) return false;
+
         _counts[data.Id] += amount;
         if (data is ItemData item) OnAddItem?.Invoke(item, _counts[data.Id]);
+        return true;
     }
 
     // 자원을 지정한 수량만큼 차감한다. 수량이 부족하면 false를 반환하고 변경하지 않는다.

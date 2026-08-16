@@ -32,12 +32,14 @@ public class Gatherer : MonoBehaviour
         if (!target.CanGather()) return false;
 
         var (isSuccess, itemType, count) = target.OnGather();
+        // 채집한 자리를 획득 위치로 넘겨, 인벤토리를 구독하는 표현(획득 팝업 등)이 위치를 알 수 있게 한다.
         if (isSuccess && itemType != null && count > 0)
-            inventory?.Add(itemType, count);
+            inventory?.Add(itemType, count, transform.position);
 
         return true;
     }
-    
+
+
     // 선택 시 Scene 뷰에 채집 반경을 XZ 평면 원으로 표시
     private void OnDrawGizmosSelected()
     {

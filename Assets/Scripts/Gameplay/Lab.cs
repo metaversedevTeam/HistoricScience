@@ -93,11 +93,11 @@ public class Lab : MonoBehaviour, ICommandable, ISavable, IBuildable
         _selectedBy = null;
     }
 
-    // 작업대 UI를 선택 중인 플레이어의 자원 인벤토리와 함께 연다.
+    // 작업대 UI를 선택 중인 플레이어의 자원 인벤토리, 그리고 조합 결과의 획득 위치로 쓸 자신의 위치와 함께 연다.
     private void OpenWorkbenchUI()
     {
         if (_selectedBy == null) return;
-        UIManager.Instance.OpenUI(_workbenchUiPrefab, _selectedBy.ResourceInventory);
+        UIManager.Instance.OpenUI(_workbenchUiPrefab, new WorkbenchData(_selectedBy.ResourceInventory, transform.position));
     }
 
     // 선택을 해제하고 건물을 철거한다.

@@ -38,6 +38,9 @@ public class UIManager : MonoBehaviour
     // 열려 있는 관리형 UI가 하나라도 있는지 여부. 다른 시스템(일시정지 화면 등)이 ESC 우선순위를 판단할 때 쓴다.
     public bool HasOpenUI => activeQueue.Count > 0;
 
+    // UI 인스턴스가 붙는 캔버스 루트. 채집 팝업처럼 풀링·개폐 관리를 받지 않는 UI가 부모로 쓴다.
+    public Transform UIRoot => uiRoot != null ? uiRoot : transform;
+
     private void Awake()
     {
         if (_instance != null && _instance != this)

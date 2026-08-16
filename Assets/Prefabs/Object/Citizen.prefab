@@ -107,6 +107,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _gatherRange: 3
+  _gatherPopupPrefab: {fileID: 2828495588627286635, guid: 9bc1b980b53037f42ab5b20c246077c3, type: 3}
+  _gatherPopupOffset: {x: 0, y: 2, z: 0}
 --- !u!114 &5113330609687835715
 MonoBehaviour:
   m_ObjectHideFlags: 0
