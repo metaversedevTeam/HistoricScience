@@ -4,6 +4,9 @@ using UnityEngine;
 // 위치 또는 대상을 향해 이동하는 기능을 정의하는 인터페이스. 목적지에 완전히 도달할 수 없으면 갈 수 있는 데까지 이동을 시도한다.
 public interface IMover
 {
+    // 새 이동 명령이 실제로 시작됐을 때 발생. Move()가 성공한 경우에만 발생하며, 이동 자체가 불가능해 false를 반환한 경우에는 발생하지 않는다.
+    event Action OnMoveOrdered;
+
     // 요청한 목적지에 실제로 도달했을 때 발생. 경로가 막혀 갈 수 있는 데까지만 가고 멈춘 경우에는 발생하지 않는다.
     // 도착도 멈춤의 한 경우이므로, 이 이벤트가 발생한 직후 OnMoveEnd도 이어서 발생한다.
     event Action OnArrived;

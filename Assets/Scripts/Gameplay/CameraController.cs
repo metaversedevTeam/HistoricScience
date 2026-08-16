@@ -21,7 +21,20 @@ public class CameraController : MonoBehaviour, ISavable
 
     private Transform _followTarget;
 
+    // 따라갈 대상의 이동 컴포넌트. 대상에 이동 기능이 없으면 null이다.
+    private IMover _followTargetMover;
+
     private Vector3 _followOffset;
+
+    private Camera _camera;
+
+    // 화면 밖 판정에 쓸 카메라를 캐싱한다. 이 컴포넌트는 카메라에 붙는 것이 기본이고, 아니면 메인 카메라를 쓴다.
+    private void Awake()
+    {
+        _camera = GetComponent<Camera>();
+        if (_camera == null)
+            _camera = Camera.main;
+    }
 
     private void OnEnable()
     {
@@ -33,6 +46,7 @@ public class CameraController : MonoBehaviour, ISavable
     {
         _playerManager.OnSelected -= OnUnitSelected;
         _playerManager.OnDeselected -= OnUnitDeselected;
+        UnsubscribeFromFollowTargetMover();
     }
 
     private void LateUpdate()
@@ -47,18 +61,64 @@ public class CameraController : MonoBehaviour, ISavable
         }
     }
 
-    // 선택된 유닛을 따라갈 대상으로 설정하고 이동 오프셋을 초기화
+    // 선택된 유닛을 따라갈 대상으로 설정하고 이동 오프셋을 초기화하며, 대상의 이동 명령을 구독
     private void OnUnitSelected(SelectableObject selected)
     {
+        UnsubscribeFromFollowTargetMover();
+
         _followTarget = selected.transform;
+        _followOffset = Vector3.zero;
+
+        SubscribeToFollowTargetMover(selected);
+    }
+
+    // 선택 해제 시 따라갈 대상과 이동 오프셋을 초기화하고 이동 명령 구독을 해제
+    private void OnUnitDeselected()
+    {
+        UnsubscribeFromFollowTargetMover();
+
+        _followTarget = null;
         _followOffset = Vector3.zero;
     }
 
-    // 선택 해제 시 따라갈 대상과 이동 오프셋을 초기화
-    private void OnUnitDeselected()
+    // 따라갈 대상에 이동 기능이 있으면 이동 명령 이벤트를 구독한다.
+    private void SubscribeToFollowTargetMover(SelectableObject selected)
     {
+        _followTargetMover = selected.GetComponent<IMover>();
+        if (_followTargetMover == null) return;
+
+        _followTargetMover.OnMoveOrdered += HandleFollowTargetMoveOrdered;
+    }
+
+    // 구독 중인 이동 명령 이벤트를 해제하고 참조를 비운다.
+    private void UnsubscribeFromFollowTargetMover()
+    {
+        if (_followTargetMover == null) return;
+
+        _followTargetMover.OnMoveOrdered -= HandleFollowTargetMoveOrdered;
+        _followTargetMover = null;
+    }
+
+    // 이동 명령을 내린 시점에 대상이 화면 밖이면 따라가기를 중단한다. 화면 밖 대상을 오프셋만큼 떨어져 쫓아가면
+    // 카메라가 보고 있던 곳에서 멀리 튀므로, 그 경우에는 대상을 놓아주고 현재 위치에 머문다.
+    private void HandleFollowTargetMoveOrdered()
+    {
+        if (_followTarget == null) return;
+        if (IsInsideView(_followTarget.position)) return;
+
+        UnsubscribeFromFollowTargetMover();
         _followTarget = null;
-        _followOffset = Vector3.zero;
+    }
+
+    // 지정한 월드 위치가 카메라 화면 안에 들어오는지 판정한다. 카메라를 찾지 못했으면 오프셋을 건드리지 않도록 화면 안으로 본다.
+    private bool IsInsideView(Vector3 worldPosition)
+    {
+        if (_camera == null) return true;
+
+        Vector3 viewportPoint = _camera.WorldToViewportPoint(worldPosition);
+        return viewportPoint.z > 0f &&
+               viewportPoint.x >= 0f && viewportPoint.x <= 1f &&
+               viewportPoint.y >= 0f && viewportPoint.y <= 1f;
     }
 
     // 키보드 오프셋을 더한 위치로 이동을 시도하고, 고도 제한에 막히면 기존 오프셋으로 대상만 따라간다

@@ -40,6 +40,9 @@ public class GroundMover : MonoBehaviour, IMover
     // 목적지의 지면 높이를 찾을 때 감지할 지면 레이어. 비워두면 Awake에서 "Ground" 레이어를 자동으로 찾는다.
     [SerializeField] private LayerMask _groundLayer;
 
+    // 새 이동 명령이 실제로 시작됐을 때 발생(Move()가 성공한 경우에만)
+    public event Action OnMoveOrdered;
+
     // 요청한 목적지에 실제로 도달했을 때 발생
     public event Action OnArrived;
 
@@ -387,12 +390,14 @@ public class GroundMover : MonoBehaviour, IMover
         return false;
     }
 
-    // 새 이동 명령이 시작될 때 종료 판정 상태를 초기화한다. 이전 이동은 취소된 것이므로 이벤트를 발생시키지 않는다.
+    // 새 이동 명령이 시작될 때 종료 판정 상태를 초기화한다. 이전 이동은 취소된 것이므로 종료 이벤트는 발생시키지 않는다.
     private void BeginMoveOrder()
     {
         _hasMoveOrder = true;
         _wasStopped   = false;
         BeginDestinationSettle();
+
+        OnMoveOrdered?.Invoke();
     }
 
     // 목적지 XZ의 지면 높이를 아래로 레이캐스트해 구한다. 맵이 청크 터레인 여러 개로 이루어져 있어 Terrain.activeTerrain은
