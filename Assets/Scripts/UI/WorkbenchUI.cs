@@ -56,6 +56,8 @@ public class WorkbenchUI : OpenableUIBase<WorkbenchData>
 
         foreach (var slot in _craftingSlots)
         {
+            // 프리팹에는 아이콘 이미지가 켜진 채 저장돼 있어 그대로 두면 빈 칸이 흰 사각형으로 보인다.
+            slot.Clear();
             slot.SetPlacementRule(CanPlaceInCraftingGrid);
             slot.OnItemChanged += HandleCraftingGridChanged;
         }
