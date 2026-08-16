@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEngine;
 
 // 인게임 씬의 진입점. 이전 씬이 지정한 맵 파일을 열어 MapData를 만들고, 시드 주입과 청크 로딩,
@@ -23,6 +24,8 @@ public class IngameSceneManager : MonoBehaviour
     [SerializeField] private ItemCodex _itemCodex;
     // 저장/복원 대상 카메라. 없어도 맵 저장/불러오기 자체는 계속 동작하며 카메라 위치만 복원되지 않는다.
     [SerializeField] private CameraController _cameraController;
+    // 맵을 연 뒤 청크 초기 로딩이 끝날 때까지 띄울 로딩 화면 프리팹. 비어 있으면 로딩 화면 없이 씬에 진입한다.
+    [SerializeField] private LoadingScreenUI _loadingScreenUIPrefab;
 
     // 이번 씬에서 열린 맵 파일의 원본 데이터
     private MapSaveData _saveData;
@@ -32,6 +35,8 @@ public class IngameSceneManager : MonoBehaviour
     private string _currentSlot;
     // 아직 청크가 로드되지 않아 소환되지 못한 저장 오브젝트 대기 목록. 각 청크의 ChunkSavableSpawner가 자기 영역의 항목을 꺼내 소환한다.
     private List<SavableEntry> _pendingSavables;
+    // 이번 씬 진입 동안 띄워 둔 로딩 화면 인스턴스
+    private LoadingScreenUI _loadingScreen;
 
     // 이번 씬의 맵 데이터를 반환한다. 씬 진입이 끝나기 전에는 null이다.
     public MapData MapData => _mapData;
@@ -40,6 +45,14 @@ public class IngameSceneManager : MonoBehaviour
     public string CurrentSlot => _currentSlot;
 
     private async void Start()
+    {
+        HandleShowLoadingScreen();
+        await HandleEnterMapAsync();
+        HandleHideLoadingScreen();
+    }
+
+    // 맵 파일을 열어 저장 상태를 복원하고, 등록된 청크의 초기 로딩이 끝날 때까지 기다린다. 도중에 실패하면 그 자리에서 중단한다.
+    private async Task HandleEnterMapAsync()
     {
         if (!HandleOpenMapFile()) return;
         if (!HandleCreateMapData()) return;
@@ -59,6 +72,28 @@ public class IngameSceneManager : MonoBehaviour
 
         // 카메라 고도는 그 자리의 지형 높이로 정해지므로, 주변 지형이 실제로 존재하게 된 뒤 한 번 더 복원해 고도를 맞춘다.
         HandleRestoreCameraPosition();
+    }
+
+    // 맵을 열기 전에 로딩 화면을 띄워, 청크가 다 구워질 때까지 아직 비어 있는 월드가 보이지 않게 가린다.
+    private void HandleShowLoadingScreen()
+    {
+        if (_loadingScreenUIPrefab == null)
+        {
+            Debug.LogWarning("IngameSceneManager: 로딩 화면 프리팹이 연결되지 않아 로딩 중 화면을 가리지 않습니다.", this);
+            return;
+        }
+
+        _loadingScreen = Instantiate(_loadingScreenUIPrefab, UIManager.Instance.UIRoot);
+        _loadingScreen.Show();
+    }
+
+    // 청크 초기 로딩이 끝난 뒤 로딩 화면을 걷는다.
+    private void HandleHideLoadingScreen()
+    {
+        if (_loadingScreen == null)
+            return;
+
+        _loadingScreen.Hide();
     }
 
     // 현재 맵 상태(맵 데이터, 인벤토리, 씬의 모든 ISavable)를 지정한 슬롯에 저장한다. 성공하면 true를 반환한다.
