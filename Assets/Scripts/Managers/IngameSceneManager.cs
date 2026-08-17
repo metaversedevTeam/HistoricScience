@@ -9,6 +9,9 @@ public class IngameSceneManager : MonoBehaviour
     // 이전 씬이 씬 전환 전에 설정하는, 인게임 씬에서 열 맵 파일의 슬롯 이름
     public static string NextMapSlot { get; set; }
 
+    // 맵 파일을 읽어 오는 데 성공한 시점에 표시할 로딩 진행도. 남은 구간은 청크 로딩 비율에 쓴다.
+    private const float FileLoadProgress = 0.1f;
+
     // NextMapSlot이 비어 있을 때(에디터에서 인게임 씬을 바로 실행한 경우 등) 대신 열 슬롯 이름
     [SerializeField] private string _fallbackSlot = "test";
 
@@ -55,6 +58,9 @@ public class IngameSceneManager : MonoBehaviour
     private async Task HandleEnterMapAsync()
     {
         if (!HandleOpenMapFile()) return;
+
+        HandleReportFileLoadProgress();
+
         if (!HandleCreateMapData()) return;
 
         HandleRestoreInventory();
@@ -85,6 +91,10 @@ public class IngameSceneManager : MonoBehaviour
 
         _loadingScreen = Instantiate(_loadingScreenUIPrefab, UIManager.Instance.UIRoot);
         _loadingScreen.Show();
+
+        // 청크가 하나씩 로딩될 때마다 등록된 청크 대비 비율을 받아 프로그래스 바에 반영한다.
+        if (_chunkLoader != null)
+            _chunkLoader.LoadProgressChanged += HandleReportChunkLoadProgress;
     }
 
     // 청크 초기 로딩이 끝난 뒤 로딩 화면을 걷는다.
@@ -93,7 +103,29 @@ public class IngameSceneManager : MonoBehaviour
         if (_loadingScreen == null)
             return;
 
+        // 로딩 화면이 사라진 뒤에도 추적 루프가 진행도를 계속 알리므로 여기서 연결을 끊는다.
+        if (_chunkLoader != null)
+            _chunkLoader.LoadProgressChanged -= HandleReportChunkLoadProgress;
+
         _loadingScreen.Hide();
+    }
+
+    // 맵 파일을 읽어 온 몫만큼 로딩 진행도를 먼저 채운다.
+    private void HandleReportFileLoadProgress()
+    {
+        if (_loadingScreen == null)
+            return;
+
+        _loadingScreen.SetProgress(FileLoadProgress);
+    }
+
+    // 청크 로딩 비율을 전체 로딩 진행도로 바꿔 로딩 화면에 알린다. 맵 파일 읽기가 앞의 몫을 차지하므로 남은 구간에 대응시킨다.
+    private void HandleReportChunkLoadProgress(float chunkLoadProgress)
+    {
+        if (_loadingScreen == null)
+            return;
+
+        _loadingScreen.SetProgress(FileLoadProgress + chunkLoadProgress * (1f - FileLoadProgress));
     }
 
     // 현재 맵 상태(맵 데이터, 인벤토리, 씬의 모든 ISavable)를 지정한 슬롯에 저장한다. 성공하면 true를 반환한다.

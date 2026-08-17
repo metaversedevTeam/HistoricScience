@@ -38,6 +38,14 @@ public class MapChunkLoader : MonoBehaviour
     private readonly List<Vector2Int> m_CoordinateBuffer = new List<Vector2Int>();
     // 오브젝트가 파괴될 때 진행 중인 로딩과 추적 루프를 멈추기 위한 취소 토큰
     private CancellationTokenSource m_Cancellation;
+    // 마지막으로 계산해 알린 로딩 진행도(0~1). 같은 값을 반복해서 알리지 않기 위해 보관한다.
+    private float m_LoadProgress;
+
+    // 등록된 청크 중 로딩이 끝난 청크의 비율(0~1)이 바뀔 때마다 알린다. 로딩 화면의 프로그래스 바가 이 값을 표시한다.
+    public event Action<float> LoadProgressChanged;
+
+    // 등록된 청크(추적 대상 주변에 로딩되어 있어야 하는 청크) 중 로딩이 끝난 청크의 비율(0~1)
+    public float LoadProgress => m_LoadProgress;
 
     // 추적 루프와 진행 중인 로딩을 멈춘다.
     private void OnDestroy()
@@ -229,6 +237,29 @@ public class MapChunkLoader : MonoBehaviour
             m_PendingChunks.Enqueue(coordinate);
             m_ReservedChunks.Add(coordinate);
         }
+
+        HandleRefreshLoadProgress();
+    }
+
+    // 등록된 청크 중 로딩이 끝난 청크의 비율을 다시 계산해, 값이 바뀌었으면 알린다. 대기열을 채운 뒤와 청크 하나가 로딩될 때마다 호출한다.
+    private void HandleRefreshLoadProgress()
+    {
+        int registeredCount = m_DesiredChunks.Count;
+        int loadedCount = 0;
+
+        foreach (Vector2Int coordinate in m_DesiredChunks)
+        {
+            // 대기열에 있거나 지금 백그라운드에서 계산 중인 청크는 아직 로딩이 끝나지 않은 것으로 센다.
+            if (!m_ReservedChunks.Contains(coordinate) && m_ChunkManager.IsChunkActive(coordinate))
+                loadedCount++;
+        }
+
+        float progress = registeredCount > 0 ? loadedCount / (float)registeredCount : 1f;
+        if (Mathf.Approximately(progress, m_LoadProgress))
+            return;
+
+        m_LoadProgress = progress;
+        LoadProgressChanged?.Invoke(progress);
     }
 
     // 주어진 청크 좌표에서 가장 가까운 추적 대상까지의 거리 제곱(청크 단위)을 반환한다. 대상이 없으면 int.MaxValue를 반환한다.
@@ -268,6 +299,8 @@ public class MapChunkLoader : MonoBehaviour
             Task finishedLoad = await Task.WhenAny(runningLoads.Keys);
             m_ReservedChunks.Remove(runningLoads[finishedLoad]);
             runningLoads.Remove(finishedLoad);
+
+            HandleRefreshLoadProgress();
 
             // 예외가 있었다면 여기서 다시 던져 드러나게 한다.
             await finishedLoad;
