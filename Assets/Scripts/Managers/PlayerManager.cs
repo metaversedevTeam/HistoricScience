@@ -10,6 +10,9 @@ public class PlayerManager : MonoBehaviour
     public event Action<Vector2, ClickableObject> OnMouseLeftClick;
     public event Action<Vector2, ClickableObject> OnMouseRightClick;
 
+    // 우클릭을 누르고 있는 동안 갱신된 지점을 반복해서 알리는 이벤트
+    public event Action<Vector2, ClickableObject> OnMouseRightHold;
+
     public ResourceInventory ResourceInventory => _resourceInventory;
 
 
@@ -24,12 +27,14 @@ public class PlayerManager : MonoBehaviour
     {
         _inputManager.OnMouseLeftClick  += OnLeftClick;
         _inputManager.OnMouseRightClick += OnRightClick;
+        _inputManager.OnMouseRightHold  += OnRightHold;
     }
 
     private void OnDisable()
     {
         _inputManager.OnMouseLeftClick  -= OnLeftClick;
         _inputManager.OnMouseRightClick -= OnRightClick;
+        _inputManager.OnMouseRightHold  -= OnRightHold;
     }
 
     // 좌클릭 시 오브젝트 클릭 처리 및 선택 가능 여부에 따라 선택/해제
@@ -56,6 +61,12 @@ public class PlayerManager : MonoBehaviour
     private void OnRightClick(Vector2 pos, ClickableObject clickable)
     {
         OnMouseRightClick?.Invoke(pos, clickable);
+    }
+
+    // 우클릭 홀드 갱신 이벤트를 재발행
+    private void OnRightHold(Vector2 pos, ClickableObject clickable)
+    {
+        OnMouseRightHold?.Invoke(pos, clickable);
     }
 
     // 대상을 현재 선택으로 설정하고 OnSelected 이벤트 발행
