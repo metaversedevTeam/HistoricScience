@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -140,16 +140,21 @@ public class ItemCodexUI : OpenableUIBase
     {
         IReadOnlyList<ItemData> items = _itemDataList.Items;
         string keyword = _searchInput.text.Trim();
+        int codexNumber = 0;
         int visibleCount = 0;
 
         for (int i = 0; i < items.Count; i++)
         {
             ItemData item = items[i];
+            // 도감에서 감춘 아이템은 번호도 차지하지 않도록 필터보다 먼저 건너뛴다.
+            if (!item.ShowInCodex) continue;
+
+            codexNumber++;
             if (!Matches(item, keyword)) continue;
 
             ItemCodexEntryUI entry = GetOrCreateEntry(visibleCount);
             entry.gameObject.SetActive(true);
-            entry.Setup(item, i + 1, IsDiscovered(item));
+            entry.Setup(item, codexNumber, IsDiscovered(item));
             visibleCount++;
         }
 
@@ -182,16 +187,20 @@ public class ItemCodexUI : OpenableUIBase
         return _entries[index];
     }
 
-    // 전체 아이템 대비 획득 수를 계산해 게이지 폭과 문구를 갱신한다. (필터와 무관하게 항상 전체 기준)
+    // 도감에 표시되는 아이템 대비 획득 수를 계산해 게이지 폭과 문구를 갱신한다. (필터와 무관하게 항상 전체 기준)
     private void RefreshProgress()
     {
         IReadOnlyList<ItemData> items = _itemDataList.Items;
-        int total = items.Count;
+        int total = 0;
         int discovered = 0;
 
-        for (int i = 0; i < total; i++)
+        for (int i = 0; i < items.Count; i++)
         {
-            if (IsDiscovered(items[i])) discovered++;
+            ItemData item = items[i];
+            if (!item.ShowInCodex) continue;
+
+            total++;
+            if (IsDiscovered(item)) discovered++;
         }
 
         float ratio = total > 0 ? (float)discovered / total : 0f;
