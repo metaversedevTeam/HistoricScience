@@ -14,15 +14,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _name: "\uB3CC"
   _iconSprite: {fileID: 21300000, guid: db600d8402bb1d25ecab3b9cc6aa7591, type: 3}
+  _description: 
   _id: 1
   _recipe: []
   _editorGridSize: {x: 3, y: 3}
   _sourcePrefab: {fileID: 1564132085319456066, guid: 16ae46c1890f76945aff52fbb3efca24, type: 3}
-  _spawnBiomes:
-  - {fileID: 11400000, guid: 17b382bad77ec244e9420e62e2439394, type: 2}
-  - {fileID: 11400000, guid: fa795c83498fc4245bb9d32f27ec7a2e, type: 2}
-  - {fileID: 11400000, guid: 91f64ac3ccafd8947a939d5ed25d7307, type: 2}
-  - {fileID: 11400000, guid: 011b8d3e13524994b8bf3dab990a2ed9, type: 2}
-  - {fileID: 11400000, guid: 54a51f916e7b33b4998e37a57c060571, type: 2}
-  _spawnCountPerChunk: 20
+  _spawnRule: {fileID: 11400000, guid: a906f37c53ae9ed419de962e0fef12d0, type: 2}
   _craftingTime: 0
+  _itemAge: 0
+  _showInCodex: 1

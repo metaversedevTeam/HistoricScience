@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 // 보로노이 다이어그램을 기반으로 맵의 바이옴/높이 정보를 계산하는 불변 클래스 (생성 후 상태가 변하지 않아 여러 스레드에서 동시에 읽어도 안전하다)
 public sealed class MapData
@@ -92,10 +92,28 @@ public sealed class MapData
         return Mathf.Clamp01(blendedHeight / totalInfluence);
     }
 
+    // 맵 좌표를 둘러싼 높이 격자점 4개를 이중선형 보간해, 실제 터레인 표면과 같은 높이(0~1)를 계산한다. (TerrainPainter가 높이맵을 굽는 방식과 동일하다)
+    // GetHeight만 사용하는 순수 계산이라 터레인을 굽기 전이나 백그라운드 스레드에서도 표면 높이를 구할 수 있다.
+    public float GetSurfaceHeight(Vector2 position)
+    {
+        Vector2 gridPosition = position * HeightSamplesPerUnit;
+        int gridX = Mathf.FloorToInt(gridPosition.x);
+        int gridY = Mathf.FloorToInt(gridPosition.y);
+        float tx = gridPosition.x - gridX;
+        float ty = gridPosition.y - gridY;
+
+        float h00 = GetHeight(new Vector2Int(gridX, gridY));
+        float h10 = GetHeight(new Vector2Int(gridX + 1, gridY));
+        float h01 = GetHeight(new Vector2Int(gridX, gridY + 1));
+        float h11 = GetHeight(new Vector2Int(gridX + 1, gridY + 1));
+
+        return Mathf.Lerp(Mathf.Lerp(h00, h10, tx), Mathf.Lerp(h01, h11, tx), ty);
+    }
+
     // 주어진 맵 좌표가 걸을 수 있는 지형인지 판정한다. 지형 표면 높이가 해수면 위이면서 지정한 최대 높이 이하이면 걸을 수 있다. GetHeight만 사용하는 순수 계산이라 Unity 내비게이션/피직스 API에 의존하지 않고 백그라운드 스레드에서도 안전하다.
     public bool IsWalkable(Vector2 position, float minHeight = SeaLevelHeight, float maxHeight = WalkableMaxHeight)
     {
-        return HandleIsHeightWalkable(HandleSampleSurfaceHeight(position), minHeight, maxHeight);
+        return HandleIsHeightWalkable(GetSurfaceHeight(position), minHeight, maxHeight);
     }
 
     // 중심(center)에서 반지름(radius, 정규화 맵 좌표 단위) 안에 걸을 수 없는 지형이 하나라도 있으면 true를 반환한다. 건물 배치처럼 일정 범위 전체가 걸을 수 있어야 하는 경우에 쓴다.
@@ -103,7 +121,7 @@ public sealed class MapData
     public bool HasUnwalkableWithin(Vector2 center, float radius, float minHeight = SeaLevelHeight, float maxHeight = WalkableMaxHeight)
     {
         // 반지름이 표본 격자 한 칸보다 작아 원이 격자점을 하나도 담지 못하더라도 중심점만은 항상 검사한다.
-        if (!HandleIsHeightWalkable(HandleSampleSurfaceHeight(center), minHeight, maxHeight))
+        if (!HandleIsHeightWalkable(GetSurfaceHeight(center), minHeight, maxHeight))
             return true;
 
         Vector2 centerGrid = center * HeightSamplesPerUnit;
@@ -178,23 +196,6 @@ public sealed class MapData
 
         result = found ? (Vector2)nearestGrid / HeightSamplesPerUnit : position;
         return found;
-    }
-
-    // 맵 좌표를 둘러싼 높이 격자점 4개를 이중선형 보간해, 실제 터레인 표면과 같은 높이(0~1)를 계산한다. (TerrainPainter가 높이맵을 굽는 방식과 동일하다)
-    private float HandleSampleSurfaceHeight(Vector2 position)
-    {
-        Vector2 gridPosition = position * HeightSamplesPerUnit;
-        int gridX = Mathf.FloorToInt(gridPosition.x);
-        int gridY = Mathf.FloorToInt(gridPosition.y);
-        float tx = gridPosition.x - gridX;
-        float ty = gridPosition.y - gridY;
-
-        float h00 = GetHeight(new Vector2Int(gridX, gridY));
-        float h10 = GetHeight(new Vector2Int(gridX + 1, gridY));
-        float h01 = GetHeight(new Vector2Int(gridX, gridY + 1));
-        float h11 = GetHeight(new Vector2Int(gridX + 1, gridY + 1));
-
-        return Mathf.Lerp(Mathf.Lerp(h00, h10, tx), Mathf.Lerp(h01, h11, tx), ty);
     }
 
     // 주어진 지형 높이가 걸을 수 있는 높이 범위(해수면 위 ~ 최대 높이) 안에 있는지 판정한다. 걷기 가능 조건을 한곳에 모아 IsWalkable과 HasUnwalkableWithin이 함께 사용한다.

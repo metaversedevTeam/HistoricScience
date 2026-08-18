@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 namespace HistoricScience.Test
@@ -154,7 +154,7 @@ namespace HistoricScience.Test
             if (spawner == null)
                 return;
 
-            spawner.SpawnResources(m_MapDataGenerator.Seed, m_MapViewOrigin, m_MapViewSize, m_MapDataGenerator.LastMapData);
+            spawner.SpawnResources(m_MapViewOrigin, m_MapViewSize, m_MapDataGenerator.LastMapData);
         }
 
         // 맵 좌표계를 소유한 MapSaveUtil에서 출력 영역 크기를 받아 캐시한다.
