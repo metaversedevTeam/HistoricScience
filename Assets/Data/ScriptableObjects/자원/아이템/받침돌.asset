@@ -1,0 +1,76 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1c8ae7d3e8714274588e6c72516e42f3, type: 3}
+  m_Name: "\uBC1B\uCE68\uB3CC"
+  m_EditorClassIdentifier: 
+  _name: "\uBC1B\uCE68\uB3CC"
+  _iconSprite: {fileID: 21300000, guid: dcf84f1981b227e0d53800c42f0c37f8, type: 3}
+  _description: 
+  _id: 39
+  _recipe:
+  - Coord: {x: 0, y: 0}
+    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  - Coord: {x: 0, y: 1}
+    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  - Coord: {x: 0, y: 2}
+    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  - Coord: {x: 0, y: 3}
+    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  - Coord: {x: 0, y: 4}
+    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  - Coord: {x: 1, y: 0}
+    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  - Coord: {x: 1, y: 1}
+    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  - Coord: {x: 1, y: 2}
+    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  - Coord: {x: 1, y: 3}
+    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  - Coord: {x: 1, y: 4}
+    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  - Coord: {x: 2, y: 0}
+    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  - Coord: {x: 2, y: 1}
+    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  - Coord: {x: 2, y: 2}
+    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  - Coord: {x: 2, y: 3}
+    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  - Coord: {x: 2, y: 4}
+    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  - Coord: {x: 3, y: 0}
+    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  - Coord: {x: 3, y: 1}
+    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  - Coord: {x: 3, y: 2}
+    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  - Coord: {x: 3, y: 3}
+    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  - Coord: {x: 3, y: 4}
+    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  - Coord: {x: 4, y: 0}
+    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  - Coord: {x: 4, y: 1}
+    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  - Coord: {x: 4, y: 2}
+    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  - Coord: {x: 4, y: 3}
+    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  - Coord: {x: 4, y: 4}
+    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  _editorGridSize: {x: 5, y: 5}
+  _sourcePrefab: {fileID: 0}
+  _spawnBiomes: []
+  _spawnCountPerChunk: 0
+  _craftingTime: 10
+  _itemAge: 1
+  _showInCodex: 1

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: "\uB3CC"
   m_EditorClassIdentifier: 
   _name: "\uB3CC"
-  _iconSprite: {fileID: 21300000, guid: 690788c1d1c4a0b42815f8d3ed42836d, type: 3}
+  _iconSprite: {fileID: 21300000, guid: db600d8402bb1d25ecab3b9cc6aa7591, type: 3}
   _id: 1
   _recipe: []
   _editorGridSize: {x: 3, y: 3}

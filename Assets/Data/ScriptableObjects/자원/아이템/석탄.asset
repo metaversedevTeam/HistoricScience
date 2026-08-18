@@ -10,20 +10,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1c8ae7d3e8714274588e6c72516e42f3, type: 3}
-  m_Name: "\uAC00\uACF5\uB41C \uB3CC"
+  m_Name: "\uC11D\uD0C4"
   m_EditorClassIdentifier: 
-  _name: "\uAC00\uACF5\uB41C \uB3CC"
-  _iconSprite: {fileID: 21300000, guid: 44bbc142568db2a4a9315dd2e04965e3, type: 3}
-  _id: 2
-  _recipe:
-  - Coord: {x: 0, y: 0}
-    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
-  - Coord: {x: 1, y: 0}
-    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
-  - Coord: {x: 2, y: 0}
-    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  _name: "\uC11D\uD0C4"
+  _iconSprite: {fileID: 21300000, guid: f376d1ea2b819fe74447212309f0995a, type: 3}
+  _description: 
+  _id: 48
+  _recipe: []
   _editorGridSize: {x: 3, y: 3}
   _sourcePrefab: {fileID: 0}
   _spawnBiomes: []
   _spawnCountPerChunk: 0
   _craftingTime: 0
+  _itemAge: 0
+  _showInCodex: 0
