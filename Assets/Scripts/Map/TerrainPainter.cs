@@ -23,12 +23,14 @@ namespace HistoricScience.Test
         [SerializeField] private Terrain m_Terrain;
         // 터레인에 칠할 때 바이옴 경계를 부드럽게 섞을 블러 반경(알파맵 셀 단위). 0이면 경계가 그대로 딱딱 떨어진다.
         [SerializeField] private int m_BlendRadius = 3;
-        // 터레인에 출력할 맵 영역의 한 변 길이 (정규화 맵 좌표). 1이면 맵의 1x1 영역이 터레인 전체에 칠해지고, 클수록 더 넓은 영역이 축소되어 보인다.
-        [SerializeField, Min(0.1f)] private float m_MapViewSize = 3f;
         // 터레인에 출력할 맵 영역의 좌하단 원점 (정규화 맵 좌표)
         [SerializeField] private Vector2 m_MapViewOrigin = Vector2.zero;
         // 에디터의 Paint 컨텍스트 메뉴에서 지형 굽기를 확인할 때 사용할 고정 시드
         [SerializeField] private int m_EditorPaintSeed = 0;
+
+        // 터레인에 출력할 맵 영역의 한 변 길이 (정규화 맵 좌표). 1이면 맵의 1x1 영역이 터레인 전체에 칠해지고, 클수록 더 넓은 영역이 축소되어 보인다.
+        // 맵 좌표계는 MapSaveUtil이 단독으로 소유하므로 인스펙터에서 따로 설정하지 않고, 굽기 직전에 메인 스레드에서 받아 캐시한다.
+        private float m_MapViewSize;
 
         [Header("Gizmo Settings")]
         // 선택 시 바이옴 정점 기즈모를 씬 뷰에 표시할지 여부
@@ -50,6 +52,7 @@ namespace HistoricScience.Test
         // 청크 좌표에 맞춰 이 터레인이 출력할 정규화 맵 영역의 원점을 설정한다. (원점 = 좌표 × MapViewSize). 청크 관리자가 여러 청크를 이어 붙일 때 사용한다.
         public void SetChunkCoordinate(Vector2Int chunkCoordinate)
         {
+            HandleCaptureMapViewSize();
             m_MapViewOrigin = new Vector2(chunkCoordinate.x, chunkCoordinate.y) * m_MapViewSize;
         }
 
@@ -103,6 +106,7 @@ namespace HistoricScience.Test
                 return null;
             }
 
+            HandleCaptureMapViewSize();
             HandleAssignTerrainData();
 
             MapData mapData = m_MapDataGenerator.GenerateMapData(seed);
@@ -151,6 +155,20 @@ namespace HistoricScience.Test
                 return;
 
             spawner.SpawnResources(m_MapDataGenerator.Seed, m_MapViewOrigin, m_MapViewSize, m_MapDataGenerator.LastMapData);
+        }
+
+        // 맵 좌표계를 소유한 MapSaveUtil에서 출력 영역 크기를 받아 캐시한다.
+        // ComputePaint가 백그라운드 스레드에서 이 값을 읽으므로, 계산에 들어가기 전 메인 스레드에서 반드시 미리 받아 두어야 한다.
+        private void HandleCaptureMapViewSize()
+        {
+            MapSaveUtil mapSaveUtil = MapSaveUtil.Instance;
+            if (mapSaveUtil == null)
+            {
+                Debug.LogError("TerrainPainter: 씬에 MapSaveUtil이 없어 맵 출력 영역 크기를 받아올 수 없습니다.", this);
+                return;
+            }
+
+            m_MapViewSize = mapSaveUtil.MapViewSize;
         }
 
         // 터레인에 TerrainData가 없으면 에셋으로 저장하지 않는 인메모리 TerrainData를 새로 만들어 터레인과 터레인 콜라이더에 할당한다.

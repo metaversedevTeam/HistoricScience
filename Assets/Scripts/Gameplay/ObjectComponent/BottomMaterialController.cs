@@ -1,43 +1,26 @@
-using HistoricScience.Test;
 using UnityEngine;
 
 // 자신이 놓인 위치의 바이옴 데이터에서 바닥 머티리얼(BottomMaterial)을 받아와 연결된 MeshRenderer에 적용하는 컴포넌트.
-// 청크 터레인이 여러 개라 Terrain.activeTerrain은 위치에 따라 다른 청크를 가리킬 수 있으므로, GroundSnapper와 같이 아래로 레이캐스트해 자신이 선 청크를 찾는다.
+// 맵 데이터와 월드 → 맵 좌표 변환은 MapSaveUtil이 단독으로 관리하므로, 발밑 청크를 찾을 필요 없이 자신의 XZ 위치만으로 바이옴을 판정한다.
+// 자동 적용은 Start에서 이뤄지므로, 이 오브젝트를 소환하는 쪽은 소환한 프레임 안에서 최종 XZ 위치까지 잡아 주어야 한다.
+// (Instantiate 직후 위치를 넣지 않고 다음 프레임으로 미루면, 프리팹 원본 자리의 바이옴을 읽어 엉뚱한 머티리얼이 적용된다.)
 public class BottomMaterialController : MonoBehaviour
 {
     // 바이옴의 바닥 머티리얼을 적용할 대상 렌더러
     [SerializeField] private MeshRenderer _bottomRenderer;
-    // 레이캐스트로 감지할 지면 레이어. 비워두면 Awake에서 "Ground" 레이어를 자동으로 찾는다.
-    [SerializeField] private LayerMask _groundLayer;
-    // 활성화될 때(오브젝트 배치 시점) 자동으로 바닥 머티리얼을 적용할지 여부
-    [SerializeField] private bool _applyOnEnable = true;
-    // 자신의 위치 기준 이 높이(m)만큼 위에서부터 아래로 레이를 쏜다. 터레인 최대 높이보다 충분히 커야 한다.
-    [SerializeField, Min(0f)] private float _raycastUpDistance = 500f;
-    // 레이캐스트 총 길이(m). 위 시작 높이를 지나 터레인 아래까지 닿을 만큼 충분히 커야 한다.
-    [SerializeField, Min(0f)] private float _raycastLength = 1000f;
+    // 첫 프레임에 자동으로 바닥 머티리얼을 적용할지 여부
+    [SerializeField] private bool _applyOnStart = true;
 
-    // Ground 레이어가 미설정된 경우 자동으로 찾아 할당
-    private void Awake()
+    // 소환한 쪽이 위치를 잡아 준 뒤에 자동으로 바닥 머티리얼을 적용한다.
+    // OnEnable은 Instantiate 안에서 곧바로 실행되어 저장 파일에서 복원되는 오브젝트가 아직 프리팹 원본 자리에 있으므로, 위치 지정이 끝난 뒤 도는 Start를 쓴다.
+    private void Start()
     {
-        if (_groundLayer.value == 0)
-        {
-            int idx = LayerMask.NameToLayer("Ground");
-            if (idx >= 0)
-                _groundLayer = 1 << idx;
-            else
-                Debug.LogWarning("[BottomMaterialController] 'Ground' 레이어를 찾을 수 없습니다. Inspector에서 직접 설정해주세요.");
-        }
-    }
-
-    // 활성화 시(오브젝트가 배치되는 시점) 자동으로 바닥 머티리얼을 적용한다
-    private void OnEnable()
-    {
-        if (_applyOnEnable)
+        if (_applyOnStart)
             ApplyBottomMaterial();
     }
 
     // 자신의 위치에 해당하는 바이옴의 BottomMaterial을 연결된 렌더러에 적용한다. 원하는 임의의 타이밍에 호출해 갱신할 수 있다.
-    // 지면 청크를 찾지 못했거나 그 바이옴에 바닥 머티리얼이 지정되지 않았으면 머티리얼을 바꾸지 않고 false를 반환한다.
+    // 바이옴을 찾지 못했거나 그 바이옴에 바닥 머티리얼이 지정되지 않았으면 머티리얼을 바꾸지 않고 false를 반환한다.
     public bool ApplyBottomMaterial()
     {
         if (_bottomRenderer == null)
@@ -55,18 +38,20 @@ public class BottomMaterialController : MonoBehaviour
         return true;
     }
 
-    // 자신의 XZ 위치 아래로 레이캐스트해, 부딪힌 지점을 관리하는 청크의 맵 데이터에서 그 자리의 바이옴을 찾는다. 찾지 못하면 null을 반환한다.
+    // 자신의 XZ 위치를 맵 좌표로 바꿔 그 자리의 바이옴을 찾는다. 맵 데이터가 아직 만들어지지 않았으면 null을 반환한다.
     private MapBiome HandleFindBiome()
     {
-        Vector3 origin = transform.position + Vector3.up * _raycastUpDistance;
-        if (!Physics.Raycast(origin, Vector3.down, out RaycastHit hit, _raycastLength, _groundLayer))
+        MapSaveUtil mapSaveUtil = MapSaveUtil.Instance;
+        if (mapSaveUtil == null)
+        {
+            Debug.LogWarning("[BottomMaterialController] 씬에 MapSaveUtil이 없어 바이옴을 찾을 수 없습니다.", this);
+            return null;
+        }
+
+        MapData mapData = mapSaveUtil.CurrentMapData;
+        if (mapData == null)
             return null;
 
-        // 콜라이더가 자식에 달린 경우가 있어 부모까지 거슬러 올라가 청크의 TerrainPainter를 찾는다.
-        TerrainPainter terrainPainter = hit.collider.GetComponentInParent<TerrainPainter>();
-        if (terrainPainter == null || terrainPainter.CurrentMapData == null)
-            return null;
-
-        return terrainPainter.CurrentMapData.GetBiome(terrainPainter.WorldToMapPosition(hit.point));
+        return mapData.GetBiome(mapSaveUtil.WorldToMapPosition(transform.position));
     }
 }

@@ -164,12 +164,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _bottomRenderer: {fileID: 8276196898907019675}
-  _groundLayer:
-    serializedVersion: 2
-    m_Bits: 64
-  _applyOnEnable: 1
-  _raycastUpDistance: 500
-  _raycastLength: 1000
+  _applyOnStart: 1
 --- !u!114 &8357887548949711919
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -136,7 +136,6 @@ MonoBehaviour:
   m_MapDataGenerator: {fileID: 8723176566083072883}
   m_Terrain: {fileID: 5896736372485518151}
   m_BlendRadius: 3
-  m_MapViewSize: 3
   m_MapViewOrigin: {x: 0, y: 0}
   m_EditorPaintSeed: 0
   m_ShowBiomeGizmos: 0
