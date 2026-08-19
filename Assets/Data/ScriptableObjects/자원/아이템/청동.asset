@@ -10,17 +10,16 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1c8ae7d3e8714274588e6c72516e42f3, type: 3}
-  m_Name: "\uCCA0"
-  m_EditorClassIdentifier: 
-  _name: "\uCCA0"
-  _iconSprite: {fileID: 21300000, guid: 71bda805d1dc76484f5fdc930c6a133c, type: 3}
-  _description: 
-  _id: 60
+  m_Name: "\uCCAD\uB3D9"
+  m_EditorClassIdentifier:
+  _name: "\uCCAD\uB3D9"
+  _iconSprite: {fileID: 21300000, guid: cb1c7521c1e24ccc93dae8d8ec90737f, type: 3}
+  _description:
+  _id: 75
   _recipe: []
   _editorGridSize: {x: 3, y: 3}
   _sourcePrefab: {fileID: 0}
-  _spawnBiomes: []
-  _spawnCountPerChunk: 0
+  _spawnRule: {fileID: 0}
   _craftingTime: 0
-  _itemAge: 0
+  _itemAge: 3
   _showInCodex: 1

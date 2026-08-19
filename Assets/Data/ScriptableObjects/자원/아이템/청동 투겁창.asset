@@ -16,8 +16,22 @@ MonoBehaviour:
   _iconSprite: {fileID: 21300000, guid: 390f183eb117695d86b9b95dd73ceb1b, type: 3}
   _description: 
   _id: 65
-  _recipe: []
-  _editorGridSize: {x: 3, y: 3}
+  _recipe:
+  - Coord: {x: 1, y: 1}
+    Item: {fileID: 11400000, guid: 30636470c63a449198b9b8ccef4d2b9b, type: 2}
+  - Coord: {x: 2, y: 0}
+    Item: {fileID: 11400000, guid: 30636470c63a449198b9b8ccef4d2b9b, type: 2}
+  - Coord: {x: 2, y: 1}
+    Item: {fileID: 11400000, guid: 30636470c63a449198b9b8ccef4d2b9b, type: 2}
+  - Coord: {x: 2, y: 2}
+    Item: {fileID: 11400000, guid: 30636470c63a449198b9b8ccef4d2b9b, type: 2}
+  - Coord: {x: 2, y: 3}
+    Item: {fileID: 11400000, guid: 30636470c63a449198b9b8ccef4d2b9b, type: 2}
+  - Coord: {x: 2, y: 4}
+    Item: {fileID: 11400000, guid: 30636470c63a449198b9b8ccef4d2b9b, type: 2}
+  - Coord: {x: 3, y: 1}
+    Item: {fileID: 11400000, guid: 30636470c63a449198b9b8ccef4d2b9b, type: 2}
+  _editorGridSize: {x: 5, y: 5}
   _sourcePrefab: {fileID: 0}
   _spawnBiomes: []
   _spawnCountPerChunk: 0

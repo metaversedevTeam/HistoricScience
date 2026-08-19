@@ -23,4 +23,4 @@ MonoBehaviour:
   _spawnCountPerChunk: 0
   _craftingTime: 0
   _itemAge: 0
-  _showInCodex: 0
+  _showInCodex: 1
