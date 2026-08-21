@@ -181,8 +181,11 @@ MonoBehaviour:
   _codexButtonIcon: {fileID: 21300000, guid: 26bf10d9a1872e348af9cdaa3febccff, type: 3}
   _savable:
     _prefabId: HomeBase
+  _buildingName: "\uADFC\uAC70\uC9C0"
+  _buildingDescription: "\uADFC\uAC70\uC9C0 \uC124\uBA85"
+  _buildTime: 0
   _buildingIcon: {fileID: 21300000, guid: 26bf10d9a1872e348af9cdaa3febccff, type: 3}
-  _buildingModel: {fileID: 6333333333333333333}
+  _buildingModel: {fileID: 2753460799222950205}
   _buildCost:
   - Resource: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
     Count: 5
@@ -255,6 +258,11 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 7815ccd35bc8e4443ad05c1cafceca85, type: 3}
+--- !u!1 &2753460799222950205 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 3754495400048157839, guid: 7815ccd35bc8e4443ad05c1cafceca85, type: 3}
+  m_PrefabInstance: {fileID: 1309676329357069746}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &8756782142355352033 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 7758208300495397971, guid: 7815ccd35bc8e4443ad05c1cafceca85, type: 3}
@@ -334,9 +342,4 @@ Transform:
 MeshRenderer:
   m_CorrespondingSourceObject: {fileID: 5148462666097628401, guid: 8410fe6d03482cf45918bb464a030db8, type: 3}
   m_PrefabInstance: {fileID: 3866893053572074858}
-  m_PrefabAsset: {fileID: 0}
---- !u!1 &6333333333333333333 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 3754495400048157839, guid: 7815ccd35bc8e4443ad05c1cafceca85, type: 3}
-  m_PrefabInstance: {fileID: 1309676329357069746}
   m_PrefabAsset: {fileID: 0}

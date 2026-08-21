@@ -254,7 +254,8 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
 
         UnsubscribeFromBuildingSelectUI();
 
-        _openBuildingSelectUI = UIManager.Instance.OpenUI(_buildingSelectUiPrefab, CollectBuildables());
+        var selectData = new BuildingSelectData(CollectBuildables(), _selectedBy.ResourceInventory);
+        _openBuildingSelectUI = UIManager.Instance.OpenUI(_buildingSelectUiPrefab, selectData);
         _openBuildingSelectUI.OnBuildingSelected += HandleBuildingSelected;
         _openBuildingSelectUI.OnFinishClose += HandleBuildingSelectUIClosed;
     }

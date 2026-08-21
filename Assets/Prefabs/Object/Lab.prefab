@@ -116,6 +116,9 @@ MonoBehaviour:
   _workbenchButtonIcon: {fileID: 21300000, guid: 3a243952cd4c3ca4d81f2271deec5970, type: 3}
   _savable:
     _prefabId: Lab
+  _buildingName: "\uB3C4\uAD6C \uC81C\uC791\uB300"
+  _buildingDescription: "\uB3C4\uAD6C \uC81C\uC791\uB300 \uC124\uBA85"
+  _buildTime: 0
   _buildingIcon: {fileID: 21300000, guid: 3a243952cd4c3ca4d81f2271deec5970, type: 3}
   _buildingModel: {fileID: 5457373065823405292}
   _buildCost:
