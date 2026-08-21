@@ -106,11 +106,12 @@ public class HomeBase : MonoBehaviour, ICommandable, ISavable, IBuildable
         return _commands;
     }
 
-    // 아이템 도감 UI를 연다. 도감은 플레이어별 데이터가 아니라 씬의 ItemCodex를 직접 읽으므로 넘겨줄 페이로드가 없다.
+    // 아이템 도감 UI를 조합법 힌트 비용을 치를 인벤토리와 함께 연다. 획득 여부 자체는 씬의 ItemCodex에서 도감이 직접 읽는다.
     // 이미 이 근거지가 연 도감이 떠 있으면 창이 겹쳐 쌓이지 않도록 다시 열지 않는다.
     private void OpenItemCodexUI()
     {
         if (_openCodexUI != null) return;
+        if (_selectedBy == null) return;
 
         if (_itemCodexUiPrefab == null)
         {
@@ -118,7 +119,7 @@ public class HomeBase : MonoBehaviour, ICommandable, ISavable, IBuildable
             return;
         }
 
-        _openCodexUI = UIManager.Instance.OpenUI(_itemCodexUiPrefab);
+        _openCodexUI = UIManager.Instance.OpenUI(_itemCodexUiPrefab, _selectedBy.ResourceInventory);
         _openCodexUI.OnFinishClose += HandleCodexUIClosed;
     }
 

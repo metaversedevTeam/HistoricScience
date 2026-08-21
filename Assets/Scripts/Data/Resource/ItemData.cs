@@ -8,8 +8,14 @@ public class ItemData : ResourceData
     [SerializeField] private Age _itemAge;
     // 이 아이템을 도감에 표시할지 여부. 꺼두면 도감 목록에서 제외된다.
     [SerializeField] private bool _showInCodex = true;
+    // 도감에서 이 아이템의 조합법 힌트를 한 번 받을 때 소모할 자원. 비워 두면 힌트를 공짜로 받는다.
+    [SerializeField] private ResourceData _hintCostResource;
+    // 힌트를 한 번 받는 데 드는 위 자원의 개수. 몇 번째 힌트든 매번 같은 값이 든다.
+    [SerializeField, Min(0)] private int _hintCost = 50;
 
     public float CraftingTime => _craftingTime;
     public Age Age => _itemAge;
     public bool ShowInCodex => _showInCodex;
+    public ResourceData HintCostResource => _hintCostResource;
+    public int HintCost => _hintCost;
 }
