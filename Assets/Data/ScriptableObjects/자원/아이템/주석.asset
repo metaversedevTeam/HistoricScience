@@ -18,8 +18,6 @@ MonoBehaviour:
   _id: 74
   _recipe: []
   _editorGridSize: {x: 3, y: 3}
-  _sourcePrefab: {fileID: 0}
-  _spawnRule: {fileID: 0}
   _craftingTime: 0
   _itemAge: 0
   _showInCodex: 1

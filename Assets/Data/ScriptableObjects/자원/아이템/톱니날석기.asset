@@ -18,7 +18,6 @@ MonoBehaviour:
   _id: 68
   _recipe: []
   _editorGridSize: {x: 3, y: 3}
-  _sourcePrefab: {fileID: 0}
   _spawnBiomes: []
   _spawnCountPerChunk: 0
   _craftingTime: 10

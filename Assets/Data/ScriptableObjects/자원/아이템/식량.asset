@@ -16,7 +16,6 @@ MonoBehaviour:
   _iconSprite: {fileID: 21300000, guid: d3b82bc6c1331a750899d5ac3521361d, type: 3}
   _id: 3
   _ingredient: []
-  _sourcePrefab: {fileID: 0}
   _spawnBiomes: []
   _spawnCountPerChunk: 0
   _craftingTime: 0

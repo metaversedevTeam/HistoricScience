@@ -12,6 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 34760c6d61c7f81479b2413d4a8568c1, type: 3}
   m_Name: "\uB3CC \uC18C\uD658 \uBC29\uC2DD"
   m_EditorClassIdentifier: 
+  m_SourcePrefab: {fileID: 1564132085319456066, guid: 16ae46c1890f76945aff52fbb3efca24, type: 3}
+  m_SeedId: 1
   m_SpawnBiomes:
   - {fileID: 11400000, guid: fa795c83498fc4245bb9d32f27ec7a2e, type: 2}
   - {fileID: 11400000, guid: 17b382bad77ec244e9420e62e2439394, type: 2}
