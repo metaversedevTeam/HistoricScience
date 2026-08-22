@@ -15,6 +15,10 @@ public class BuildingPlacementController : SelectableObject, ICommandable
 
     [SerializeField] private Hologram _hologramPrefab;
     [SerializeField] private BuildCostUI _buildCostUiPrefab;
+    // 건축 명령 버튼에 표시할 아이콘
+    [SerializeField] private Sprite _buildCommandIcon;
+    // 취소 명령 버튼에 표시할 아이콘
+    [SerializeField] private Sprite _cancelCommandIcon;
     [SerializeField] private LayerMask _groundLayer;
     [SerializeField] private Color _validColor = new Color(0.2f, 0.5f, 1f, 0.5f);
     [SerializeField] private Color _invalidColor = new Color(1f, 0.2f, 0.2f, 0.5f);
@@ -47,8 +51,8 @@ public class BuildingPlacementController : SelectableObject, ICommandable
         _camera = Camera.main;
         _commands = new List<CommandData>
         {
-            new CommandData("건축", null, ExecuteBuild),
-            new CommandData("취소", null, ExecuteCancel),
+            new CommandData("건축", _buildCommandIcon, ExecuteBuild),
+            new CommandData("취소", _cancelCommandIcon, ExecuteCancel),
         };
     }
 

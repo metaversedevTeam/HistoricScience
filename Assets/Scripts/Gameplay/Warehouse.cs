@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -7,6 +7,8 @@ public class Warehouse : MonoBehaviour, ICommandable, ISavable, IBuildable
 {
     [SerializeField] private WarehouseUI _warehouseUiPrefab;
     [SerializeField] private Sprite _warehouseButtonIcon;
+    // 철거 명령 버튼에 표시할 아이콘
+    [SerializeField] private Sprite _demolishButtonIcon;
     // 저장/복원 기능을 제공하는 컴포지션. PrefabId는 인스펙터에서 설정한다.
     [SerializeField] private SavableHandler _savable = new();
 
@@ -46,7 +48,7 @@ public class Warehouse : MonoBehaviour, ICommandable, ISavable, IBuildable
         _commands = new List<CommandData>
         {
             new CommandData("창고 열기", _warehouseButtonIcon, OpenWarehouseUI),
-            new CommandData("철거", null, ExecuteDemolish),
+            new CommandData("철거", _demolishButtonIcon, ExecuteDemolish),
         };
     }
 

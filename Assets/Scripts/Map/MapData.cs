@@ -45,14 +45,32 @@ public sealed class MapData
         m_RegionMap = new BiomeRegionMap(seed, minWeight, maxWeight, biomes);
     }
 
+    // 주어진 맵 영역을 반복해서 조회할 때 쓸 정점 필드를 만든다. 영역 밖에서 영향력을 미칠 수 있는 정점까지 담도록 영향 반경만큼 넓혀서 계산하므로,
+    // 이 필드를 넘긴 조회는 영역 안 어디서든 정점을 다시 만들지 않는다. 청크를 굽기 직전에 한 번 만들어 굽는 동안의 모든 조회에 넘기는 용도다.
+    public ChunkRegionField CreateRegionField(Rect area)
+    {
+        Rect expanded = new Rect(
+            area.xMin - m_MaxInfluenceDistance,
+            area.yMin - m_MaxInfluenceDistance,
+            area.width + m_MaxInfluenceDistance * 2f,
+            area.height + m_MaxInfluenceDistance * 2f);
+
+        return m_RegionMap.CreateField(expanded);
+    }
+
     // 0~1로 정규화된 좌표를 기준으로 가장 가까운(가중치 적용) 바이옴을 반환한다. 범위 내 정점이 없으면 기본 바이옴을 반환한다.
     public MapBiome GetBiome(Vector2 position)
     {
-        BiomeRegion[] candidates = m_RegionMap.GetRegions(position, m_MaxInfluenceDistance);
-        if (candidates.Length == 0)
+        return GetBiome(position, null);
+    }
+
+    // 미리 만들어 둔 정점 필드를 이용해 바이옴을 판정하는 버전. 필드 범위 밖이면 정점을 그 자리에서 계산하므로 결과는 무인자 버전과 같다.
+    public MapBiome GetBiome(Vector2 position, ChunkRegionField field)
+    {
+        if (!HandleTryFindNearestRegion(position, m_RegionMap.EnumerateRegions(position, m_MaxInfluenceDistance, field), out BiomeRegion nearest))
             return m_DefaultBiome;
 
-        return HandleFindNearestRegion(position, candidates).Biome;
+        return nearest.Biome;
     }
 
     // 기즈모 표시 등 외부에서 사용할 수 있도록 주어진 사각형 영역 내의 바이옴 정점 목록을 반환한다.
@@ -64,30 +82,38 @@ public sealed class MapData
     // 높이 샘플 격자 좌표(맵 좌표 × HeightSamplesPerUnit)의 지형 높이(0~1)를 반환한다. 범위 내 정점이 없으면 기본 바이옴의 높이를 반환한다.
     public float GetHeight(Vector2Int pos)
     {
-        Vector2 position = (Vector2)pos / HeightSamplesPerUnit;
+        return GetHeight(pos, null);
+    }
 
-        BiomeRegion[] candidates = m_RegionMap.GetRegions(position, m_MaxInfluenceDistance);
-        if (candidates.Length == 0)
-            return Mathf.Clamp01(HandleSampleBiomeHeight(m_DefaultBiome, position));
+    // 미리 만들어 둔 정점 필드를 이용해 높이를 계산하는 버전. 필드 범위 밖이면 정점을 그 자리에서 계산하므로 결과는 무인자 버전과 같다.
+    public float GetHeight(Vector2Int pos, ChunkRegionField field)
+    {
+        Vector2 position = (Vector2)pos / HeightSamplesPerUnit;
 
         // 각 정점의 영향력(가중 거리 역수의 제곱)에 비례해 바이옴 높이 프로필을 섞어, 바이옴 경계에서 높이가 자연스럽게 이어지도록 한다.
         float totalInfluence = 0f;
         float blendedHeight = 0f;
+        bool hasCandidate = false;
 
-        for (int i = 0; i < candidates.Length; i++)
+        foreach (BiomeRegion candidate in m_RegionMap.EnumerateRegions(position, m_MaxInfluenceDistance, field))
         {
-            float dx = candidates[i].Position.x - position.x;
-            float dy = candidates[i].Position.y - position.y;
+            hasCandidate = true;
 
-            float weightedDistanceSqr = (dx * dx + dy * dy) / candidates[i].Weight;
-            weightedDistanceSqr += HandleGetBoundaryNoise(position, candidates[i].Index);
+            float dx = candidate.Position.x - position.x;
+            float dy = candidate.Position.y - position.y;
+
+            float weightedDistanceSqr = (dx * dx + dy * dy) / candidate.Weight;
+            weightedDistanceSqr += HandleGetBoundaryNoise(position, candidate.Index);
 
             float falloff = Mathf.Max(weightedDistanceSqr, 0f) + k_HeightBlendSoftness;
             float influence = 1f / (falloff * falloff);
 
             totalInfluence += influence;
-            blendedHeight += influence * HandleSampleBiomeHeight(candidates[i].Biome, position);
+            blendedHeight += influence * HandleSampleBiomeHeight(candidate.Biome, position);
         }
+
+        if (!hasCandidate)
+            return Mathf.Clamp01(HandleSampleBiomeHeight(m_DefaultBiome, position));
 
         return Mathf.Clamp01(blendedHeight / totalInfluence);
     }
@@ -96,16 +122,22 @@ public sealed class MapData
     // GetHeight만 사용하는 순수 계산이라 터레인을 굽기 전이나 백그라운드 스레드에서도 표면 높이를 구할 수 있다.
     public float GetSurfaceHeight(Vector2 position)
     {
+        return GetSurfaceHeight(position, null);
+    }
+
+    // 미리 만들어 둔 정점 필드를 이용해 표면 높이를 계산하는 버전. 격자점 4개를 모두 같은 필드로 조회한다.
+    public float GetSurfaceHeight(Vector2 position, ChunkRegionField field)
+    {
         Vector2 gridPosition = position * HeightSamplesPerUnit;
         int gridX = Mathf.FloorToInt(gridPosition.x);
         int gridY = Mathf.FloorToInt(gridPosition.y);
         float tx = gridPosition.x - gridX;
         float ty = gridPosition.y - gridY;
 
-        float h00 = GetHeight(new Vector2Int(gridX, gridY));
-        float h10 = GetHeight(new Vector2Int(gridX + 1, gridY));
-        float h01 = GetHeight(new Vector2Int(gridX, gridY + 1));
-        float h11 = GetHeight(new Vector2Int(gridX + 1, gridY + 1));
+        float h00 = GetHeight(new Vector2Int(gridX, gridY), field);
+        float h10 = GetHeight(new Vector2Int(gridX + 1, gridY), field);
+        float h01 = GetHeight(new Vector2Int(gridX, gridY + 1), field);
+        float h11 = GetHeight(new Vector2Int(gridX + 1, gridY + 1), field);
 
         return Mathf.Lerp(Mathf.Lerp(h00, h10, tx), Mathf.Lerp(h01, h11, tx), ty);
     }
@@ -204,29 +236,37 @@ public sealed class MapData
         return height >= minHeight && height <= maxHeight;
     }
 
-    // 후보 정점들 중 가중치 거리(+ 노이즈 보정)가 가장 가까운 정점을 반환한다.
-    private BiomeRegion HandleFindNearestRegion(Vector2 position, BiomeRegion[] candidates)
+    // 후보 정점들 중 가중치 거리(+ 노이즈 보정)가 가장 가까운 정점을 찾는다. 후보가 하나도 없으면 false를 반환한다.
+    private bool HandleTryFindNearestRegion(Vector2 position, BiomeRegionMap.RegionEnumerator candidates, out BiomeRegion nearest)
     {
-        BiomeRegion nearest = candidates[0];
+        // 가중치 거리가 모두 비교 불가능한 값(NaN)이어도 첫 후보가 남도록, 예전에 후보 배열의 0번으로 시작하던 것과 같게 첫 후보를 먼저 담아 둔다.
+        nearest = default;
+        bool hasCandidate = false;
         float nearestWeightedDistanceSqr = float.MaxValue;
 
-        for (int i = 0; i < candidates.Length; i++)
+        foreach (BiomeRegion candidate in candidates)
         {
-            float dx = candidates[i].Position.x - position.x;
-            float dy = candidates[i].Position.y - position.y;
+            if (!hasCandidate)
+            {
+                hasCandidate = true;
+                nearest = candidate;
+            }
+
+            float dx = candidate.Position.x - position.x;
+            float dy = candidate.Position.y - position.y;
             float distanceSqr = dx * dx + dy * dy;
 
-            float weightedDistanceSqr = distanceSqr / candidates[i].Weight;
-            weightedDistanceSqr += HandleGetBoundaryNoise(position, candidates[i].Index);
+            float weightedDistanceSqr = distanceSqr / candidate.Weight;
+            weightedDistanceSqr += HandleGetBoundaryNoise(position, candidate.Index);
 
             if (weightedDistanceSqr < nearestWeightedDistanceSqr)
             {
                 nearestWeightedDistanceSqr = weightedDistanceSqr;
-                nearest = candidates[i];
+                nearest = candidate;
             }
         }
 
-        return nearest;
+        return hasCandidate;
     }
 
     // 영역마다 서로 다른 펄린 노이즈 값을 가중 거리에 더해, 두 영역 사이의 경계(원호)가 자연스럽게 굴곡지도록 만든다.

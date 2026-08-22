@@ -17,7 +17,8 @@ public class ChunkResourceSpawner : MonoBehaviour
 
     // 청크 정보를 묶어 각 자원 소스의 소환 방식에 넘기고, 돌려받은 자리마다 자원 소스 프리팹을 소환한다.
     // 터레인 크기는 여기(메인 스레드)에서 값으로 읽어 컨텍스트에 넣으므로, 소환 방식의 위치 계산은 터레인을 건드리지 않는다.
-    public void SpawnResources(Vector2 mapViewOrigin, float mapViewSize, MapData mapData)
+    // regionField는 이 청크를 굽는 데 쓴 보로노이 정점 필드로, 소환 자리 판정이 같은 정점을 다시 만들지 않게 한다. null이어도 결과는 같다.
+    public void SpawnResources(Vector2 mapViewOrigin, float mapViewSize, MapData mapData, ChunkRegionField regionField)
     {
         if (m_Terrain == null || m_Terrain.terrainData == null || m_ResourceSourceList == null || mapData == null)
             return;
@@ -25,7 +26,7 @@ public class ChunkResourceSpawner : MonoBehaviour
         HandleClearSpawned();
         Transform container = HandleCreateContainer();
 
-        ResourceSpawnContext context = new ResourceSpawnContext(mapViewOrigin, mapViewSize, mapData, m_Terrain.terrainData.size);
+        ResourceSpawnContext context = new ResourceSpawnContext(mapViewOrigin, mapViewSize, mapData, m_Terrain.terrainData.size, regionField);
 
         foreach (ResourceSpawnRule source in m_ResourceSourceList.Sources)
         {
