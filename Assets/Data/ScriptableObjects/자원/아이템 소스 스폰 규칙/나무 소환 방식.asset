@@ -17,7 +17,6 @@ MonoBehaviour:
   m_SpawnBiomes:
   - {fileID: 11400000, guid: fa795c83498fc4245bb9d32f27ec7a2e, type: 2}
   - {fileID: 11400000, guid: 17b382bad77ec244e9420e62e2439394, type: 2}
-  - {fileID: 11400000, guid: 54a51f916e7b33b4998e37a57c060571, type: 2}
   m_MinSpawnHeight: 12
   m_MaxSpawnHeight: 28
   m_SpawnCountPerChunk: 50
