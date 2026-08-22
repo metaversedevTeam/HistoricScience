@@ -122,39 +122,60 @@ namespace HistoricScience.Test
         }
 
         // 준비된 데이터로 알파맵과 높이맵을 계산한다. Terrain을 직접 건드리지 않는 순수 계산이라 백그라운드 스레드에서 호출해도 안전하다.
-        public (float[,,] Alphamap, float[,] Heightmap) ComputePaint((MapData MapData, MapBiome[] Biomes, TerrainLayer[] Layers, int AlphamapWidth, int AlphamapHeight, int HeightmapResolution) context)
+        // 굽는 동안 조회할 보로노이 정점을 먼저 한 번에 계산해 두고 모든 조회에 넘기므로, 같은 정점을 텍셀마다 다시 만들지 않는다.
+        public (float[,,] Alphamap, float[,] Heightmap, ChunkRegionField RegionField) ComputePaint((MapData MapData, MapBiome[] Biomes, TerrainLayer[] Layers, int AlphamapWidth, int AlphamapHeight, int HeightmapResolution) context)
         {
             // 블러가 터레인 밖(이웃 청크가 칠할 영역)까지 참고할 수 있도록 반경만큼 여백을 두고 계산한 뒤, 블러가 끝나면 여백을 잘라낸다.
             // 여백이 없으면 가장자리 셀이 자기 청크 안쪽 값만 평균내어, 이웃 청크와 그라데이션이 어긋난 이음매가 생긴다.
             int padding = Mathf.Max(m_BlendRadius, 0);
 
-            float[,,] paddedAlphamap = HandleBuildAlphamap(context.AlphamapWidth, context.AlphamapHeight, padding, context.MapData, context.Biomes, context.Layers);
+            ChunkRegionField regionField = HandleCreateRegionField(context.MapData, context.AlphamapWidth, padding);
+
+            float[,,] paddedAlphamap = HandleBuildAlphamap(context.AlphamapWidth, context.AlphamapHeight, padding, context.MapData, context.Biomes, context.Layers, regionField);
             paddedAlphamap = HandleSmoothAlphamap(paddedAlphamap, m_BlendRadius);
             float[,,] alphamap = HandleCropAlphamapPadding(paddedAlphamap, context.AlphamapWidth, context.AlphamapHeight, padding);
 
-            float[,] heightmap = HandleBuildHeightmap(context.HeightmapResolution, context.MapData);
+            float[,] heightmap = HandleBuildHeightmap(context.HeightmapResolution, context.MapData, regionField);
 
-            return (alphamap, heightmap);
+            return (alphamap, heightmap, regionField);
+        }
+
+        // 이 청크를 굽는 동안 조회할 맵 영역의 정점 필드를 만든다. 알파맵은 블러 여백만큼, 높이맵은 격자 보간 때문에 한 격자 칸만큼
+        // 출력 영역을 넘어 샘플링하므로 그만큼 넉넉히 잡는다. 여유가 모자라도 그 자리에서 정점을 계산하는 경로가 있어 결과는 달라지지 않는다.
+        private ChunkRegionField HandleCreateRegionField(MapData mapData, int alphamapWidth, int padding)
+        {
+            float alphamapSlack = padding / (float)Mathf.Max(alphamapWidth - 1, 1) * m_MapViewSize;
+            float heightGridSlack = 1f / MapData.HeightSamplesPerUnit;
+            float slack = alphamapSlack + heightGridSlack;
+
+            Rect area = new Rect(
+                m_MapViewOrigin.x - slack,
+                m_MapViewOrigin.y - slack,
+                m_MapViewSize + slack * 2f,
+                m_MapViewSize + slack * 2f);
+
+            return mapData.CreateRegionField(area);
         }
 
         // 계산된 알파맵과 높이맵을 실제 터레인에 적용한다. Unity API를 사용하므로 반드시 메인 스레드에서 호출해야 한다.
-        public void ApplyPaint((float[,,] Alphamap, float[,] Heightmap) result)
+        public void ApplyPaint((float[,,] Alphamap, float[,] Heightmap, ChunkRegionField RegionField) result)
         {
             TerrainData terrainData = m_Terrain.terrainData;
             terrainData.SetAlphamaps(0, 0, result.Alphamap);
             terrainData.SetHeights(0, 0, result.Heightmap);
 
-            HandleSpawnResources();
+            HandleSpawnResources(result.RegionField);
         }
 
         // 같은 오브젝트에 ChunkResourceSpawner가 있으면 현재 시드와 맵 출력 영역, 맵 데이터로 자원 소환을 요청한다. 스포너는 선택적 구성이라 없으면 아무것도 하지 않는다.
-        private void HandleSpawnResources()
+        // 소환 자리 판정도 같은 청크 영역을 조회하므로, 굽는 데 쓴 정점 필드를 그대로 넘겨 재계산을 피한다.
+        private void HandleSpawnResources(ChunkRegionField regionField)
         {
             ChunkResourceSpawner spawner = GetComponent<ChunkResourceSpawner>();
             if (spawner == null)
                 return;
 
-            spawner.SpawnResources(m_MapViewOrigin, m_MapViewSize, m_MapDataGenerator.LastMapData);
+            spawner.SpawnResources(m_MapViewOrigin, m_MapViewSize, m_MapDataGenerator.LastMapData, regionField);
         }
 
         // 맵 좌표계를 소유한 MapSaveUtil에서 출력 영역 크기를 받아 캐시한다.
@@ -208,7 +229,7 @@ namespace HistoricScience.Test
 
         // 각 알파맵 셀의 정규화 좌표에 대해 MapData가 반환하는 바이옴에 해당하는 터레인 레이어로 100% 칠한 알파맵을,
         // 상하좌우로 padding 셀만큼 여백을 덧붙인 크기로 만든다. 여백 영역은 터레인 밖의 맵 좌표를 그대로 샘플링한다.
-        private float[,,] HandleBuildAlphamap(int width, int height, int padding, MapData mapData, MapBiome[] biomes, TerrainLayer[] layers)
+        private float[,,] HandleBuildAlphamap(int width, int height, int padding, MapData mapData, MapBiome[] biomes, TerrainLayer[] layers, ChunkRegionField regionField)
         {
             int layerCount = layers.Length;
             int paddedWidth = width + padding * 2;
@@ -223,7 +244,7 @@ namespace HistoricScience.Test
                         HandleAlphamapCellToNormalized(x - padding, width),
                         HandleAlphamapCellToNormalized(z - padding, height)));
 
-                    MapBiome biome = mapData.GetBiome(mapPosition);
+                    MapBiome biome = mapData.GetBiome(mapPosition, regionField);
                     int layer = System.Array.IndexOf(biomes, biome);
 
                     for (int l = 0; l < layerCount; l++)
@@ -269,7 +290,7 @@ namespace HistoricScience.Test
         }
 
         // 각 높이맵 셀의 높이를 MapData의 높이 샘플 격자에서 받아와 높이맵을 만든다. 높이 계산 로직은 MapData가 담당한다.
-        private float[,] HandleBuildHeightmap(int resolution, MapData mapData)
+        private float[,] HandleBuildHeightmap(int resolution, MapData mapData, ChunkRegionField regionField)
         {
             float[,] heightmap = new float[resolution, resolution];
             // 이웃 셀들이 같은 격자점을 공유하므로 격자점 높이를 캐시해 중복 계산을 줄인다.
@@ -281,7 +302,7 @@ namespace HistoricScience.Test
                 {
                     // 높이맵은 양 끝 셀이 터레인 가장자리에 정확히 걸치므로 resolution-1로 나눈다.
                     Vector2 mapPosition = HandleTerrainToMapPosition(new Vector2((float)x / (resolution - 1), (float)z / (resolution - 1)));
-                    heightmap[z, x] = HandleSampleHeight(mapData, mapPosition, heightCache);
+                    heightmap[z, x] = HandleSampleHeight(mapData, mapPosition, heightCache, regionField);
                 }
             }
 
@@ -289,7 +310,7 @@ namespace HistoricScience.Test
         }
 
         // 맵 좌표를 둘러싼 높이 격자점 4개를 MapData에서 받아와 이중선형 보간한 높이를 반환한다.
-        private float HandleSampleHeight(MapData mapData, Vector2 mapPosition, Dictionary<Vector2Int, float> heightCache)
+        private float HandleSampleHeight(MapData mapData, Vector2 mapPosition, Dictionary<Vector2Int, float> heightCache, ChunkRegionField regionField)
         {
             Vector2 gridPosition = mapPosition * MapData.HeightSamplesPerUnit;
             int gridX = Mathf.FloorToInt(gridPosition.x);
@@ -297,20 +318,20 @@ namespace HistoricScience.Test
             float tx = gridPosition.x - gridX;
             float ty = gridPosition.y - gridY;
 
-            float h00 = HandleGetGridHeight(mapData, new Vector2Int(gridX, gridY), heightCache);
-            float h10 = HandleGetGridHeight(mapData, new Vector2Int(gridX + 1, gridY), heightCache);
-            float h01 = HandleGetGridHeight(mapData, new Vector2Int(gridX, gridY + 1), heightCache);
-            float h11 = HandleGetGridHeight(mapData, new Vector2Int(gridX + 1, gridY + 1), heightCache);
+            float h00 = HandleGetGridHeight(mapData, new Vector2Int(gridX, gridY), heightCache, regionField);
+            float h10 = HandleGetGridHeight(mapData, new Vector2Int(gridX + 1, gridY), heightCache, regionField);
+            float h01 = HandleGetGridHeight(mapData, new Vector2Int(gridX, gridY + 1), heightCache, regionField);
+            float h11 = HandleGetGridHeight(mapData, new Vector2Int(gridX + 1, gridY + 1), heightCache, regionField);
 
             return Mathf.Lerp(Mathf.Lerp(h00, h10, tx), Mathf.Lerp(h01, h11, tx), ty);
         }
 
         // 격자점 높이를 캐시에서 찾고, 없으면 MapData.GetHeight로 계산해 캐시에 저장한다.
-        private float HandleGetGridHeight(MapData mapData, Vector2Int gridPosition, Dictionary<Vector2Int, float> heightCache)
+        private float HandleGetGridHeight(MapData mapData, Vector2Int gridPosition, Dictionary<Vector2Int, float> heightCache, ChunkRegionField regionField)
         {
             if (!heightCache.TryGetValue(gridPosition, out float height))
             {
-                height = mapData.GetHeight(gridPosition);
+                height = mapData.GetHeight(gridPosition, regionField);
                 heightCache[gridPosition] = height;
             }
 
