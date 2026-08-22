@@ -16,10 +16,24 @@ MonoBehaviour:
   _iconSprite: {fileID: 21300000, guid: 44f64b21de90c02f429512fe953c3561, type: 3}
   _description: 
   _id: 37
-  _recipe: []
-  _editorGridSize: {x: 3, y: 3}
-  _spawnBiomes: []
-  _spawnCountPerChunk: 0
+  _recipe:
+  - Coord: {x: 1, y: 1}
+    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  - Coord: {x: 2, y: 1}
+    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  - Coord: {x: 3, y: 1}
+    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  - Coord: {x: 2, y: 2}
+    Item: {fileID: 11400000, guid: c38531d718644891f2c8ed742f0a692b, type: 2}
+  - Coord: {x: 2, y: 3}
+    Item: {fileID: 11400000, guid: c38531d718644891f2c8ed742f0a692b, type: 2}
+  - Coord: {x: 2, y: 4}
+    Item: {fileID: 11400000, guid: c38531d718644891f2c8ed742f0a692b, type: 2}
+  - Coord: {x: 2, y: 0}
+    Item: {fileID: 11400000, guid: c38531d718644891f2c8ed742f0a692b, type: 2}
+  _editorGridSize: {x: 5, y: 5}
   _craftingTime: 60
   _itemAge: 3
   _showInCodex: 1
+  _hintCostResource: {fileID: 0}
+  _hintCost: 50
