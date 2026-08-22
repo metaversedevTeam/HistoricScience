@@ -179,6 +179,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _itemCodexUiPrefab: {fileID: 8176979181631312059, guid: 8d7a4c3df53008942b9245402cad8e8b, type: 3}
   _codexButtonIcon: {fileID: 21300000, guid: 26bf10d9a1872e348af9cdaa3febccff, type: 3}
+  _demolishButtonIcon: {fileID: 21300000, guid: 3d470df9a9c7dba4396105716b8737ff, type: 3}
   _savable:
     _prefabId: HomeBase
   _buildingName: "\uADFC\uAC70\uC9C0"

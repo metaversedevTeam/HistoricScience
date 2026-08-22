@@ -179,6 +179,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _warehouseUiPrefab: {fileID: 652380903760157276, guid: ddf186b37e065ed448da235928db02af, type: 3}
   _warehouseButtonIcon: {fileID: 21300000, guid: cdbcdae90dfc03741926ca6a4dd76b51, type: 3}
+  _demolishButtonIcon: {fileID: 21300000, guid: 3d470df9a9c7dba4396105716b8737ff, type: 3}
   _savable:
     _prefabId: Warehouse
   _buildingName: "\uCC3D\uACE0"
