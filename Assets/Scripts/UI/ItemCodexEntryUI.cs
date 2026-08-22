@@ -1,8 +1,10 @@
+using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-// 도감 격자에 놓이는 아이템 카드 하나. 획득 여부에 따라 썸네일·이름·상태 표시가 달라진다.
+// 도감 격자에 놓이는 아이템 카드 하나. 획득 여부에 따라 썸네일·이름·상태 표시가 달라지고,
+// 아직 획득하지 못한 아이템은 상태 바가 조합법 힌트 버튼으로 바뀐다.
 public class ItemCodexEntryUI : MonoBehaviour
 {
     [Header("카드")]
@@ -23,10 +25,9 @@ public class ItemCodexEntryUI : MonoBehaviour
     [Header("상태 바")]
     [SerializeField] private Image _statusFill;
     [SerializeField] private Image _statusOutline;
-    [SerializeField] private Image _statusIcon;
     [SerializeField] private TextMeshProUGUI _statusText;
-    [SerializeField] private Sprite _discoveredIcon;
-    [SerializeField] private Sprite _undiscoveredIcon;
+    // 상태 바 자체에 붙는 버튼. 힌트를 받을 수 있는 카드에서만 켜진다.
+    [SerializeField] private Button _statusButton;
 
     [Header("획득 색상")]
     [SerializeField] private Color _discoveredCardFill = new Color32(0x0C, 0x14, 0x24, 0xFF);
@@ -46,12 +47,27 @@ public class ItemCodexEntryUI : MonoBehaviour
     [SerializeField] private Color _undiscoveredStatusOutline = new Color32(0x2A, 0x33, 0x45, 0xFF);
     [SerializeField] private Color _undiscoveredStatusText = new Color32(0x7B, 0x84, 0x96, 0xFF);
 
-    // 아이템 정보와 획득 여부를 카드에 반영한다. displayNumber는 "No. 001"에 쓰는 도감 번호다.
-    public void Setup(ItemData item, int displayNumber, bool discovered)
+    [Header("힌트 색상")]
+    [SerializeField] private Color _hintStatusFill = new Color32(0xAF, 0x50, 0x11, 0xFF);
+    [SerializeField] private Color _hintStatusOutline = new Color32(0xF9, 0x73, 0x16, 0x00);
+    [SerializeField] private Color _hintStatusText = new Color32(0x0D, 0x11, 0x1D, 0xFF);
+
+    // 힌트 버튼을 눌렀을 때 호출할 콜백. null이면 이 카드에는 힌트 버튼이 없다.
+    private Action _onHintClick;
+
+    private void Awake()
+    {
+        _statusButton.onClick.AddListener(HandleStatusButtonClick);
+    }
+
+    // 아이템 정보와 획득 여부를 카드에 반영한다. displayNumber는 "No. 001"에 쓰는 도감 번호,
+    // onHintClick은 상태 바를 힌트 버튼으로 바꿀 콜백이며 null이면 평범한 상태 바로 그린다.
+    public void Setup(ItemData item, int displayNumber, bool discovered, Action onHintClick)
     {
         _indexText.text = $"No. {displayNumber:D3}";
         _ageBadgeText.text = item.Age.ToShortName();
         _nameText.text = item.Nmae;
+        _onHintClick = discovered ? null : onHintClick;
 
         ApplyThumbnail(item, discovered);
         ApplyStateColors(discovered);
@@ -67,7 +83,7 @@ public class ItemCodexEntryUI : MonoBehaviour
         _lockIcon.gameObject.SetActive(!discovered);
     }
 
-    // 획득 여부에 따른 색상 팔레트와 상태 문구를 카드 전체에 적용한다.
+    // 획득 여부에 따른 색상 팔레트를 카드 전체에 적용하고, 상태 바를 상태 표시나 힌트 버튼으로 그린다.
     private void ApplyStateColors(bool discovered)
     {
         _cardFill.color = discovered ? _discoveredCardFill : _undiscoveredCardFill;
@@ -75,16 +91,45 @@ public class ItemCodexEntryUI : MonoBehaviour
         _thumbnailOutline.color = discovered ? _discoveredThumbOutline : _undiscoveredThumbOutline;
         _nameText.color = discovered ? _discoveredName : _undiscoveredName;
 
-        _statusFill.color = discovered ? _discoveredStatusFill : _undiscoveredStatusFill;
-        _statusOutline.color = discovered ? _discoveredStatusOutline : _undiscoveredStatusOutline;
-        _statusText.color = discovered ? _discoveredStatusText : _undiscoveredStatusText;
-        _statusText.text = discovered ? "수집 완료" : "미획득";
-
-        _statusIcon.color = discovered ? _discoveredStatusText : _undiscoveredStatusText;
-        _statusIcon.sprite = discovered ? _discoveredIcon : _undiscoveredIcon;
-
         _ageBadgeFill.color = discovered
             ? new Color32(0x25, 0x63, 0xEB, 0xFF)
             : new Color32(0x25, 0x63, 0xEB, 0x99);
+
+        ApplyStatusBar(discovered);
     }
+
+    // 상태 바를 세 가지 모습(수집 완료 / 힌트 버튼 / 미획득) 중 하나로 그린다.
+    private void ApplyStatusBar(bool discovered)
+    {
+        bool showHint = !discovered && _onHintClick != null;
+        _statusButton.interactable = showHint;
+
+        if (showHint)
+        {
+            ApplyStatusColors(_hintStatusFill, _hintStatusOutline, _hintStatusText);
+            _statusText.text = "힌트";
+            return;
+        }
+
+        if (discovered)
+        {
+            ApplyStatusColors(_discoveredStatusFill, _discoveredStatusOutline, _discoveredStatusText);
+            _statusText.text = "수집 완료";
+            return;
+        }
+
+        ApplyStatusColors(_undiscoveredStatusFill, _undiscoveredStatusOutline, _undiscoveredStatusText);
+        _statusText.text = "미획득";
+    }
+
+    // 상태 바의 배경·테두리·글자 색을 한 번에 반영한다.
+    private void ApplyStatusColors(Color fill, Color outline, Color text)
+    {
+        _statusFill.color = fill;
+        _statusOutline.color = outline;
+        _statusText.color = text;
+    }
+
+    // 상태 바를 누르면 등록된 힌트 콜백을 호출한다. 힌트 버튼이 아닌 상태에서는 아무 일도 하지 않는다.
+    private void HandleStatusButtonClick() => _onHintClick?.Invoke();
 }

@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// 무한 평면 위의 보로노이 바이옴 정점들을 정의된 생성 규칙에 따라 계산해 제공하는 클래스. 정점을 저장하지 않고 조회할 때마다 규칙으로 다시 계산한다. (캐싱은 추후 도입 예정)
+// 무한 평면 위의 보로노이 바이옴 정점들을 정의된 생성 규칙에 따라 계산해 제공하는 클래스. 정점을 저장하지 않고 조회할 때마다 규칙으로 다시 계산하되,
+// 한 영역을 반복해서 조회할 때는 CreateField로 그 영역의 정점을 미리 계산해 두고 EnumerateRegions에 넘겨 재계산을 피할 수 있다.
 // 생성 규칙: 평면을 격자 셀로 나눠 셀마다 정점을 하나씩 배치하고, 저주파 고도/습도 노이즈 값을 바이옴 에셋의 배치 범위와 목록 순서대로 대조해 처음 맞는 바이옴을 배정한다.
 // 노이즈가 저주파라 이웃 정점들이 같은 바이옴으로 뭉쳐 좁은 파편 영역이 생기지 않으며, 주변 정점에 인접 금지 바이옴이 있으면 에셋에 지정된 대체 바이옴으로 바뀐다.
 // 생성 후 상태가 변하지 않는 불변 클래스로, 여러 스레드에서 동시에 읽어도 안전하다.
@@ -44,27 +45,34 @@ public sealed class BiomeRegionMap
         m_MoistureNoiseOffset = new Vector2(HandleHash01(0, 0, 103) * 997f, HandleHash01(0, 0, 104) * 997f);
     }
 
-    // 주어진 위치에서 maxInfluenceDistance 이내의 정점들을 계산해 반환한다. 범위 내 정점이 없으면 빈 배열을 반환한다.
-    public BiomeRegion[] GetRegions(Vector2 pos, float maxInfluenceDistance)
+    // 주어진 위치에서 maxInfluenceDistance 이내의 정점들을, 배열을 만들지 않고 순서대로 훑는 열거자를 반환한다.
+    // 정점 필드를 넘기면 미리 계산된 정점을 꺼내 쓰고, null이거나 필드 범위 밖의 셀이면 예전처럼 그 자리에서 계산한다.
+    // 훑는 순서와 걸러내는 조건은 필드 유무와 무관하게 같으므로, 필드를 넘겨도 결과가 달라지지 않는다.
+    public RegionEnumerator EnumerateRegions(Vector2 pos, float maxInfluenceDistance, ChunkRegionField field)
     {
-        // 원을 감싸는 외접 사각형으로 먼저 후보를 좁힌 뒤, 실제 원형 거리로 다시 걸러낸다.
-        var boundingArea = new Rect(pos.x - maxInfluenceDistance, pos.y - maxInfluenceDistance, maxInfluenceDistance * 2f, maxInfluenceDistance * 2f);
-        BiomeRegion[] candidates = GetRegions(boundingArea);
+        return new RegionEnumerator(this, pos, maxInfluenceDistance, field);
+    }
 
-        float maxDistSqr = maxInfluenceDistance * maxInfluenceDistance;
-        var result = new List<BiomeRegion>();
+    // 주어진 사각형 영역을 덮는 셀 격자 범위의 정점을 한 번에 계산해 조회용 필드로 만든다. 계산 비용은 영역의 넓이에 비례하므로
+    // 청크 하나처럼 한정된 영역에만 쓴다. 호출자는 영역 밖에서 영향력을 미치는 정점까지 담기도록 영향 반경만큼 넓혀서 넘겨야 한다.
+    public ChunkRegionField CreateField(Rect area)
+    {
+        int minCellX = Mathf.FloorToInt(area.xMin / k_CellSize);
+        int maxCellX = Mathf.FloorToInt(area.xMax / k_CellSize);
+        int minCellY = Mathf.FloorToInt(area.yMin / k_CellSize);
+        int maxCellY = Mathf.FloorToInt(area.yMax / k_CellSize);
 
-        for (int i = 0; i < candidates.Length; i++)
+        int cellCountX = Mathf.Max(maxCellX - minCellX + 1, 0);
+        int cellCountY = Mathf.Max(maxCellY - minCellY + 1, 0);
+        BiomeRegion[] regions = new BiomeRegion[cellCountX * cellCountY];
+
+        for (int cellY = minCellY; cellY <= maxCellY; cellY++)
         {
-            float dx = candidates[i].Position.x - pos.x;
-            float dy = candidates[i].Position.y - pos.y;
-            float distSqr = dx * dx + dy * dy;
-
-            if (distSqr <= maxDistSqr)
-                result.Add(candidates[i]);
+            for (int cellX = minCellX; cellX <= maxCellX; cellX++)
+                regions[(cellY - minCellY) * cellCountX + (cellX - minCellX)] = HandleCreateRegion(cellX, cellY);
         }
 
-        return result.ToArray();
+        return new ChunkRegionField(minCellX, minCellY, cellCountX, cellCountY, regions);
     }
 
     // 주어진 사각형 영역과 겹치는 격자 셀들의 정점을 생성 규칙에 따라 계산해, 실제로 영역 안에 있는 것만 반환한다.
@@ -178,5 +186,99 @@ public sealed class BiomeRegionMap
     private float HandleHash01(int cellX, int cellY, int salt)
     {
         return (HandleHash(cellX, cellY, salt) & 0xFFFFFF) / 16777216f;
+    }
+
+    // EnumerateRegions가 돌려주는, 영향 반경 안의 정점을 하나씩 훑는 열거자. foreach에 필요한 것만 갖춘 구조체라 훑는 동안 힙 할당이 없다.
+    // 원을 감싸는 외접 사각형의 셀 범위를 행 우선으로 돌면서, 사각형 안에 실제로 들어간 정점만 골라 다시 원형 거리로 걸러낸다.
+    public struct RegionEnumerator
+    {
+        // 필드에 담겨 있지 않은 셀의 정점을 그 자리에서 계산할 때 쓰는 원본 맵
+        private readonly BiomeRegionMap m_Map;
+        // 미리 계산된 정점 필드. null이면 모든 정점을 그 자리에서 계산한다.
+        private readonly ChunkRegionField m_Field;
+        // 영향 반경의 중심이 되는 조회 위치
+        private readonly Vector2 m_Position;
+        // 영향 반경 원을 감싸는 외접 사각형. 정점이 이 사각형 안에 있는지 먼저 검사한다.
+        private readonly Rect m_BoundingArea;
+        // 영향 반경의 제곱. 사각형을 통과한 정점을 원형 거리로 다시 걸러내는 데 쓴다.
+        private readonly float m_MaxDistanceSqr;
+        // 훑을 셀 격자 범위
+        private readonly int m_MinCellX;
+        private readonly int m_MaxCellX;
+        private readonly int m_MaxCellY;
+        // 다음에 검사할 셀 좌표
+        private int m_CellX;
+        private int m_CellY;
+        // 마지막으로 통과한 정점
+        private BiomeRegion m_Current;
+
+        // 조회 위치와 영향 반경으로 훑을 셀 범위를 정하고 첫 셀에서 시작하도록 초기화한다.
+        public RegionEnumerator(BiomeRegionMap map, Vector2 pos, float maxInfluenceDistance, ChunkRegionField field)
+        {
+            m_Map = map;
+            m_Field = field;
+            m_Position = pos;
+            m_BoundingArea = new Rect(pos.x - maxInfluenceDistance, pos.y - maxInfluenceDistance, maxInfluenceDistance * 2f, maxInfluenceDistance * 2f);
+            m_MaxDistanceSqr = maxInfluenceDistance * maxInfluenceDistance;
+
+            m_MinCellX = Mathf.FloorToInt(m_BoundingArea.xMin / k_CellSize);
+            m_MaxCellX = Mathf.FloorToInt(m_BoundingArea.xMax / k_CellSize);
+            m_MaxCellY = Mathf.FloorToInt(m_BoundingArea.yMax / k_CellSize);
+
+            m_CellX = m_MinCellX;
+            m_CellY = Mathf.FloorToInt(m_BoundingArea.yMin / k_CellSize);
+            m_Current = default;
+        }
+
+        // foreach가 열거자를 얻을 때 호출한다. 구조체 자신을 값으로 복사해 돌려주므로 같은 열거자를 여러 번 돌릴 수 있다.
+        public RegionEnumerator GetEnumerator()
+        {
+            return this;
+        }
+
+        // 마지막으로 통과한 정점
+        public BiomeRegion Current => m_Current;
+
+        // 다음으로 조건을 통과하는 정점을 찾아 Current에 담는다. 더 없으면 false를 반환한다.
+        public bool MoveNext()
+        {
+            while (m_CellY <= m_MaxCellY)
+            {
+                int cellX = m_CellX;
+                int cellY = m_CellY;
+
+                m_CellX++;
+                if (m_CellX > m_MaxCellX)
+                {
+                    m_CellX = m_MinCellX;
+                    m_CellY++;
+                }
+
+                BiomeRegion region = HandleResolveRegion(cellX, cellY);
+                if (!m_BoundingArea.Contains(region.Position))
+                    continue;
+
+                float dx = region.Position.x - m_Position.x;
+                float dy = region.Position.y - m_Position.y;
+                float distSqr = dx * dx + dy * dy;
+
+                if (distSqr <= m_MaxDistanceSqr)
+                {
+                    m_Current = region;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        // 셀 좌표의 정점을 필드에서 꺼내고, 담겨 있지 않으면 생성 규칙으로 그 자리에서 계산한다.
+        private BiomeRegion HandleResolveRegion(int cellX, int cellY)
+        {
+            if (m_Field != null && m_Field.TryGetRegion(cellX, cellY, out BiomeRegion region))
+                return region;
+
+            return m_Map.HandleCreateRegion(cellX, cellY);
+        }
     }
 }

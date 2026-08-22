@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -7,9 +7,17 @@ public class Warehouse : MonoBehaviour, ICommandable, ISavable, IBuildable
 {
     [SerializeField] private WarehouseUI _warehouseUiPrefab;
     [SerializeField] private Sprite _warehouseButtonIcon;
+    // 철거 명령 버튼에 표시할 아이콘
+    [SerializeField] private Sprite _demolishButtonIcon;
     // 저장/복원 기능을 제공하는 컴포지션. PrefabId는 인스펙터에서 설정한다.
     [SerializeField] private SavableHandler _savable = new();
 
+    // 건물 선택 UI에 표시할 건물 이름
+    [SerializeField] private string _buildingName;
+    // 건물 선택 UI의 상세 패널에 표시할 건물 설명
+    [SerializeField, TextArea(2, 4)] private string _buildingDescription;
+    // 건설에 걸리는 시간(초)
+    [SerializeField] private float _buildTime;
     // 건물 선택 UI에 표시할 아이콘
     [SerializeField] private Sprite _buildingIcon;
     // 배치 미리보기 홀로그램으로 소환할 모델 오브젝트
@@ -25,6 +33,9 @@ public class Warehouse : MonoBehaviour, ICommandable, ISavable, IBuildable
     // 이 창고가 열어 둔 창고 UI. 닫히면 다시 null이 되어 중복해서 열리지 않게 한다.
     private WarehouseUI _openWarehouseUI;
 
+    public string BuildingName => _buildingName;
+    public string Description => _buildingDescription;
+    public float BuildTime => _buildTime;
     public Sprite Icon => _buildingIcon;
     public GameObject BuildingModel => _buildingModel;
     // 건물 선택 UI 등은 씬에 배치되지 않은 프리팹 에셋의 컴포넌트를 그대로 참조해 Awake가 실행되지 않으므로, 최초 접근 시 지연 계산한다.
@@ -37,7 +48,7 @@ public class Warehouse : MonoBehaviour, ICommandable, ISavable, IBuildable
         _commands = new List<CommandData>
         {
             new CommandData("창고 열기", _warehouseButtonIcon, OpenWarehouseUI),
-            new CommandData("철거", null, ExecuteDemolish),
+            new CommandData("철거", _demolishButtonIcon, ExecuteDemolish),
         };
     }
 

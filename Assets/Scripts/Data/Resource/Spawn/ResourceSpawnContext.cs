@@ -12,13 +12,16 @@ public readonly struct ResourceSpawnContext
     public readonly MapData MapData;
     // 이 청크의 월드 크기. y는 터레인 최대 높이로, 정규화 높이(0~1)를 월드 높이로 바꾸는 데 쓴다.
     public readonly Vector3 ChunkSize;
+    // 이 청크를 굽는 데 쓴 보로노이 정점 필드. 바이옴/높이 조회에 그대로 넘겨 정점 재계산을 피한다. null이면 조회할 때마다 계산한다.
+    public readonly ChunkRegionField RegionField;
 
-    public ResourceSpawnContext(Vector2 mapViewOrigin, float mapViewSize, MapData mapData, Vector3 chunkSize)
+    public ResourceSpawnContext(Vector2 mapViewOrigin, float mapViewSize, MapData mapData, Vector3 chunkSize, ChunkRegionField regionField)
     {
         MapViewOrigin = mapViewOrigin;
         MapViewSize = mapViewSize;
         MapData = mapData;
         ChunkSize = chunkSize;
+        RegionField = regionField;
     }
 
     // 터레인을 칠할 때와 같은 변환(원점 + 정규화 좌표 × 출력 크기)으로 정규화 청크 좌표(0~1)를 맵 좌표로 바꾼다.
@@ -31,13 +34,13 @@ public readonly struct ResourceSpawnContext
     // 터레인을 굽는 높이맵과 같은 계산(MapData.GetSurfaceHeight)을 쓰므로 터레인을 샘플링하지 않고도 같은 표면 높이를 얻는다.
     public float GetHeight(float normalizedX, float normalizedZ)
     {
-        return MapData.GetSurfaceHeight(ToMapPosition(normalizedX, normalizedZ)) * ChunkSize.y;
+        return MapData.GetSurfaceHeight(ToMapPosition(normalizedX, normalizedZ), RegionField) * ChunkSize.y;
     }
 
     // 정규화 청크 좌표(0~1) 위치의 바이옴을 반환한다.
     public MapBiome GetBiome(float normalizedX, float normalizedZ)
     {
-        return MapData.GetBiome(ToMapPosition(normalizedX, normalizedZ));
+        return MapData.GetBiome(ToMapPosition(normalizedX, normalizedZ), RegionField);
     }
 
     // 정규화 청크 좌표와 표면 높이를 청크 루트 기준 로컬 위치로 변환한다.

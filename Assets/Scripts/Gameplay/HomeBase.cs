@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -7,9 +7,17 @@ public class HomeBase : MonoBehaviour, ICommandable, ISavable, IBuildable
 {
     [SerializeField] private ItemCodexUI _itemCodexUiPrefab;
     [SerializeField] private Sprite _codexButtonIcon;
+    // 철거 명령 버튼에 표시할 아이콘
+    [SerializeField] private Sprite _demolishButtonIcon;
     // 저장/복원 기능을 제공하는 컴포지션. PrefabId는 인스펙터에서 설정한다.
     [SerializeField] private SavableHandler _savable = new();
 
+    // 건물 선택 UI에 표시할 건물 이름
+    [SerializeField] private string _buildingName;
+    // 건물 선택 UI의 상세 패널에 표시할 건물 설명
+    [SerializeField, TextArea(2, 4)] private string _buildingDescription;
+    // 건설에 걸리는 시간(초)
+    [SerializeField] private float _buildTime;
     // 건물 선택 UI에 표시할 아이콘
     [SerializeField] private Sprite _buildingIcon;
     // 배치 미리보기 홀로그램으로 소환할 모델 오브젝트
@@ -25,6 +33,9 @@ public class HomeBase : MonoBehaviour, ICommandable, ISavable, IBuildable
     // 이 근거지가 열어 둔 도감 UI. 닫히면 다시 null이 되어 중복해서 열리지 않게 한다.
     private ItemCodexUI _openCodexUI;
 
+    public string BuildingName => _buildingName;
+    public string Description => _buildingDescription;
+    public float BuildTime => _buildTime;
     public Sprite Icon => _buildingIcon;
     public GameObject BuildingModel => _buildingModel;
     // 건물 선택 UI 등은 씬에 배치되지 않은 프리팹 에셋의 컴포넌트를 그대로 참조해 Awake가 실행되지 않으므로, 최초 접근 시 지연 계산한다.
@@ -37,7 +48,7 @@ public class HomeBase : MonoBehaviour, ICommandable, ISavable, IBuildable
         _commands = new List<CommandData>
         {
             new CommandData("도감 열기", _codexButtonIcon, OpenItemCodexUI),
-            new CommandData("철거", null, ExecuteDemolish),
+            new CommandData("철거", _demolishButtonIcon, ExecuteDemolish),
         };
     }
 
@@ -97,11 +108,12 @@ public class HomeBase : MonoBehaviour, ICommandable, ISavable, IBuildable
         return _commands;
     }
 
-    // 아이템 도감 UI를 연다. 도감은 플레이어별 데이터가 아니라 씬의 ItemCodex를 직접 읽으므로 넘겨줄 페이로드가 없다.
+    // 아이템 도감 UI를 조합법 힌트 비용을 치를 인벤토리와 함께 연다. 획득 여부 자체는 씬의 ItemCodex에서 도감이 직접 읽는다.
     // 이미 이 근거지가 연 도감이 떠 있으면 창이 겹쳐 쌓이지 않도록 다시 열지 않는다.
     private void OpenItemCodexUI()
     {
         if (_openCodexUI != null) return;
+        if (_selectedBy == null) return;
 
         if (_itemCodexUiPrefab == null)
         {
@@ -109,7 +121,7 @@ public class HomeBase : MonoBehaviour, ICommandable, ISavable, IBuildable
             return;
         }
 
-        _openCodexUI = UIManager.Instance.OpenUI(_itemCodexUiPrefab);
+        _openCodexUI = UIManager.Instance.OpenUI(_itemCodexUiPrefab, _selectedBy.ResourceInventory);
         _openCodexUI.OnFinishClose += HandleCodexUIClosed;
     }
 

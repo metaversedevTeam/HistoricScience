@@ -16,11 +16,14 @@ MonoBehaviour:
   _iconSprite: {fileID: 21300000, guid: 7f9d46f3638a31a1b7616bc1270d6b9a, type: 3}
   _description: 
   _id: 57
-  _recipe: []
-  _editorGridSize: {x: 3, y: 3}
-  _sourcePrefab: {fileID: 0}
-  _spawnBiomes: []
-  _spawnCountPerChunk: 0
+  _recipe:
+  - Coord: {x: 2, y: 0}
+    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  - Coord: {x: 2, y: 1}
+    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  _editorGridSize: {x: 5, y: 5}
   _craftingTime: 10
   _itemAge: 1
   _showInCodex: 1
+  _hintCostResource: {fileID: 0}
+  _hintCost: 50

@@ -17,10 +17,9 @@ MonoBehaviour:
   _description: 
   _id: 5
   _recipe: []
-  _editorGridSize: {x: 3, y: 3}
-  _sourcePrefab: {fileID: 0}
-  _spawnBiomes: []
-  _spawnCountPerChunk: 0
+  _editorGridSize: {x: 5, y: 5}
   _craftingTime: 60
   _itemAge: 3
   _showInCodex: 1
+  _hintCostResource: {fileID: 0}
+  _hintCost: 50

@@ -179,9 +179,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _warehouseUiPrefab: {fileID: 652380903760157276, guid: ddf186b37e065ed448da235928db02af, type: 3}
   _warehouseButtonIcon: {fileID: 21300000, guid: cdbcdae90dfc03741926ca6a4dd76b51, type: 3}
+  _demolishButtonIcon: {fileID: 21300000, guid: 3d470df9a9c7dba4396105716b8737ff, type: 3}
   _savable:
     _prefabId: Warehouse
-  _buildingIcon: {fileID: 21300000, guid: cdbcdae90dfc03741926ca6a4dd76b51, type: 3}
+  _buildingName: "\uCC3D\uACE0"
+  _buildingDescription: "\uCC3D\uACE0 \uC124\uBA85"
+  _buildTime: 0
+  _buildingIcon: {fileID: 21300000, guid: db85bffd2e8b3fd43b43e262216c8352, type: 3}
   _buildingModel: {fileID: 2405543018358711629}
   _buildCost:
   - Resource: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}

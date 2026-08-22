@@ -12,13 +12,13 @@ public class LegacyResourceSpawnRule : ResourceSpawnRule
     // 소환 조건에 맞는 위치를 찾기 위해 개수당 재추첨할 최대 시도 횟수 (무한 루프 방지)
     [SerializeField, Min(1)] private int m_MaxAttemptsPerSpawn = 8;
 
-    // 아이템 ID를 시드에 섞어 아이템마다 독립적인 랜덤 스트림을 쓰므로, 목록 순서가 바뀌어도 배치가 유지된다.
-    public override void GetPlacements(ItemData item, in ResourceSpawnContext context, List<ResourceSpawnPlacement> results)
+    // 자신의 시드 번호를 시드에 섞어 소환 방식마다 독립적인 랜덤 스트림을 쓰므로, 목록 순서가 바뀌어도 배치가 유지된다.
+    public override void GetPlacements(in ResourceSpawnContext context, List<ResourceSpawnPlacement> results)
     {
-        if (item == null || results == null || m_SpawnCountPerChunk <= 0)
+        if (results == null || m_SpawnCountPerChunk <= 0)
             return;
 
-        System.Random random = new System.Random(context.CreateSeed(item.Id));
+        System.Random random = new System.Random(context.CreateSeed(SeedId));
         int maxAttempts = m_SpawnCountPerChunk * m_MaxAttemptsPerSpawn;
         int spawned = 0;
 

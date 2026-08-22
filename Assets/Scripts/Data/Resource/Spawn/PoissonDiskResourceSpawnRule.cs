@@ -16,16 +16,16 @@ public class PoissonDiskResourceSpawnRule : ResourceSpawnRule
     // 밀도 기준값의 몇 배만큼 후보를 뽑아 소거를 시작할지. 클수록 배치가 고와지지만 계산이 늘어난다(논문 권장값 5배).
     [SerializeField, Min(1)] private int m_InputSampleMultiplier = 5;
 
-    // 아이템 ID를 시드에 섞어 아이템마다 독립적인 랜덤 스트림을 쓰므로, 목록 순서가 바뀌어도 배치가 유지된다.
-    public override void GetPlacements(ItemData item, in ResourceSpawnContext context, List<ResourceSpawnPlacement> results)
+    // 자신의 시드 번호를 시드에 섞어 소환 방식마다 독립적인 랜덤 스트림을 쓰므로, 목록 순서가 바뀌어도 배치가 유지된다.
+    public override void GetPlacements(in ResourceSpawnContext context, List<ResourceSpawnPlacement> results)
     {
-        if (item == null || results == null || m_SpawnCountPerChunk <= 0)
+        if (results == null || m_SpawnCountPerChunk <= 0)
             return;
 
         if (context.ChunkSize.x <= 0f || context.ChunkSize.z <= 0f)
             return;
 
-        System.Random random = new System.Random(context.CreateSeed(item.Id));
+        System.Random random = new System.Random(context.CreateSeed(SeedId));
         List<Vector2> samples = HandleCreateSamples(context, random);
 
         // 청크 평면을 상하좌우로 이어진 것으로 보고 소거해야, 자원이 청크 가장자리에 몰리는 편향이 생기지 않는다.

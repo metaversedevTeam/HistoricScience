@@ -11,10 +11,25 @@ public class CraftingPattern
     private CraftingPattern(Dictionary<Vector2Int, ResourceData> cells)
     {
         _cells = cells;
+
+        int width = 0;
+        int height = 0;
+        foreach (var coord in cells.Keys)
+        {
+            if (coord.x + 1 > width) width = coord.x + 1;
+            if (coord.y + 1 > height) height = coord.y + 1;
+        }
+        Size = new Vector2Int(width, height);
     }
 
     // 점유된 칸이 하나도 없는지 여부.
     public bool IsEmpty => _cells.Count == 0;
+
+    // 정규화된 좌표 -> 재료. 점유된 칸만 들어 있다. (힌트 UI처럼 배치 자체를 그려야 하는 쪽이 읽는다)
+    public IReadOnlyDictionary<Vector2Int, ResourceData> Cells => _cells;
+
+    // 점유된 칸을 모두 감싸는 격자 크기(x=열 수, y=행 수). 빈 패턴이면 (0, 0)이다.
+    public Vector2Int Size { get; }
 
     // 점유된 (좌표, 재료) 목록을 좌상단 기준으로 정규화해 패턴을 생성한다. 재료가 null인 칸은 무시한다.
     public static CraftingPattern FromCells(IEnumerable<(Vector2Int coord, ResourceData item)> cells)

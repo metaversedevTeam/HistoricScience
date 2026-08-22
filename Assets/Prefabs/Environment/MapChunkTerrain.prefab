@@ -156,7 +156,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Terrain: {fileID: 5896736372485518151}
-  m_ItemDataList: {fileID: 11400000, guid: 23b254639cfcfe1429b71ef4685fa432, type: 2}
+  m_ResourceSourceList: {fileID: 11400000, guid: 98125bd585844c2bb24b8a6ce0e729cb, type: 2}
   m_MinSpawnHeight: 12
   m_MaxAttemptsPerSpawn: 8
 --- !u!114 &-7966869899655571490

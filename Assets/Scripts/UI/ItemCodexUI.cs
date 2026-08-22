@@ -6,7 +6,8 @@ using UnityEngine.UI;
 
 // 인류 문명 도감 UI — 아이템 목록을 시대 필터·이름 검색으로 추려 보여주고, 전체 수집 달성도를 표시하는 관리형 UI.
 // 획득 여부는 씬에 있는 ItemCodex에서 읽으며, ItemCodex가 없으면 전부 미획득으로 표시한다.
-public class ItemCodexUI : OpenableUIBase
+// 힌트 비용을 치를 인벤토리를 페이로드로 받아, 미획득 카드의 힌트 버튼으로 조합법 힌트 팝업을 연다.
+public class ItemCodexUI : OpenableUIBase<ResourceInventory>
 {
     [Header("데이터")]
     [SerializeField] private ItemDataList _itemDataList;
@@ -23,6 +24,9 @@ public class ItemCodexUI : OpenableUIBase
     [SerializeField] private ScrollRect _scrollRect;
     [SerializeField] private TextMeshProUGUI _emptyText;
 
+    [Header("힌트")]
+    [SerializeField] private CraftingHintPopupUI _hintPopupPrefab;
+
     [Header("검색")]
     [SerializeField] private TMP_InputField _searchInput;
 
@@ -37,6 +41,13 @@ public class ItemCodexUI : OpenableUIBase
     private Age? _selectedAge;
 
     private ItemCodex _codex;
+
+    // 힌트 비용을 차감할 인벤토리. 도감을 연 쪽이 넘겨준다.
+    private ResourceInventory _inventory;
+
+    // 이 도감이 열어 둔 힌트 팝업. 닫히면 다시 null이 되어 창이 겹쳐 쌓이지 않게 한다.
+    private CraftingHintPopupUI _openHintPopup;
+
     private readonly List<CodexAgeTabUI> _tabs = new();
     private readonly List<Age?> _tabAges = new();
     private readonly List<ItemCodexEntryUI> _entries = new();
@@ -52,7 +63,10 @@ public class ItemCodexUI : OpenableUIBase
     {
         _codex = FindFirstObjectByType<ItemCodex>();
         if (_codex != null)
+        {
             _codex.OnDiscover += HandleDiscover;
+            _codex.OnHintRevealed += HandleHintRevealed;
+        }
 
         Refresh();
     }
@@ -60,14 +74,30 @@ public class ItemCodexUI : OpenableUIBase
     private void OnDisable()
     {
         if (_codex != null)
+        {
             _codex.OnDiscover -= HandleDiscover;
+            _codex.OnHintRevealed -= HandleHintRevealed;
+        }
 
         _codex = null;
     }
 
-    // 풀로 돌아가기 전에 검색어·선택 탭·스크롤 위치를 초기 상태로 되돌린다.
+    // 힌트 비용을 치를 인벤토리를 주입받고 목록을 다시 그린다.
+    protected override void ApplyData(ResourceInventory data)
+    {
+        _inventory = data;
+        Refresh();
+    }
+
+    // 풀로 돌아가기 전에 검색어·선택 탭·스크롤 위치를 초기 상태로 되돌리고, 열어 둔 힌트 팝업을 정리한다.
     protected override void OnReturnToPool()
     {
+        // 도감이 닫히면 도감이 띄운 힌트 팝업도 함께 정리한다. (닫히면서 구독 해제까지 이어진다)
+        if (_openHintPopup != null)
+            _openHintPopup.Close(immediate: true);
+
+        UnsubscribeFromHintPopup();
+        _inventory = null;
         _searchInput.SetTextWithoutNotify(string.Empty);
         SelectAge(null, refresh: false);
 
@@ -128,6 +158,36 @@ public class ItemCodexUI : OpenableUIBase
     // 새 아이템이 도감에 등록되면 카드와 달성도를 다시 그린다.
     private void HandleDiscover(ItemData _) => Refresh();
 
+    // 힌트가 공개되면 카드의 힌트 버튼 상태를 다시 그린다.
+    private void HandleHintRevealed(ItemData _) => RefreshEntries();
+
+    // 해당 아이템의 조합법 힌트 팝업을 연다. 이미 떠 있는 팝업이 있으면 다시 열지 않는다.
+    private void OpenHintPopup(ItemData item)
+    {
+        if (_openHintPopup != null) return;
+
+        if (_hintPopupPrefab == null)
+        {
+            Debug.LogWarning($"ItemCodexUI({name}): 힌트 팝업 프리팹이 설정되지 않아 힌트를 열 수 없습니다.");
+            return;
+        }
+
+        _openHintPopup = UIManager.Instance.OpenUI(_hintPopupPrefab, new CraftingHintData(item, _inventory, _codex));
+        _openHintPopup.OnFinishClose += HandleHintPopupClosed;
+    }
+
+    // 힌트 팝업이 닫히면 구독을 해제해 다시 열 수 있게 한다.
+    private void HandleHintPopupClosed(IManagedUI ui) => UnsubscribeFromHintPopup();
+
+    // 열어 둔 힌트 팝업의 구독을 해제하고 참조를 비운다.
+    private void UnsubscribeFromHintPopup()
+    {
+        if (_openHintPopup == null) return;
+
+        _openHintPopup.OnFinishClose -= HandleHintPopupClosed;
+        _openHintPopup = null;
+    }
+
     // 현재 필터·검색어에 맞는 카드 목록과 달성도를 모두 다시 그린다.
     private void Refresh()
     {
@@ -154,7 +214,7 @@ public class ItemCodexUI : OpenableUIBase
 
             ItemCodexEntryUI entry = GetOrCreateEntry(visibleCount);
             entry.gameObject.SetActive(true);
-            entry.Setup(item, codexNumber, IsDiscovered(item));
+            entry.Setup(item, codexNumber, IsDiscovered(item), MakeHintCallback(item));
             visibleCount++;
         }
 
@@ -162,6 +222,13 @@ public class ItemCodexUI : OpenableUIBase
             _entries[i].gameObject.SetActive(false);
 
         _emptyText.gameObject.SetActive(visibleCount == 0);
+    }
+
+    // 조합법이 있는 아이템에만 힌트 버튼 콜백을 만들어 준다. 조합법이 없으면 null을 반환해 평범한 상태 바로 그리게 한다.
+    private Action MakeHintCallback(ItemData item)
+    {
+        if (!item.HasRecipe) return null;
+        return () => OpenHintPopup(item);
     }
 
     // 아이템이 현재 시대 필터와 검색어를 모두 만족하는지 판정한다.
