@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -21,6 +22,12 @@ public class MapChunkManager : MonoBehaviour
 
     // 청크 하나가 월드에서 차지하는 XZ 크기 캐시. 모든 청크가 같은 프리팹에서 나오므로 한 번만 계산해 둔다.
     private Vector2? m_ChunkWorldSize;
+
+    // 청크가 새로 소환되었을 때 그 청크의 터레인 페인터를 알린다. 아직 지형이 구워지기 전 시점이다.
+    public event Action<TerrainPainter> ChunkSpawned;
+
+    // 청크가 제거되기 직전에 그 청크의 터레인 페인터를 알린다. 구독자는 이 시점까지 청크 오브젝트가 살아 있다고 볼 수 있다.
+    public event Action<TerrainPainter> ChunkErased;
 
     // 현재 소환되어 있는 청크들의 좌표. 청크 로더가 해제 대상을 고를 때 쓴다.
     public IReadOnlyCollection<Vector2Int> ActiveChunkCoordinates => m_ActiveChunks.Keys;
@@ -90,6 +97,8 @@ public class MapChunkManager : MonoBehaviour
         chunkObject.name = $"{m_ChunkPrefab.name}_{chunkCoordinate.x}_{chunkCoordinate.y}";
 
         m_ActiveChunks[chunkCoordinate] = chunkObject;
+        ChunkSpawned?.Invoke(chunkObject.GetComponent<TerrainPainter>());
+
         return chunkObject;
     }
 
@@ -177,6 +186,8 @@ public class MapChunkManager : MonoBehaviour
     {
         if (!m_ActiveChunks.TryGetValue(chunkCoordinate, out GameObject chunkObject))
             return;
+
+        ChunkErased?.Invoke(chunkObject.GetComponent<TerrainPainter>());
 
         HandleDestroyChunkTerrainData(chunkObject);
         Destroy(chunkObject);
