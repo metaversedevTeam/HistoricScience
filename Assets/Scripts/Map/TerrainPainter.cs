@@ -17,8 +17,6 @@ namespace HistoricScience.Test
         public static Vector3 DefaultTerrainSize => k_TerrainSize;
 
         [Header("Terrain Settings")]
-        // 맵 바이옴 데이터를 생성하는 제공자
-        [SerializeField] private MapDataGenerator m_MapDataGenerator;
         // 칠할 대상 터레인
         [SerializeField] private Terrain m_Terrain;
         // 터레인에 칠할 때 바이옴 경계를 부드럽게 섞을 블러 반경(알파맵 셀 단위). 0이면 경계가 그대로 딱딱 떨어진다.
@@ -32,6 +30,9 @@ namespace HistoricScience.Test
         // 맵 좌표계는 MapSaveUtil이 단독으로 소유하므로 인스펙터에서 따로 설정하지 않고, 굽기 직전에 메인 스레드에서 받아 캐시한다.
         private float m_MapViewSize;
 
+        // 굽기를 요청받을 때 주입받은 맵 데이터. 맵 전체를 담당하는 불변 객체라 모든 청크가 같은 인스턴스를 공유한다.
+        private MapData m_MapData;
+
         [Header("Gizmo Settings")]
         // 선택 시 바이옴 정점 기즈모를 씬 뷰에 표시할지 여부
         [SerializeField] private bool m_ShowBiomeGizmos = true;
@@ -42,11 +43,19 @@ namespace HistoricScience.Test
         // 기준점 기즈모에서 위로 뻗는 기둥의 길이(월드 단위). 멀리서도 기준점을 찾을 수 있게 한다.
         [SerializeField] private float m_OriginGizmoPoleHeight = 30f;
 
-        // MapData로 보로노이 바이옴 정보를 생성하고, 그 결과로 터레인 알파맵과 높이맵을 굽는다.
+        // 씬의 제너레이터로 MapData를 만들어 곧바로 터레인을 굽는다. 평소에는 굽기를 지휘하는 쪽이 맵을 주입하지만,
+        // 이 에디터 버튼은 그 경로 없이 혼자 결과를 확인하는 용도라 씬에서 제너레이터를 직접 찾아 쓴다.
         [ContextMenu("Paint")]
         private void PaintButton()
         {
-            PaintVoronoiTerrain(m_EditorPaintSeed);
+            MapDataGenerator generator = FindFirstObjectByType<MapDataGenerator>();
+            if (generator == null)
+            {
+                Debug.LogError("TerrainPainter: 씬에 MapDataGenerator가 없어 지형을 구울 수 없습니다.", this);
+                return;
+            }
+
+            PaintVoronoiTerrain(generator.GenerateMapData(m_EditorPaintSeed));
         }
 
         // 청크 좌표에 맞춰 이 터레인이 출력할 정규화 맵 영역의 원점을 설정한다. (원점 = 좌표 × MapViewSize). 청크 관리자가 여러 청크를 이어 붙일 때 사용한다.
@@ -57,7 +66,7 @@ namespace HistoricScience.Test
         }
 
         // 이 터레인이 마지막으로 구운 맵 데이터. 굽기 전에는 null이다.
-        public MapData CurrentMapData => m_MapDataGenerator != null ? m_MapDataGenerator.LastMapData : null;
+        public MapData CurrentMapData => m_MapData;
 
         // 월드 좌표를 이 터레인의 출력 설정 기준 정규화 맵 좌표로 변환한다. HandleMapToWorldPosition의 역함수로, 건축 위치 지정처럼 월드 좌표에서 걷기 가능 여부를 판정해야 할 때 쓴다.
         public Vector2 WorldToMapPosition(Vector3 worldPosition)
@@ -81,22 +90,22 @@ namespace HistoricScience.Test
             return HandleMapToWorldPosition(mapPosition);
         }
 
-        // 주입받은 시드로 MapData 생성부터 굽기까지 전체 과정을 메인 스레드에서 동기적으로 실행한다. 에디터의 Paint 버튼처럼 즉시 결과가 필요할 때 사용한다.
-        public void PaintVoronoiTerrain(int seed)
+        // 주입받은 맵 데이터로 준비부터 굽기까지 전체 과정을 메인 스레드에서 동기적으로 실행한다. 에디터의 Paint 버튼처럼 즉시 결과가 필요할 때 사용한다.
+        public void PaintVoronoiTerrain(MapData mapData)
         {
-            var context = PrepareForPaint(seed);
+            var context = PrepareForPaint(mapData);
             if (context == null) return;
 
             var result = ComputePaint(context.Value);
             ApplyPaint(result);
         }
 
-        // 주입받은 시드로 MapData를 새로 생성하고 백그라운드 계산에 필요한 데이터를 모아 반환한다. Unity API를 사용하므로 반드시 메인 스레드에서 호출해야 한다.
-        public (MapData MapData, MapBiome[] Biomes, TerrainLayer[] Layers, int AlphamapWidth, int AlphamapHeight, int HeightmapResolution)? PrepareForPaint(int seed)
+        // 주입받은 맵 데이터를 보관하고 백그라운드 계산에 필요한 데이터를 모아 반환한다. Unity API를 사용하므로 반드시 메인 스레드에서 호출해야 한다.
+        public (MapData MapData, MapBiome[] Biomes, TerrainLayer[] Layers, int AlphamapWidth, int AlphamapHeight, int HeightmapResolution)? PrepareForPaint(MapData mapData)
         {
-            if (m_MapDataGenerator == null)
+            if (mapData == null)
             {
-                Debug.LogError("TerrainPainter: MapDataGenerator is not assigned.");
+                Debug.LogError("TerrainPainter: 주입받은 맵 데이터가 없습니다.", this);
                 return null;
             }
 
@@ -109,10 +118,10 @@ namespace HistoricScience.Test
             HandleCaptureMapViewSize();
             HandleAssignTerrainData();
 
-            MapData mapData = m_MapDataGenerator.GenerateMapData(seed);
-            if (mapData == null) return null;
+            m_MapData = mapData;
 
-            MapBiome[] biomes = m_MapDataGenerator.Biomes;
+            // 알파맵 레이어 순서는 맵이 바이옴을 판정할 때 쓴 목록 순서와 반드시 같아야 하므로, 목록도 맵에서 그대로 받아 온다.
+            MapBiome[] biomes = mapData.CopyBiomes();
             TerrainLayer[] layers = HandleCollectTerrainLayers(biomes);
 
             TerrainData terrainData = m_Terrain.terrainData;
@@ -175,7 +184,7 @@ namespace HistoricScience.Test
             if (spawner == null)
                 return;
 
-            spawner.SpawnResources(m_MapViewOrigin, m_MapViewSize, m_MapDataGenerator.LastMapData, regionField);
+            spawner.SpawnResources(m_MapViewOrigin, m_MapViewSize, m_MapData, regionField);
         }
 
         // 맵 좌표계를 소유한 MapSaveUtil에서 출력 영역 크기를 받아 캐시한다.
@@ -450,13 +459,13 @@ namespace HistoricScience.Test
                 return;
             }
 
-            if (m_MapDataGenerator == null || m_MapDataGenerator.LastMapData == null)
+            if (m_MapData == null)
             {
                 return;
             }
 
             Rect mapViewArea = new Rect(m_MapViewOrigin.x, m_MapViewOrigin.y, m_MapViewSize, m_MapViewSize);
-            foreach (BiomeRegion region in m_MapDataGenerator.LastMapData.GetRegions(mapViewArea))
+            foreach (BiomeRegion region in m_MapData.GetRegions(mapViewArea))
             {
                 HandleDrawRegionGizmo(region);
             }

@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
 
-// 인게임 씬의 진입점. 이전 씬이 지정한 맵 파일을 열어 MapData를 만들고, 시드 주입과 청크 로딩,
+// 인게임 씬의 진입점. 이전 씬이 지정한 맵 파일을 열어 MapData를 만들고, 맵 데이터 주입과 청크 로딩,
 // 인벤토리/Savable 복원까지 마친 뒤에는 현재 맵 상태를 다시 파일로 저장하는 역할도 맡는다.
 public class IngameSceneManager : MonoBehaviour
 {
@@ -17,9 +17,9 @@ public class IngameSceneManager : MonoBehaviour
 
     // 맵 파일 읽기/쓰기와 MapData 재생성을 담당하는 유틸리티
     [SerializeField] private MapSaveUtil _mapSaveUtil;
-    // 맵 시드를 주입할 청크 매니저
+    // 맵 데이터를 주입할 청크 매니저
     [SerializeField] private MapChunkManager _chunkManager;
-    // 시드 주입이 끝난 뒤 로딩을 시작시킬 청크 로더
+    // 맵 데이터 주입이 끝난 뒤 로딩을 시작시킬 청크 로더
     [SerializeField] private MapChunkLoader _chunkLoader;
     // 저장/복원 대상 인벤토리
     [SerializeField] private ResourceInventory _resourceInventory;
@@ -70,7 +70,8 @@ public class IngameSceneManager : MonoBehaviour
         _pendingSavables = _saveData.Savables != null ? new List<SavableEntry>(_saveData.Savables) : new List<SavableEntry>();
         _chunkManager.SetPendingSavables(_pendingSavables);
 
-        _chunkManager.SetSeed(_saveData.Seed);
+        // 청크마다 시드로 맵을 다시 만들지 않도록, 이미 만들어 둔 이 씬의 맵 데이터를 그대로 넘긴다.
+        _chunkManager.SetMapData(_mapData);
 
         // 청크 로더가 카메라를 추적 대상으로 삼으므로, 저장된 위치 주변부터 로딩되도록 XZ를 먼저 복원한다.
         HandleRestoreCameraPosition();

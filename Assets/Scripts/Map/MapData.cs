@@ -26,6 +26,8 @@ public sealed class MapData
     private readonly float m_MaxInfluenceDistance;
     // maxInfluenceDistance 이내에 정점이 하나도 없을 때 대신 사용할 바이옴.
     private readonly MapBiome m_DefaultBiome;
+    // 이 맵을 만들 때 사용한 바이옴 목록. 알파맵 레이어 순서가 이 목록 순서와 같아야 하므로 맵과 함께 들고 다닌다.
+    private readonly MapBiome[] m_Biomes;
     // 시드마다 높이 굴곡 노이즈가 달라지도록 하는 펄린 샘플 오프셋
     private readonly Vector2 m_HeightNoiseOffset;
 
@@ -41,8 +43,17 @@ public sealed class MapData
         m_BoundaryNoiseStrength = boundaryNoiseStrength;
         m_MaxInfluenceDistance = maxInfluenceDistance;
         m_DefaultBiome = defaultBiome;
+        // 호출부가 넘긴 배열을 나중에 바꾸더라도 이 객체의 상태가 변하지 않도록 방어적으로 복사해 둔다.
+        m_Biomes = biomes != null ? (MapBiome[])biomes.Clone() : new MapBiome[0];
 
         m_RegionMap = new BiomeRegionMap(seed, minWeight, maxWeight, biomes);
+    }
+
+    // 이 맵을 만들 때 사용한 바이옴 목록을 순서 그대로 복사해 반환한다. 지형을 굽는 쪽이 터레인 레이어 순서를 맞추는 데 쓰는데,
+    // 맵을 만든 파라미터와 어긋날 수 없도록 제너레이터가 아니라 맵 자신에게서 받아 가게 한다.
+    public MapBiome[] CopyBiomes()
+    {
+        return (MapBiome[])m_Biomes.Clone();
     }
 
     // 주어진 맵 영역을 반복해서 조회할 때 쓸 정점 필드를 만든다. 영역 밖에서 영향력을 미칠 수 있는 정점까지 담도록 영향 반경만큼 넓혀서 계산하므로,

@@ -11,7 +11,6 @@ GameObject:
   - component: {fileID: 2338175690666785620}
   - component: {fileID: 5896736372485518151}
   - component: {fileID: 2749613347567756879}
-  - component: {fileID: 8723176566083072883}
   - component: {fileID: 8365578988269883798}
   - component: {fileID: 4437218856120974311}
   - component: {fileID: -7966869899655571490}
@@ -97,30 +96,6 @@ TerrainCollider:
   serializedVersion: 2
   m_TerrainData: {fileID: 0}
   m_EnableTreeColliders: 1
---- !u!114 &8723176566083072883
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7487192341888620568}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f078855d01e47824c9fa010ed5f8ada2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_WeightRange: {x: 0.5, y: 2}
-  m_BoundaryNoiseScale: 20
-  m_BoundaryNoiseStrength: 0.003
-  m_MaxInfluenceDistance: 0.6
-  m_Biomes:
-  - {fileID: 11400000, guid: c77f73d9300940344a63ca8145e455b6, type: 2}
-  - {fileID: 11400000, guid: 011b8d3e13524994b8bf3dab990a2ed9, type: 2}
-  - {fileID: 11400000, guid: 91f64ac3ccafd8947a939d5ed25d7307, type: 2}
-  - {fileID: 11400000, guid: 54a51f916e7b33b4998e37a57c060571, type: 2}
-  - {fileID: 11400000, guid: 17b382bad77ec244e9420e62e2439394, type: 2}
-  - {fileID: 11400000, guid: fa795c83498fc4245bb9d32f27ec7a2e, type: 2}
-  m_DefaultBiome: {fileID: 11400000, guid: c77f73d9300940344a63ca8145e455b6, type: 2}
 --- !u!114 &8365578988269883798
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -133,7 +108,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2a7a94d5fb26f5448918a8e34125159b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_MapDataGenerator: {fileID: 8723176566083072883}
   m_Terrain: {fileID: 5896736372485518151}
   m_BlendRadius: 3
   m_MapViewOrigin: {x: 0, y: 0}

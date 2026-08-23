@@ -6,11 +6,12 @@ using HistoricScience.Test;
 // 무한 맵을 청크 단위로 나누어, 특정 청크 좌표에 MapChunkTerrain 프리팹을 소환해 지형을 그리거나 지우는 관리자
 public class MapChunkManager : MonoBehaviour
 {
-    // 소환할 청크 프리팹. Terrain, TerrainCollider, MapDataGenerator, TerrainPainter가 구성되어 있어야 한다.
+    // 소환할 청크 프리팹. Terrain, TerrainCollider, TerrainPainter가 구성되어 있어야 한다.
     [SerializeField] private GameObject m_ChunkPrefab;
 
-    // 이 맵의 모든 청크에 공통으로 주입할 맵 시드. 새 게임 시작이나 저장 파일 로드 시 SetSeed로 갱신한다.
-    [SerializeField] private int m_Seed = 0;
+    // 이 맵의 모든 청크가 공유하는 맵 데이터. 무한 평면 전체를 담당하는 불변 객체라 하나를 모든 청크에 그대로 넘긴다.
+    // 새 게임 시작이나 저장 파일 로드 시 SetMapData로 주입받는다.
+    private MapData m_MapData;
 
     // 아직 소환되지 않은 저장 오브젝트 대기 목록. 청크가 구워질 때마다 그 청크의 스포너가 자기 영역의 항목을 꺼내 소환한다.
     private List<SavableEntry> m_PendingSavables;
@@ -73,7 +74,7 @@ public class MapChunkManager : MonoBehaviour
         return chunkObject;
     }
 
-    // 주어진 좌표에 청크 프리팹을 소환만 하고 아직 굽지는 않는다. 굽기 전에 MapDataGenerator 등을 추가로 구성해야 할 때 사용한다.
+    // 주어진 좌표에 청크 프리팹을 소환만 하고 아직 굽지는 않는다. 굽기 전에 청크 오브젝트를 추가로 구성해야 할 때 사용한다.
     public GameObject SpawnChunk(Vector2Int chunkCoordinate)
     {
         if (m_ActiveChunks.TryGetValue(chunkCoordinate, out GameObject existingChunk))
@@ -92,10 +93,10 @@ public class MapChunkManager : MonoBehaviour
         return chunkObject;
     }
 
-    // 이후 소환/굽기되는 청크들에 주입할 맵 시드를 설정한다. 이미 구워진 청크에는 소급 적용되지 않으므로 청크를 그리기 전에 호출해야 한다.
-    public void SetSeed(int seed)
+    // 이후 소환/굽기되는 청크들에 주입할 맵 데이터를 설정한다. 이미 구워진 청크에는 소급 적용되지 않으므로 청크를 그리기 전에 호출해야 한다.
+    public void SetMapData(MapData mapData)
     {
-        m_Seed = seed;
+        m_MapData = mapData;
     }
 
     // 청크가 구워질 때 각 청크 영역의 저장 오브젝트를 소환하는 데 쓸 대기 목록을 설정한다. 소환된 항목은 목록에서 제거되므로 호출자와 목록을 공유한다.
@@ -118,19 +119,16 @@ public class MapChunkManager : MonoBehaviour
         return true;
     }
 
-    // 이미 소환된 청크의 좌표를 터레인 페인터에 반영해 보로노이 지형을 굽고 월드 위치를 잡는다. 모든 청크에 같은 맵 시드(m_Seed)를
+    // 이미 소환된 청크의 좌표를 터레인 페인터에 반영해 보로노이 지형을 굽고 월드 위치를 잡는다. 모든 청크에 같은 맵 데이터(m_MapData)를
     // 주입하므로, 각 청크는 같은 무한 맵의 서로 다른 영역을 이어서 보여주게 된다.
     public void PaintChunk(Vector2Int chunkCoordinate)
     {
-        if (!m_ActiveChunks.TryGetValue(chunkCoordinate, out GameObject chunkObject))
-        {
-            Debug.LogError($"MapChunkManager: {chunkCoordinate} 청크가 소환되어 있지 않습니다.");
+        if (!HandleCanPaint(chunkCoordinate, out GameObject chunkObject))
             return;
-        }
 
         TerrainPainter painter = chunkObject.GetComponent<TerrainPainter>();
         painter.SetChunkCoordinate(chunkCoordinate);
-        painter.PaintVoronoiTerrain(m_Seed);
+        painter.PaintVoronoiTerrain(m_MapData);
 
         HandlePositionChunk(chunkObject, chunkCoordinate);
         HandleSpawnSavables(chunkObject);
@@ -152,16 +150,13 @@ public class MapChunkManager : MonoBehaviour
     // PaintChunk의 비동기 버전. 알파맵/높이맵 계산만 Task.Run으로 백그라운드 스레드에 맡기고, Terrain에 적용하는 부분은 메인 스레드로 돌아와 처리한다.
     public async Task PaintChunkAsync(Vector2Int chunkCoordinate)
     {
-        if (!m_ActiveChunks.TryGetValue(chunkCoordinate, out GameObject chunkObject))
-        {
-            Debug.LogError($"MapChunkManager: {chunkCoordinate} 청크가 소환되어 있지 않습니다.");
+        if (!HandleCanPaint(chunkCoordinate, out GameObject chunkObject))
             return;
-        }
 
         TerrainPainter painter = chunkObject.GetComponent<TerrainPainter>();
         painter.SetChunkCoordinate(chunkCoordinate);
 
-        var context = painter.PrepareForPaint(m_Seed);
+        var context = painter.PrepareForPaint(m_MapData);
         if (context == null)
             return;
 
@@ -186,6 +181,24 @@ public class MapChunkManager : MonoBehaviour
         HandleDestroyChunkTerrainData(chunkObject);
         Destroy(chunkObject);
         m_ActiveChunks.Remove(chunkCoordinate);
+    }
+
+    // 굽기에 필요한 청크 오브젝트와 맵 데이터가 모두 준비되었는지 확인하고, 준비된 청크 오브젝트를 넘겨준다.
+    private bool HandleCanPaint(Vector2Int chunkCoordinate, out GameObject chunkObject)
+    {
+        if (!m_ActiveChunks.TryGetValue(chunkCoordinate, out chunkObject))
+        {
+            Debug.LogError($"MapChunkManager: {chunkCoordinate} 청크가 소환되어 있지 않습니다.");
+            return false;
+        }
+
+        if (m_MapData == null)
+        {
+            Debug.LogError("MapChunkManager: 맵 데이터가 주입되지 않아 청크를 구울 수 없습니다. SetMapData를 먼저 호출해야 합니다.");
+            return false;
+        }
+
+        return true;
     }
 
     // 방금 구워져 위치까지 잡힌 청크 영역에 속한 저장 오브젝트들을 청크의 스포너로 소환한다. 대기 목록이나 스포너가 없으면 아무것도 하지 않는다.

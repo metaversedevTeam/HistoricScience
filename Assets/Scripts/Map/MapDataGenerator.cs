@@ -3,6 +3,8 @@ using UnityEngine;
 namespace HistoricScience.Test
 {
     // 보로노이 다이어그램 기반의 MapData를 생성하고 보관하는 클래스. 시드는 스스로 만들지 않고 항상 외부에서 주입받는다.
+    // 맵 하나의 생성 규칙을 정의하는 단일 소유자이므로 씬에 하나만 두고, 만들어진 MapData를 필요한 쪽에 넘겨 쓴다.
+    // MapData는 무한 평면 전체를 담당하는 불변 객체라 청크마다 따로 만들 필요가 없다.
     public class MapDataGenerator : MonoBehaviour
     {
         // 각 정점에 랜덤으로 부여할 가중치의 최소/최대 범위
@@ -26,8 +28,6 @@ namespace HistoricScience.Test
 
         // 마지막으로 생성된 맵 바이옴 데이터를 반환한다.
         public MapData LastMapData => m_LastMapData;
-        // 설정된 바이옴 목록을 반환한다.
-        public MapBiome[] Biomes => m_Biomes;
         // 마지막으로 주입받은 랜덤 시드를 반환한다.
         public int Seed => seed;
 
