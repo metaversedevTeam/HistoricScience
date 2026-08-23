@@ -7,6 +7,7 @@ using UnityEngine.UI;
 // 인류 문명 도감 UI — 아이템 목록을 시대 필터·이름 검색으로 추려 보여주고, 전체 수집 달성도를 표시하는 관리형 UI.
 // 획득 여부는 씬에 있는 ItemCodex에서 읽으며, ItemCodex가 없으면 전부 미획득으로 표시한다.
 // 힌트 비용을 치를 인벤토리를 페이로드로 받아, 미획득 카드의 힌트 버튼으로 조합법 힌트 팝업을 연다.
+// 이미 획득한 카드의 "수집 완료" 버튼은 같은 팝업을 전체 공개 모드로 열어 조합법 전체를 보여준다.
 public class ItemCodexUI : OpenableUIBase<ResourceInventory>
 {
     [Header("데이터")]
@@ -161,18 +162,19 @@ public class ItemCodexUI : OpenableUIBase<ResourceInventory>
     // 힌트가 공개되면 카드의 힌트 버튼 상태를 다시 그린다.
     private void HandleHintRevealed(ItemData _) => RefreshEntries();
 
-    // 해당 아이템의 조합법 힌트 팝업을 연다. 이미 떠 있는 팝업이 있으면 다시 열지 않는다.
-    private void OpenHintPopup(ItemData item)
+    // 해당 아이템의 조합법 팝업을 연다. revealAll이면 힌트를 사지 않고 조합법 전체를 보여준다.
+    // 이미 떠 있는 팝업이 있으면 다시 열지 않는다.
+    private void OpenHintPopup(ItemData item, bool revealAll)
     {
         if (_openHintPopup != null) return;
 
         if (_hintPopupPrefab == null)
         {
-            Debug.LogWarning($"ItemCodexUI({name}): 힌트 팝업 프리팹이 설정되지 않아 힌트를 열 수 없습니다.");
+            Debug.LogWarning($"ItemCodexUI({name}): 힌트 팝업 프리팹이 설정되지 않아 조합법을 열 수 없습니다.");
             return;
         }
 
-        _openHintPopup = UIManager.Instance.OpenUI(_hintPopupPrefab, new CraftingHintData(item, _inventory, _codex));
+        _openHintPopup = UIManager.Instance.OpenUI(_hintPopupPrefab, new CraftingHintData(item, _inventory, _codex, revealAll));
         _openHintPopup.OnFinishClose += HandleHintPopupClosed;
     }
 
@@ -224,11 +226,14 @@ public class ItemCodexUI : OpenableUIBase<ResourceInventory>
         _emptyText.gameObject.SetActive(visibleCount == 0);
     }
 
-    // 조합법이 있는 아이템에만 힌트 버튼 콜백을 만들어 준다. 조합법이 없으면 null을 반환해 평범한 상태 바로 그리게 한다.
+    // 조합법이 있는 아이템에만 상태 바 콜백을 만들어 준다. 조합법이 없으면 null을 반환해 평범한 상태 바로 그리게 한다.
+    // 이미 획득한 아이템은 전체 공개 모드로, 아직이면 힌트 모드로 팝업을 연다.
     private Action MakeHintCallback(ItemData item)
     {
         if (!item.HasRecipe) return null;
-        return () => OpenHintPopup(item);
+
+        bool revealAll = IsDiscovered(item);
+        return () => OpenHintPopup(item, revealAll);
     }
 
     // 아이템이 현재 시대 필터와 검색어를 모두 만족하는지 판정한다.

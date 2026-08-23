@@ -5,6 +5,7 @@ using UnityEngine.UI;
 
 // 도감 격자에 놓이는 아이템 카드 하나. 획득 여부에 따라 썸네일·이름·상태 표시가 달라지고,
 // 아직 획득하지 못한 아이템은 상태 바가 조합법 힌트 버튼으로 바뀐다.
+// 이미 획득한 아이템은 "수집 완료" 표시 그대로 두되, 눌러서 전체 조합법을 볼 수 있다.
 public class ItemCodexEntryUI : MonoBehaviour
 {
     [Header("카드")]
@@ -52,8 +53,8 @@ public class ItemCodexEntryUI : MonoBehaviour
     [SerializeField] private Color _hintStatusOutline = new Color32(0xF9, 0x73, 0x16, 0x00);
     [SerializeField] private Color _hintStatusText = new Color32(0x0D, 0x11, 0x1D, 0xFF);
 
-    // 힌트 버튼을 눌렀을 때 호출할 콜백. null이면 이 카드에는 힌트 버튼이 없다.
-    private Action _onHintClick;
+    // 상태 바를 눌렀을 때 호출할 콜백. null이면 이 카드의 상태 바는 누를 수 없다.
+    private Action _onStatusClick;
 
     private void Awake()
     {
@@ -61,13 +62,13 @@ public class ItemCodexEntryUI : MonoBehaviour
     }
 
     // 아이템 정보와 획득 여부를 카드에 반영한다. displayNumber는 "No. 001"에 쓰는 도감 번호,
-    // onHintClick은 상태 바를 힌트 버튼으로 바꿀 콜백이며 null이면 평범한 상태 바로 그린다.
-    public void Setup(ItemData item, int displayNumber, bool discovered, Action onHintClick)
+    // onStatusClick은 상태 바를 눌렀을 때 조합법을 여는 콜백이며 null이면 누를 수 없는 상태 바로 그린다.
+    public void Setup(ItemData item, int displayNumber, bool discovered, Action onStatusClick)
     {
         _indexText.text = $"No. {displayNumber:D3}";
         _ageBadgeText.text = item.Age.ToShortName();
         _nameText.text = item.Nmae;
-        _onHintClick = discovered ? null : onHintClick;
+        _onStatusClick = onStatusClick;
 
         ApplyThumbnail(item, discovered);
         ApplyStateColors(discovered);
@@ -99,10 +100,11 @@ public class ItemCodexEntryUI : MonoBehaviour
     }
 
     // 상태 바를 세 가지 모습(수집 완료 / 힌트 버튼 / 미획득) 중 하나로 그린다.
+    // 조합법을 볼 수 있는 카드는 "수집 완료" 상태에서도 눌리게 둔다.
     private void ApplyStatusBar(bool discovered)
     {
-        bool showHint = !discovered && _onHintClick != null;
-        _statusButton.interactable = showHint;
+        bool showHint = !discovered && _onStatusClick != null;
+        _statusButton.interactable = _onStatusClick != null;
 
         if (showHint)
         {
@@ -130,6 +132,6 @@ public class ItemCodexEntryUI : MonoBehaviour
         _statusText.color = text;
     }
 
-    // 상태 바를 누르면 등록된 힌트 콜백을 호출한다. 힌트 버튼이 아닌 상태에서는 아무 일도 하지 않는다.
-    private void HandleStatusButtonClick() => _onHintClick?.Invoke();
+    // 상태 바를 누르면 등록된 콜백을 호출한다. 콜백이 없는 상태에서는 아무 일도 하지 않는다.
+    private void HandleStatusButtonClick() => _onStatusClick?.Invoke();
 }

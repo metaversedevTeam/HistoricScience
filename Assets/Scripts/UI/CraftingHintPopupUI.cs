@@ -5,12 +5,20 @@ using UnityEngine.UI;
 
 // 조합법 힌트 팝업 UI — 아이템 하나의 조합법을 물음표 격자로 보여주고, 비용을 치를 때마다 한 칸씩 공개한다.
 // 어떤 칸이 공개되는지는 아이템 ID로 정해진 순서(CraftingHintOrder)를 따르고, 몇 번 공개했는지는 ItemCodex가 맵 저장 파일에 기록한다.
+// 이미 수집한 아이템은 전체 공개 모드로 열려, 같은 격자에 조합법 전체를 한 번에 보여주고 비용·힌트 버튼은 감춘다.
 public class CraftingHintPopupUI : OpenableUIBase<CraftingHintData>
 {
     [Header("비용")]
     // 소모할 자원과 개수는 아이템마다 ItemData(HintCostResource·HintCost)에서 읽어 온다.
+    // 전체 공개 모드에서는 치를 비용이 없으므로 비용 줄 전체를 끈다.
+    [SerializeField] private GameObject _costRoot;
     [SerializeField] private Image _costIcon;
     [SerializeField] private TextMeshProUGUI _costText;
+
+    [Header("설명")]
+    [SerializeField] private TextMeshProUGUI _descText;
+    [SerializeField, TextArea] private string _hintDesc = "미공개 재료 중 무작위 1개의 정보가 도감에 상시 잠금 해제됩니다.";
+    [SerializeField, TextArea] private string _revealAllDesc = "이미 수집한 아이템 입니다.";
 
     [Header("헤더")]
     [SerializeField] private TextMeshProUGUI _titleText;
@@ -30,6 +38,10 @@ public class CraftingHintPopupUI : OpenableUIBase<CraftingHintData>
     private ItemData _item;
     private ResourceInventory _inventory;
     private ItemCodex _codex;
+
+    // 힌트를 한 칸씩 공개하는 대신 조합법 전체를 그대로 보여주는 모드인지 여부.
+    private bool _revealAll;
+
     private readonly List<CraftingHintCellUI> _cells = new();
 
     private void Awake()
@@ -39,19 +51,24 @@ public class CraftingHintPopupUI : OpenableUIBase<CraftingHintData>
     }
 
     // 힌트를 볼 아이템과 비용을 치를 인벤토리, 공개 횟수를 기록할 도감을 주입받고 화면을 그린다.
+    // 전체 공개 모드는 더 공개할 것도 치를 비용도 없으므로 갱신용 구독을 걸지 않는다.
     protected override void ApplyData(CraftingHintData data)
     {
         _item = data.Item;
         _inventory = data.Inventory;
         _codex = data.Codex;
+        _revealAll = data.RevealAll;
 
-        if (_codex != null)
-            _codex.OnHintRevealed += HandleHintRevealed;
-
-        if (_inventory != null)
+        if (!_revealAll)
         {
-            _inventory.OnAddItem += HandleInventoryChanged;
-            _inventory.OnRemoveItem += HandleInventoryChanged;
+            if (_codex != null)
+                _codex.OnHintRevealed += HandleHintRevealed;
+
+            if (_inventory != null)
+            {
+                _inventory.OnAddItem += HandleInventoryChanged;
+                _inventory.OnRemoveItem += HandleInventoryChanged;
+            }
         }
 
         Refresh();
@@ -75,6 +92,7 @@ public class CraftingHintPopupUI : OpenableUIBase<CraftingHintData>
         _item = null;
         _inventory = null;
         _codex = null;
+        _revealAll = false;
     }
 
     // 닫기 버튼을 누르면 UI를 닫는다. (ESC로 닫는 UIManager 경로와 동일한 동작)
@@ -114,14 +132,27 @@ public class CraftingHintPopupUI : OpenableUIBase<CraftingHintData>
         if (HasCost && item == _item.HintCostResource) RefreshHintButton();
     }
 
-    // 제목·격자·비용·버튼을 현재 공개 상태에 맞춰 모두 다시 그린다.
+    // 제목·설명·격자·비용·버튼을 현재 모드와 공개 상태에 맞춰 모두 다시 그린다.
     private void Refresh()
     {
-        _titleText.text = _item != null ? $"{_item.Nmae} 조합법 힌트" : "조합법 힌트";
-
+        RefreshHeader();
         RefreshGrid();
+
+        // 전체 공개 모드에는 더 살 힌트가 없으므로 비용 줄과 힌트 버튼 자체를 감춘다.
+        _costRoot.SetActive(!_revealAll);
+        _hintButton.gameObject.SetActive(!_revealAll);
+        if (_revealAll) return;
+
         RefreshCost();
         RefreshHintButton();
+    }
+
+    // 모드에 맞는 제목과 설명 문구를 표시한다.
+    private void RefreshHeader()
+    {
+        string suffix = _revealAll ? "조합법" : "조합법 힌트";
+        _titleText.text = _item != null ? $"{_item.Nmae} {suffix}" : suffix;
+        _descText.text = _revealAll ? _revealAllDesc : _hintDesc;
     }
 
     // 조합법의 크기에 맞춘 격자를 만들고, 공개된 칸만 재료를 드러낸다.
@@ -137,7 +168,7 @@ public class CraftingHintPopupUI : OpenableUIBase<CraftingHintData>
 
         ApplyGridLayout(size);
 
-        HashSet<Vector2Int> revealed = _codex != null ? _codex.GetRevealedCoords(_item) : new HashSet<Vector2Int>();
+        HashSet<Vector2Int> revealed = MakeRevealedCoords(pattern);
         // 재료 칸을 모두 공개했다면 더 숨길 것이 없으므로, 남은 칸은 물음표 대신 빈 칸으로 보여준다.
         bool allRevealed = revealed.Count >= pattern.Cells.Count;
 
@@ -160,6 +191,14 @@ public class CraftingHintPopupUI : OpenableUIBase<CraftingHintData>
         }
 
         HideCellsFrom(index);
+    }
+
+    // 이번에 드러낼 재료 칸의 좌표 집합을 구한다. 전체 공개 모드면 조합법의 모든 재료 칸이 대상이다.
+    private HashSet<Vector2Int> MakeRevealedCoords(CraftingPattern pattern)
+    {
+        if (_revealAll) return new HashSet<Vector2Int>(pattern.Cells.Keys);
+
+        return _codex != null ? _codex.GetRevealedCoords(_item) : new HashSet<Vector2Int>();
     }
 
     // 조합법 크기에 맞춰 격자의 열 수와 칸 크기를 정한다. 칸이 영역을 넘지 않도록 큰 조합법일수록 칸을 줄인다.
@@ -234,18 +273,21 @@ public class CraftingHintPopupUI : OpenableUIBase<CraftingHintData>
     }
 }
 
-// 힌트 팝업에 전달되는 페이로드 — 힌트를 볼 아이템, 비용을 치를 인벤토리, 공개 횟수를 기록할 도감
+// 힌트 팝업에 전달되는 페이로드 — 힌트를 볼 아이템, 비용을 치를 인벤토리, 공개 횟수를 기록할 도감,
+// 그리고 힌트를 사지 않고 조합법 전체를 그대로 보여줄지 여부
 public readonly struct CraftingHintData
 {
     public readonly ItemData Item;
     public readonly ResourceInventory Inventory;
     public readonly ItemCodex Codex;
+    public readonly bool RevealAll;
 
-    // 아이템·인벤토리·도감으로 페이로드를 구성한다.
-    public CraftingHintData(ItemData item, ResourceInventory inventory, ItemCodex codex)
+    // 아이템·인벤토리·도감으로 페이로드를 구성한다. revealAll이면 조합법 전체가 공개된 채로 열린다.
+    public CraftingHintData(ItemData item, ResourceInventory inventory, ItemCodex codex, bool revealAll = false)
     {
         Item = item;
         Inventory = inventory;
         Codex = codex;
+        RevealAll = revealAll;
     }
 }

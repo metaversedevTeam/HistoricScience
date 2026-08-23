@@ -1908,8 +1908,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6d4a83f1c29b40d5b7e6a2f8c1934db2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _costRoot: {fileID: 3031959007547}
   _costIcon: {fileID: 3041084145554}
   _costText: {fileID: 3045139762446}
+  _descText: {fileID: 3019792156871}
   _titleText: {fileID: 2994444551296}
   _closeButton: {fileID: 2999514072411}
   _cellPrefab: {fileID: 1803381872321, guid: d1b6e4a08f3c47d2a9f5c0e37b214968, type: 3}
