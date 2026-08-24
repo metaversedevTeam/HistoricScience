@@ -53,9 +53,6 @@ MonoBehaviour:
   - _itemData: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
     _amount: 1
     _weight: 1
-  - _itemData: {fileID: 11400000, guid: d3e026c2f68983982deeb55386dea39b, type: 2}
-    _amount: 2
-    _weight: 2
   _gatherCooldown: 3
 --- !u!114 &1803116923085429630
 MonoBehaviour:
