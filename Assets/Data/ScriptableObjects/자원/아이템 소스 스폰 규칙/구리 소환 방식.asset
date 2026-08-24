@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 34760c6d61c7f81479b2413d4a8568c1, type: 3}
+  m_Name: "\uAD6C\uB9AC \uC18C\uD658 \uBC29\uC2DD"
+  m_EditorClassIdentifier: 
+  m_SourcePrefab: {fileID: 1564132085319456066, guid: 181b3186361656d4faccd3fade47517f, type: 3}
+  m_SeedId: 20
+  m_SpawnBiomes:
+  - {fileID: 11400000, guid: 91f64ac3ccafd8947a939d5ed25d7307, type: 2}
+  m_MinSpawnHeight: 12
+  m_MaxSpawnHeight: 100
+  m_SpawnCountPerChunk: 80
+  m_InputSampleMultiplier: 5
