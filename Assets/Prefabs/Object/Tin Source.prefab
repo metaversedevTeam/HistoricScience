@@ -49,8 +49,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: be6e605880052484eb5f0d62b0787e7c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _itemData: {fileID: 11400000, guid: 85f9d8f0025541f18eeda574b50ff9a9, type: 2}
-  _gatherAmount: 1
+  _gatherDrops:
+  - _itemData: {fileID: 11400000, guid: 85f9d8f0025541f18eeda574b50ff9a9, type: 2}
+    _amount: 1
+    _weight: 1
   _gatherCooldown: 3
 --- !u!114 &1803116923085429630
 MonoBehaviour:

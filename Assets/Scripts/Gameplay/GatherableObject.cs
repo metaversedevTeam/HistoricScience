@@ -1,10 +1,11 @@
+using System.Collections.Generic;
 using UnityEngine;
 
-// IGatherable을 구현하여 채집 쿨타임을 가진 채집 가능한 오브젝트
+// IGatherable을 구현하여 채집 쿨타임을 가지며, 여러 후보 아이템 중 하나를 가중치 비율로 뽑아 주는 채집 가능한 오브젝트
 public class GatherableObject : MonoBehaviour, IGatherable
 {
-    [SerializeField] private ItemData _itemData;
-    [SerializeField] private int _gatherAmount = 1;
+    // 채집할 때마다 이 목록에서 가중치 비율에 따라 하나가 뽑힌다.
+    [SerializeField] private List<GatherDrop> _gatherDrops = new List<GatherDrop>();
     [SerializeField] private float _gatherCooldown = 3f;
 
     private float _lastGatherTime = float.NegativeInfinity;
@@ -15,12 +16,51 @@ public class GatherableObject : MonoBehaviour, IGatherable
         return Time.time - _lastGatherTime >= _gatherCooldown;
     }
 
-    // 채집을 수행하여 결과 아이템을 반환하고 쿨타임을 시작한다.
+    // 채집을 수행하여 무작위로 뽑힌 결과 아이템을 반환하고 쿨타임을 시작한다.
     public (bool isSuccess, ItemData itemType, int count) OnGather()
     {
         if (!CanGather()) return (false, null, 0);
 
+        GatherDrop drop = PickRandomDrop();
+        if (drop == null) return (false, null, 0);
+
         _lastGatherTime = Time.time;
-        return (true, _itemData, _gatherAmount);
+        return (true, drop.ItemData, drop.Amount);
+    }
+
+    // 유효한 후보들의 가중치 합을 구한 뒤 그 비율대로 아이템 하나를 뽑는다. 유효한 후보가 없으면 null을 반환한다.
+    private GatherDrop PickRandomDrop()
+    {
+        float totalWeight = GetTotalWeight();
+        if (totalWeight <= 0f) return null;
+
+        float pick = Random.value * totalWeight;
+        GatherDrop lastValid = null;
+
+        foreach (GatherDrop drop in _gatherDrops)
+        {
+            if (drop == null || !drop.IsValid()) continue;
+
+            lastValid = drop;
+            pick -= drop.Weight;
+            if (pick <= 0f) return drop;
+        }
+
+        // 부동소수점 오차로 끝까지 뽑히지 않은 경우 마지막 유효 후보를 돌려준다.
+        return lastValid;
+    }
+
+    // 유효한 후보들의 가중치 총합을 계산한다.
+    private float GetTotalWeight()
+    {
+        float totalWeight = 0f;
+
+        foreach (GatherDrop drop in _gatherDrops)
+        {
+            if (drop == null || !drop.IsValid()) continue;
+            totalWeight += drop.Weight;
+        }
+
+        return totalWeight;
     }
 }
