@@ -16,8 +16,8 @@ MonoBehaviour:
   m_TerrainLayer: {fileID: 8574412962073106934, guid: fe7746c52682f204b9b02861c76ce1b8, type: 2}
   m_BottomMaterial: {fileID: 2100000, guid: 0a6ee97b29b32174fa8d545fa720de3c, type: 2}
   m_GizmoColor: {r: 0.2, g: 0.8, b: 0.2, a: 1}
-  m_ElevationRange: {x: 0, y: 1}
-  m_MoistureRange: {x: 0, y: 1}
+  m_ElevationRange: {x: 0.35, y: 0.65}
+  m_MoistureRange: {x: 0.5, y: 1}
   m_IncompatibleBiomes: []
   m_FallbackBiome: {fileID: 0}
   m_BaseHeight: 0.22
