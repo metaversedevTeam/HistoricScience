@@ -18,8 +18,8 @@ MonoBehaviour:
   _id: 22
   _recipe: []
   _editorGridSize: {x: 3, y: 3}
-  _spawnBiomes: []
-  _spawnCountPerChunk: 0
   _craftingTime: 60
   _itemAge: 3
   _showInCodex: 1
+  _hintCostResource: {fileID: 11400000, guid: 30636470c63a449198b9b8ccef4d2b9b, type: 2}
+  _hintCost: 2

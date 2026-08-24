@@ -51,5 +51,5 @@ MonoBehaviour:
   _craftingTime: 60
   _itemAge: 3
   _showInCodex: 1
-  _hintCostResource: {fileID: 0}
-  _hintCost: 50
+  _hintCostResource: {fileID: 11400000, guid: 277da1e74c11b94c9a21fdb2d2787d06, type: 2}
+  _hintCost: 1

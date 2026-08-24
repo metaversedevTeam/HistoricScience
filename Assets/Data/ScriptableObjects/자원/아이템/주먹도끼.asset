@@ -30,8 +30,8 @@ MonoBehaviour:
   - Coord: {x: 2, y: 2}
     Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
   _editorGridSize: {x: 3, y: 3}
-  _spawnBiomes: []
-  _spawnCountPerChunk: 0
   _craftingTime: 10
   _itemAge: 1
   _showInCodex: 1
+  _hintCostResource: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  _hintCost: 1

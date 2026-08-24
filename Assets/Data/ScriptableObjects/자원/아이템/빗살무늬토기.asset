@@ -34,8 +34,8 @@ MonoBehaviour:
   - Coord: {x: 2, y: 1}
     Item: {fileID: 11400000, guid: 31b5da2567272e44890d44dafd7896ea, type: 2}
   _editorGridSize: {x: 5, y: 5}
-  _sourcePrefab: {fileID: 0}
-  _spawnRule: {fileID: 0}
   _craftingTime: 30
   _itemAge: 2
   _showInCodex: 1
+  _hintCostResource: {fileID: 11400000, guid: 48e8355460713a443a98c36fbf50c880, type: 2}
+  _hintCost: 3

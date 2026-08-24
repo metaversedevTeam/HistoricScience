@@ -14,9 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _name: "\uC810\uD1A0"
   _iconSprite: {fileID: 21300000, guid: 974cd90680bd9b420b9b5d6cb17ce210, type: 3}
-  _description: "\uD574\uBCC0\uC5D0\uC11C \uBC1C\uACAC\uB418\uB294 \uC810\uC131\uC774
-    \uAC15\uD55C \uD759\uC785\uB2C8\uB2E4. \uD1A0\uAE30\uC758 \uC7AC\uB8CC\uB85C
-    \uC0AC\uC6A9\uB429\uB2C8\uB2E4."
+  _description: "\uC2B5\uB3C4\uAC00 \uB192\uC740 \uACF3\uC5D0\uC11C \uBC1C\uACAC\uB418\uB294
+    \uC810\uC131\uC774 \uAC15\uD55C \uD759\uC785\uB2C8\uB2E4. \uD1A0\uAE30\uC758
+    \uC7AC\uB8CC\uB85C \uC0AC\uC6A9\uB429\uB2C8\uB2E4."
   _id: 56
   _recipe: []
   _editorGridSize: {x: 3, y: 3}
