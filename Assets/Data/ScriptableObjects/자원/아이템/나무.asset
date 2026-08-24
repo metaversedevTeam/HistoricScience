@@ -14,10 +14,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _name: "\uB098\uBB34"
   _iconSprite: {fileID: 21300000, guid: 38dc65cb576d0f40308e884faa8f6e74, type: 3}
-  _description: 
+  _description: "\uBB38\uBA85\uC758 \uADFC\uAC04\uC744 \uC774\uB8EC \uC7AC\uB8CC,
+    \uAC74\uBB3C\uACFC \uB3C4\uAD6C\uB97C \uB9CC\uB4DC\uB294\uB370 \uC0AC\uC6A9\uB429\uB2C8\uB2E4."
   _id: 19
   _recipe: []
   _editorGridSize: {x: 3, y: 3}
   _craftingTime: 0
   _itemAge: 0
   _showInCodex: 1
+  _hintCostResource: {fileID: 0}
+  _hintCost: 50

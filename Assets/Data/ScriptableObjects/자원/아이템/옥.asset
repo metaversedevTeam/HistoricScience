@@ -11,13 +11,16 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1c8ae7d3e8714274588e6c72516e42f3, type: 3}
   m_Name: "\uC625"
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   _name: "\uC625"
   _iconSprite: {fileID: 21300000, guid: 3fc30d81e361400ab7d9b66c43a7e676, type: 3}
-  _description:
+  _description: "\uC544\uC8FC \uADC0\uD55C \uAD11\uBB3C\uB85C, \uAC00\uACF5\uD574
+    \uC7A5\uC2E0\uAD6C\uB85C \uC0AC\uC6A9\uB429\uB2C8\uB2E4."
   _id: 73
   _recipe: []
   _editorGridSize: {x: 3, y: 3}
   _craftingTime: 0
   _itemAge: 0
   _showInCodex: 1
+  _hintCostResource: {fileID: 0}
+  _hintCost: 50
