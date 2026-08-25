@@ -2492,7 +2492,7 @@ MonoBehaviour:
   _emptyText: {fileID: 1021781805}
   _createButton: {fileID: 1418494672}
   _backButton: {fileID: 173609921}
-  _ingameSceneName: PlayTest
+  _ingameSceneName: Ingame
   _newMapNamePrefix: "\uC0C8 \uB9F5"
 --- !u!1 &642903639
 GameObject:
