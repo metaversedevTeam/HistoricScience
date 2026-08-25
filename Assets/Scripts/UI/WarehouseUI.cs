@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 // 창고 UI — 인벤토리를 페이로드로 받아 보유 아이템을 시대별 카테고리 필터·이름 검색으로 추려 격자에 보여주고,
-// 선택한 아이템의 상세 정보와 창고 저장 공간 사용량을 표시하는 관리형 UI.
+// 선택한 아이템의 상세 정보를 표시하는 관리형 UI.
 // 카테고리 탭은 도감의 알약형 탭 컴포넌트(CodexAgeTabUI)를 그대로 재사용한다.
 public class WarehouseUI : OpenableUIBase<ResourceInventory>
 {
@@ -17,8 +17,8 @@ public class WarehouseUI : OpenableUIBase<ResourceInventory>
     [SerializeField] private WarehouseSlotUI _slotPrefab;
     [SerializeField] private RectTransform _slotParent;
     [SerializeField] private ScrollRect _scrollRect;
-    // 창고가 보관할 수 있는 아이템 종류 수. 빈 칸을 포함한 기본 슬롯 개수이자 저장 공간 게이지의 분모다.
-    [SerializeField, Min(1)] private int _capacity = 30;
+    // 격자가 비어 보이지 않도록 빈 칸을 채워 항상 유지하는 최소 슬롯 개수.
+    [SerializeField, Min(1)] private int _minSlotCount = 30;
 
     [Header("검색")]
     [SerializeField] private TMP_InputField _searchInput;
@@ -34,10 +34,6 @@ public class WarehouseUI : OpenableUIBase<ResourceInventory>
     [SerializeField] private TextMeshProUGUI _detailDescriptionText;
     [SerializeField] private RectTransform _detailQuantity;
     [SerializeField] private TextMeshProUGUI _detailQuantityText;
-
-    [Header("저장 공간")]
-    [SerializeField] private TextMeshProUGUI _capacityText;
-    [SerializeField] private RectTransform _capacityFill;
 
     // 전체 탭을 나타내는 값. 특정 시대가 선택되면 그 시대가 들어간다.
     private Age? _selectedAge;
@@ -55,7 +51,7 @@ public class WarehouseUI : OpenableUIBase<ResourceInventory>
         _closeButton.onClick.AddListener(HandleCloseButtonClick);
     }
 
-    // 주입받은 인벤토리를 구독하고 격자·상세·저장 공간을 채운다.
+    // 주입받은 인벤토리를 구독하고 격자·상세를 채운다.
     protected override void ApplyData(ResourceInventory data)
     {
         _inventory = data;
@@ -122,7 +118,7 @@ public class WarehouseUI : OpenableUIBase<ResourceInventory>
     // 검색어가 바뀌면 격자를 다시 추린다.
     private void HandleSearchChanged(string _) => Refresh();
 
-    // 인벤토리 수량이 바뀌면 격자·상세·저장 공간을 다시 그린다.
+    // 인벤토리 수량이 바뀌면 격자·상세를 다시 그린다.
     private void HandleInventoryChanged(ItemData item, int newCount) => Refresh();
 
     // 슬롯을 클릭하면 그 아이템을 상세 패널의 대상으로 삼는다.
@@ -134,13 +130,12 @@ public class WarehouseUI : OpenableUIBase<ResourceInventory>
         RefreshDetail();
     }
 
-    // 격자·선택 강조·상세·저장 공간을 모두 다시 그린다.
+    // 격자·선택 강조·상세를 모두 다시 그린다.
     private void Refresh()
     {
         RefreshSlots();
         RefreshSelection();
         RefreshDetail();
-        RefreshCapacity();
     }
 
     // 필터를 통과한 아이템으로 슬롯을 채우고, 남는 슬롯은 빈 칸으로 되돌린다.
@@ -159,8 +154,8 @@ public class WarehouseUI : OpenableUIBase<ResourceInventory>
             filledCount++;
         }
 
-        // 보유 종류가 창고 용량보다 적어도 빈 칸을 그려 남은 공간을 보여준다.
-        int slotCount = Mathf.Max(_capacity, filledCount);
+        // 보유 종류가 적어도 빈 칸을 그려 격자 모양을 유지한다.
+        int slotCount = Mathf.Max(_minSlotCount, filledCount);
         for (int i = filledCount; i < slotCount; i++)
             GetOrCreateSlot(i).SetupEmpty();
 
@@ -234,26 +229,5 @@ public class WarehouseUI : OpenableUIBase<ResourceInventory>
         _detailNameText.text = _selectedItem.Nmae;
         _detailDescriptionText.text = _selectedItem.Description;
         _detailQuantityText.text = $"x{_inventory.Get(_selectedItem)}";
-    }
-
-    // 보유 중인 아이템 종류 수를 창고 용량과 비교해 문구와 게이지 폭을 갱신한다. (필터와 무관하게 항상 전체 기준)
-    private void RefreshCapacity()
-    {
-        IReadOnlyList<ItemData> items = _inventory.ItemDataList.Items;
-        int used = 0;
-
-        for (int i = 0; i < items.Count; i++)
-        {
-            if (_inventory.Get(items[i]) > 0) used++;
-        }
-
-        float ratio = Mathf.Clamp01((float)used / _capacity);
-
-        _capacityFill.anchorMin = new Vector2(0f, 0f);
-        _capacityFill.anchorMax = new Vector2(ratio, 1f);
-        _capacityFill.offsetMin = Vector2.zero;
-        _capacityFill.offsetMax = Vector2.zero;
-
-        _capacityText.text = $"{used}/{_capacity}";
     }
 }
