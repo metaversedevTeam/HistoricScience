@@ -21,6 +21,12 @@ public class ItemCodex : MonoBehaviour, ISavable
     // 아이템 ID -> 지금까지 공개한 조합법 힌트 횟수. 공개된 칸이 어디인지는 CraftingHintOrder가 ID로 다시 계산한다.
     private Dictionary<int, int> _hintCounts = new();
 
+    // 도감 집계·조회 대상이 되는 아이템 목록. 인벤토리가 연결되지 않았으면 빈 목록으로 본다.
+    private IReadOnlyList<ItemData> Items =>
+        _resourceInventory != null && _resourceInventory.ItemDataList != null
+            ? _resourceInventory.ItemDataList.Items
+            : Array.Empty<ItemData>();
+
     private void OnEnable()
     {
         if (_resourceInventory != null)
@@ -35,6 +41,27 @@ public class ItemCodex : MonoBehaviour, ISavable
 
     // 주어진 아이템을 한 번이라도 획득했는지 반환한다.
     public bool IsDiscovered(ItemData item) => item != null && _discovered.Contains(item.Id);
+
+    // 도감에 표시되는 아이템 기준으로 수집 현황을 센다. age가 null이면 전체, 값이 있으면 그 시대만 집계한다.
+    public CodexProgress GetProgress(Age? age = null)
+    {
+        int total = 0;
+        int discovered = 0;
+
+        foreach (ItemData item in Items)
+        {
+            if (!item.ShowInCodex) continue;
+            if (age.HasValue && item.Age != age.Value) continue;
+
+            total++;
+            if (IsDiscovered(item)) discovered++;
+        }
+
+        return new CodexProgress(discovered, total);
+    }
+
+    // 해당 시대의 도감 아이템을 모두 획득했는지 반환한다. 그 시대에 셀 아이템이 없으면 false다.
+    public bool IsAgeCompleted(Age age) => GetProgress(age).IsCompleted;
 
     // 주어진 아이템의 조합법 힌트를 지금까지 몇 번 받았는지 반환한다.
     public int GetHintCount(ItemData item)
@@ -143,9 +170,7 @@ public class ItemCodex : MonoBehaviour, ISavable
     // 인벤토리의 아이템 목록에서 ID로 아이템 데이터를 찾는다. 없으면 null을 반환한다.
     private ItemData HandleFindItem(int id)
     {
-        if (_resourceInventory == null) return null;
-
-        foreach (ItemData item in _resourceInventory.ItemDataList.Items)
+        foreach (ItemData item in Items)
         {
             if (item.Id == id) return item;
         }
@@ -162,4 +187,24 @@ public class ItemCodex : MonoBehaviour, ISavable
         public List<int> HintIds = new();
         public List<int> HintCounts = new();
     }
+}
+
+// 도감 수집 현황 한 건 — 집계 대상 아이템 수와 그중 획득한 수를 담는다.
+public readonly struct CodexProgress
+{
+    public readonly int Discovered;
+    public readonly int Total;
+
+    // 집계 결과로 수집 현황을 구성한다.
+    public CodexProgress(int discovered, int total)
+    {
+        Discovered = discovered;
+        Total = total;
+    }
+
+    // 0~1 사이의 수집 비율. 집계 대상이 없으면 0이다.
+    public float Ratio => Total > 0 ? (float)Discovered / Total : 0f;
+
+    // 집계 대상을 모두 획득했는지 여부. 셀 대상이 하나도 없으면 false다.
+    public bool IsCompleted => Total > 0 && Discovered >= Total;
 }

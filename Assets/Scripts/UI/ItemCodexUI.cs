@@ -259,31 +259,19 @@ public class ItemCodexUI : OpenableUIBase<ResourceInventory>
         return _entries[index];
     }
 
-    // 현재 선택된 시대 탭의 아이템 대비 획득 수를 계산해 게이지 폭과 문구를 갱신한다. (검색어는 달성도에 영향을 주지 않는다)
+    // 현재 선택된 시대 탭의 수집 현황을 도감에서 받아 게이지 폭과 문구를 갱신한다. (검색어는 달성도에 영향을 주지 않는다)
     private void RefreshProgress()
     {
-        IReadOnlyList<ItemData> items = _itemDataList.Items;
-        int total = 0;
-        int discovered = 0;
-
-        for (int i = 0; i < items.Count; i++)
-        {
-            ItemData item = items[i];
-            if (!item.ShowInCodex) continue;
-            if (_selectedAge.HasValue && item.Age != _selectedAge.Value) continue;
-
-            total++;
-            if (IsDiscovered(item)) discovered++;
-        }
-
-        float ratio = total > 0 ? (float)discovered / total : 0f;
+        // 도감이 없으면 셀 기준 자체가 없으므로 0/0으로 본다.
+        CodexProgress progress = _codex != null ? _codex.GetProgress(_selectedAge) : default;
+        float ratio = progress.Ratio;
 
         _progressFill.anchorMin = new Vector2(0f, 0f);
         _progressFill.anchorMax = new Vector2(ratio, 1f);
         _progressFill.offsetMin = Vector2.zero;
         _progressFill.offsetMax = Vector2.zero;
 
-        _progressText.text = $"수집 완료: {discovered}/{total} ({Mathf.RoundToInt(ratio * 100f)}%)";
+        _progressText.text = $"수집 완료: {progress.Discovered}/{progress.Total} ({Mathf.RoundToInt(ratio * 100f)}%)";
     }
 
     // 씬의 ItemCodex 기준으로 아이템 획득 여부를 조회한다. 도감이 없으면 미획득으로 본다.
