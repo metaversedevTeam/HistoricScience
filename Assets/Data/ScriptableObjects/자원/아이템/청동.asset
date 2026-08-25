@@ -31,7 +31,7 @@ MonoBehaviour:
   - Coord: {x: 4, y: 0}
     Item: {fileID: 11400000, guid: 211e21f3e07aa66ce3bc64b77f1f025e, type: 2}
   _editorGridSize: {x: 5, y: 5}
-  _craftingTime: 0
+  _craftingTime: 5
   _itemAge: 3
   _showInCodex: 1
   _hintCostResource: {fileID: 11400000, guid: 85f9d8f0025541f18eeda574b50ff9a9, type: 2}

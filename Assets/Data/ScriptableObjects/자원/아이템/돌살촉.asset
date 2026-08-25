@@ -18,8 +18,6 @@ MonoBehaviour:
     \uC2E0\uC11D\uAE30\uC2DC\uB300\uC758 \uB300\uD45C\uC801\uC778 \uC0AC\uB0E5\uB3C4\uAD6C\uC785\uB2C8\uB2E4."
   _id: 30
   _recipe:
-  - Coord: {x: 0, y: 1}
-    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
   - Coord: {x: 0, y: 2}
     Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
   - Coord: {x: 1, y: 0}
@@ -29,8 +27,6 @@ MonoBehaviour:
   - Coord: {x: 1, y: 2}
     Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
   - Coord: {x: 1, y: 3}
-    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
-  - Coord: {x: 2, y: 1}
     Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
   - Coord: {x: 2, y: 2}
     Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}

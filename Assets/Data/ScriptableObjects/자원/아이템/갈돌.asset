@@ -28,12 +28,6 @@ MonoBehaviour:
     Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
   - Coord: {x: 0, y: 4}
     Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
-  - Coord: {x: 1, y: 0}
-    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
-  - Coord: {x: 1, y: 1}
-    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
-  - Coord: {x: 1, y: 2}
-    Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
   - Coord: {x: 1, y: 3}
     Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
   - Coord: {x: 1, y: 4}
