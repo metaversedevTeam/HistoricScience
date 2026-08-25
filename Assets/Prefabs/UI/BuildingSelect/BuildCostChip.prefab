@@ -79,8 +79,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _icon: {fileID: 5100000056}
   _countText: {fileID: 5100000091}
-  _sufficientColor: {r: 0.78823529, g: 0.82352941, b: 0.89019608, a: 1}
-  _insufficientColor: {r: 1, g: 0.35294118, b: 0.30196078, a: 1}
+  _sufficientColor: {r: 0.7882353, g: 0.8235294, b: 0.8901961, a: 1}
+  _insufficientColor: {r: 1, g: 0.3529412, b: 0.30196077, a: 1}
 --- !u!1 &5100000035
 GameObject:
   m_ObjectHideFlags: 0
@@ -114,10 +114,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 5100000014}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0.5}
-  m_AnchorMax: {x: 0, y: 0.5}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 24, y: 24}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 0.5}
 --- !u!222 &5100000049
 CanvasRenderer:
@@ -209,10 +209,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 5100000014}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0.5}
-  m_AnchorMax: {x: 0, y: 0.5}
-  m_AnchoredPosition: {x: 30, y: 0}
-  m_SizeDelta: {x: 42, y: 26}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 0.5}
 --- !u!222 &5100000084
 CanvasRenderer:
@@ -242,17 +242,17 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "0/0"
+  m_text: 0/0
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 5b0acf173777d97499f12e14e95b02f0, type: 2}
-  m_sharedMaterial: {fileID: 3067298121282701703, guid: 5b0acf173777d97499f12e14e95b02f0, type: 2}
+  m_sharedMaterial: {fileID: -1516042765284056101, guid: 5b0acf173777d97499f12e14e95b02f0, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294967295
-  m_fontColor: {r: 0.78823529, g: 0.82352941, b: 0.89019608, a: 1}
+    rgba: 4293120713
+  m_fontColor: {r: 0.7882353, g: 0.8235294, b: 0.8901961, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -264,7 +264,7 @@ MonoBehaviour:
   m_spriteAsset: {fileID: 0}
   m_tintAllSprites: 0
   m_StyleSheet: {fileID: 0}
-  m_TextStyleHashCode: 0
+  m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
     serializedVersion: 2
