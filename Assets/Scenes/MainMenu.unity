@@ -334,7 +334,7 @@ MonoBehaviour:
   m_spriteAsset: {fileID: 0}
   m_tintAllSprites: 0
   m_StyleSheet: {fileID: 0}
-  m_TextStyleHashCode: 0
+  m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
     serializedVersion: 2
@@ -470,7 +470,7 @@ MonoBehaviour:
   m_spriteAsset: {fileID: 0}
   m_tintAllSprites: 0
   m_StyleSheet: {fileID: 0}
-  m_TextStyleHashCode: 0
+  m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
     serializedVersion: 2
@@ -1420,7 +1420,7 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294967295
+    rgba: 4278714626
   m_fontColor: {r: 0.007843138, g: 0.003921569, b: 0.03137255, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
@@ -1433,7 +1433,7 @@ MonoBehaviour:
   m_spriteAsset: {fileID: 0}
   m_tintAllSprites: 0
   m_StyleSheet: {fileID: 0}
-  m_TextStyleHashCode: 0
+  m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
     serializedVersion: 2
@@ -3308,8 +3308,8 @@ MonoBehaviour:
   m_MapDataGenerator: {fileID: 944376830}
   m_InitialCitizenPrefab: {fileID: 4581206732114982103, guid: 34e93f6778c62bb47849c233e64a2344, type: 3}
   m_InitialCitizenSearchRadius: 2
-  m_OriginMapViewSize: 3
-  m_OriginTerrainSize: {x: 500, y: 500}
+  m_MapViewSize: 3
+  m_ChunkTerrainSize: {x: 500, y: 500}
 --- !u!114 &944376830
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4533,7 +4533,7 @@ MonoBehaviour:
   m_spriteAsset: {fileID: 0}
   m_tintAllSprites: 0
   m_StyleSheet: {fileID: 0}
-  m_TextStyleHashCode: 0
+  m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
     serializedVersion: 2
@@ -4921,7 +4921,7 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294967295
+    rgba: 4278714626
   m_fontColor: {r: 0.007843138, g: 0.003921569, b: 0.03137255, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
@@ -4934,7 +4934,7 @@ MonoBehaviour:
   m_spriteAsset: {fileID: 0}
   m_tintAllSprites: 0
   m_StyleSheet: {fileID: 0}
-  m_TextStyleHashCode: 0
+  m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
     serializedVersion: 2
@@ -6375,7 +6375,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1968832316
 RectTransform:
   m_ObjectHideFlags: 0
