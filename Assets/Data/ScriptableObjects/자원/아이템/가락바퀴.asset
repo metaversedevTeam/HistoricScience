@@ -14,7 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _name: "\uAC00\uB77D\uBC14\uD034"
   _iconSprite: {fileID: 21300000, guid: 2f2155c6047f2c9d95474c4fba9f3f7b, type: 3}
-  _description: 
+  _description: "\uC2E4\uC744 \uC9DC\uB0B4\uAE30 \uC704\uD55C \uB3C4\uAD6C, \uC774\uC2DC\uC808\uC5D0\uB3C4
+    \uCC9C\uC744 \uC0AC\uC6A9\uD5C0\uB2E4\uB294 \uC99D\uAC70\uC785\uB2C8\uB2E4."
   _id: 4
   _recipe:
   - Coord: {x: 1, y: 0}
@@ -58,8 +59,8 @@ MonoBehaviour:
   - Coord: {x: 3, y: 3}
     Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
   _editorGridSize: {x: 5, y: 5}
-  _sourcePrefab: {fileID: 0}
-  _spawnRule: {fileID: 0}
   _craftingTime: 30
   _itemAge: 2
   _showInCodex: 1
+  _hintCostResource: {fileID: 11400000, guid: 85d0e9ab27878340f84997d52237dbae, type: 2}
+  _hintCost: 2

@@ -14,12 +14,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _name: "\uBBFC\uBB34\uB2AC\uD1A0\uAE30"
   _iconSprite: {fileID: 21300000, guid: 4adb3ffb954e87f033a945c0b9ef49a9, type: 3}
-  _description: 
+  _description: "\uC544\uBB34\uB7F0 \uBB34\uB2AC\uAC00 \uC5C6\uB294 \uD1A0\uAE30\uC785\uB2C8\uB2E4."
   _id: 35
   _recipe: []
   _editorGridSize: {x: 3, y: 3}
-  _spawnBiomes: []
-  _spawnCountPerChunk: 0
   _craftingTime: 60
   _itemAge: 3
   _showInCodex: 1
+  _hintCostResource: {fileID: 11400000, guid: 48e8355460713a443a98c36fbf50c880, type: 2}
+  _hintCost: 3

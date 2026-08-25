@@ -14,7 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _name: "\uAC04\uB3CC\uB3C4\uB07C"
   _iconSprite: {fileID: 21300000, guid: c2603a1afc1a2cd7391ad30f801bff05, type: 3}
-  _description: 
+  _description: "\uB098\uBB34\uB97C \uBCA0\uACE0 \uAC00\uACF5\uD558\uB294\uB370 \uC4F0\uC774\uB294
+    \uB3C4\uAD6C\uC785\uB2C8\uB2E4."
   _id: 7
   _recipe:
   - Coord: {x: 0, y: 0}

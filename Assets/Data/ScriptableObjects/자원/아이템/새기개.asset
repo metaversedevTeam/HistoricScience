@@ -14,7 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _name: "\uC0C8\uAE30\uAC1C"
   _iconSprite: {fileID: 21300000, guid: 615a12efaa234093ee6d84eb47759da7, type: 3}
-  _description: 
+  _description: "\uB098\uBB34\uC5D0 \uD648\uC744 \uD30C\uAC70\uB098 \uBB34\uB2AC\uB97C
+    \uC0C8\uAE30\uB294\uB370 \uC0AC\uC6A9\uB41C \uB0A0\uCE74\uB85C\uC6B4 \uC11D\uAE30\uC785\uB2C8\uB2E4."
   _id: 47
   _recipe:
   - Coord: {x: 0, y: 2}
@@ -36,8 +37,8 @@ MonoBehaviour:
   - Coord: {x: 2, y: 3}
     Item: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
   _editorGridSize: {x: 3, y: 4}
-  _spawnBiomes: []
-  _spawnCountPerChunk: 0
   _craftingTime: 10
   _itemAge: 1
   _showInCodex: 1
+  _hintCostResource: {fileID: 11400000, guid: c38531d718644891f2c8ed742f0a692b, type: 2}
+  _hintCost: 1

@@ -14,7 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _name: "\uC22B\uB3CC"
   _iconSprite: {fileID: 21300000, guid: acd6872b9add6fe08d6809b780074d99, type: 3}
-  _description: 
+  _description: "\uAC04\uC11D\uAE30\uC758 \uB0A0\uC744 \uC138\uC6B0\uB294 \uC6A9\uB3C4\uB85C
+    \uC0AC\uC6A9\uB41C \uB3C4\uAD6C\uC785\uB2C8\uB2E4."
   _id: 52
   _recipe:
   - Coord: {x: 0, y: 0}
@@ -33,5 +34,5 @@ MonoBehaviour:
   _craftingTime: 30
   _itemAge: 2
   _showInCodex: 1
-  _hintCostResource: {fileID: 0}
-  _hintCost: 50
+  _hintCostResource: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  _hintCost: 2

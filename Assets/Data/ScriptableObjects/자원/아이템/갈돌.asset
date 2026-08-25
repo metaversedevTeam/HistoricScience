@@ -14,7 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _name: "\uAC08\uB3CC"
   _iconSprite: {fileID: 21300000, guid: b9d1b070d1e7e2cf1f2a694868f00ec2, type: 3}
-  _description: 
+  _description: "\uACE1\uBB3C\uC744 \uAC08\uC544 \uAECD\uC9C8\uC744 \uBC97\uACA8\uB0B4\uAE30
+    \uC704\uD55C \uB3C4\uAD6C\uC785\uB2C8\uB2E4."
   _id: 9
   _recipe:
   - Coord: {x: 0, y: 0}
@@ -41,5 +42,5 @@ MonoBehaviour:
   _craftingTime: 30
   _itemAge: 2
   _showInCodex: 1
-  _hintCostResource: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
+  _hintCostResource: {fileID: 11400000, guid: 48e8355460713a443a98c36fbf50c880, type: 2}
   _hintCost: 2
