@@ -295,9 +295,20 @@ public class BuildingPlacementController : SelectableObject, ICommandable
         }
 
         SpendResources();
-        Instantiate(_buildingPrefab, _hologramWorldPosition, Quaternion.identity);
+        GameObject building = Instantiate(_buildingPrefab, _hologramWorldPosition, Quaternion.identity);
+        StartConstructionAnimation(building);
 
         FinishPlacement();
+    }
+
+    // 소환한 건물에 건축 연출 컴포넌트가 있으면 건물의 건설 시간 동안 아래에서 위로 드러나는 연출을 재생시킨다.
+    // 연출은 건물 스스로 끝까지 진행하므로, 컨트롤러는 이 호출 뒤 곧바로 정리돼도 된다.
+    private void StartConstructionAnimation(GameObject building)
+    {
+        var constructionAnimator = building.GetComponent<ConstructionAnimator>();
+        if (constructionAnimator == null) return;
+
+        constructionAnimator.Play(_buildable.BuildTime);
     }
 
     // 이동이 도착 없이 끝난 경우(길이 막혀 멈춤 등) 경고를 남기고 배치를 정리한다. 이 시점에는 이미 선택이 풀려 컨트롤러를 다시 조작할 수 없으므로,

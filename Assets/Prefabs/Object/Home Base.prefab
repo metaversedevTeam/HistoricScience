@@ -18,6 +18,7 @@ GameObject:
   - component: {fileID: 6453292735664723846}
   - component: {fileID: 4908593028979223759}
   - component: {fileID: 8357887548949711919}
+  - component: {fileID: 4474833972687613061}
   m_Layer: 0
   m_Name: Home Base
   m_TagString: Untagged
@@ -185,12 +186,56 @@ MonoBehaviour:
   _buildingName: "\uADFC\uAC70\uC9C0"
   _buildingDescription: "\uB3C4\uAC10\uC744 \uD655\uC778\uD560 \uC218 \uC788\uB294
     \uAC74\uBB3C\uC785\uB2C8\uB2E4."
-  _buildTime: 0
+  _buildTime: 1
   _buildingIcon: {fileID: 21300000, guid: 1d4f33092bdd12143845cd724a8682d6, type: 3}
   _buildingModel: {fileID: 2753460799222950205}
   _buildCost:
   - Resource: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
     Count: 5
+--- !u!114 &4474833972687613061
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2878647143197780136}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: be61a78e3b3c48b4c98da950594bfe09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _constructShader: {fileID: 4800000, guid: d07252b420b4e5d4abaab24cec1b5cbe, type: 3}
+  _targetRenderers:
+  - {fileID: 6655199347007038560}
+  _edgeWidth: 0.15
+  _edgeColor: {r: 2, g: 1.3, b: 0.5, a: 1}
+  _noiseScale: 4
+  _noiseStrength: 0.15
+  _heightMargin: 0.2
+  _progressCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 1
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 1
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
 --- !u!1001 &1309676329357069746
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -263,6 +308,11 @@ PrefabInstance:
 --- !u!1 &2753460799222950205 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 3754495400048157839, guid: 7815ccd35bc8e4443ad05c1cafceca85, type: 3}
+  m_PrefabInstance: {fileID: 1309676329357069746}
+  m_PrefabAsset: {fileID: 0}
+--- !u!23 &6655199347007038560 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: 5652267281037978066, guid: 7815ccd35bc8e4443ad05c1cafceca85, type: 3}
   m_PrefabInstance: {fileID: 1309676329357069746}
   m_PrefabAsset: {fileID: 0}
 --- !u!4 &8756782142355352033 stripped

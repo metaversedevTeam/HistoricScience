@@ -50,6 +50,7 @@ GameObject:
   - component: {fileID: 1389444180816335600}
   - component: {fileID: 4006666494119802976}
   - component: {fileID: 5410398347682673528}
+  - component: {fileID: -6547655698167347314}
   m_Layer: 0
   m_Name: Lab
   m_TagString: Untagged
@@ -119,7 +120,7 @@ MonoBehaviour:
     _prefabId: Lab
   _buildingName: "\uB300\uC7A5\uAC04"
   _buildingDescription: "\uC544\uC774\uD15C\uC744 \uC81C\uC791\uD558\uB294 \uAC74\uBB3C\uC785\uB2C8\uB2E4."
-  _buildTime: 0
+  _buildTime: 1
   _buildingIcon: {fileID: 21300000, guid: 0fafbe5296db6c74bbf6e0f8e0cc928b, type: 3}
   _buildingModel: {fileID: 5457373065823405292}
   _buildCost:
@@ -239,6 +240,50 @@ CapsuleCollider:
   m_Height: 1
   m_Direction: 1
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &-6547655698167347314
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 753727767457213253}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: be61a78e3b3c48b4c98da950594bfe09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _constructShader: {fileID: 4800000, guid: d07252b420b4e5d4abaab24cec1b5cbe, type: 3}
+  _targetRenderers:
+  - {fileID: 5174561980000445384}
+  _edgeWidth: 0.15
+  _edgeColor: {r: 2, g: 1.3, b: 0.5, a: 1}
+  _noiseScale: 4
+  _noiseStrength: 0.15
+  _heightMargin: 0.2
+  _progressCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 1
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 1
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
 --- !u!1 &6355565149737932900
 GameObject:
   m_ObjectHideFlags: 0
@@ -753,6 +798,11 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 06b47dd1106571e45a617c8431d80079, type: 3}
+--- !u!23 &5174561980000445384 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: 2581356823857433840, guid: 06b47dd1106571e45a617c8431d80079, type: 3}
+  m_PrefabInstance: {fileID: 7214044149327507256}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &5457373065823405292 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 3432047537443761108, guid: 06b47dd1106571e45a617c8431d80079, type: 3}
