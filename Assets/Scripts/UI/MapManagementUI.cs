@@ -24,6 +24,10 @@ public class MapManagementUI : MonoBehaviour
     [SerializeField] private Button _createButton;
     [SerializeField] private Button _backButton;
 
+    [Header("새 맵 생성")]
+    // 새 맵 버튼을 눌렀을 때 이름과 시드를 받는 대화상자
+    [SerializeField] private CreateNewMapDialogUI _createDialog;
+
     [Header("씬 전환")]
     // 맵이 정해졌을 때 넘어갈 인게임 씬 이름. 비워 두면 씬을 전환하지 않는다.
     [SerializeField] private string _ingameSceneName = "PlayTest";
@@ -40,11 +44,21 @@ public class MapManagementUI : MonoBehaviour
     {
         _createButton.onClick.AddListener(HandleCreateClick);
         _backButton.onClick.AddListener(HandleBackClick);
+
+        _createDialog.Confirmed += HandleCreateConfirmed;
+        _createDialog.Canceled += HandleCreateCanceled;
+    }
+
+    private void OnDestroy()
+    {
+        _createDialog.Confirmed -= HandleCreateConfirmed;
+        _createDialog.Canceled -= HandleCreateCanceled;
     }
 
     // 저장 폴더를 다시 훑어 목록을 채운다. 화면을 열 때마다 호출한다.
     public void Refresh()
     {
+        _createDialog.Close();
         HandleClearRows();
 
         foreach ((string slot, DateTime savedAt) in HandleCollectSlots())
@@ -117,11 +131,16 @@ public class MapManagementUI : MonoBehaviour
         Refresh();
     }
 
-    // 비어 있는 이름으로 새 맵을 만들고 바로 인게임 씬으로 넘어간다.
+    // 새 맵 대화상자를 추천 이름과 이미 쓰이고 있는 슬롯 목록과 함께 연다.
     private void HandleCreateClick()
     {
-        string slot = HandleBuildNewSlotName();
-        int seed = UnityEngine.Random.Range(int.MinValue, int.MaxValue);
+        _createDialog.Open(HandleBuildNewSlotName(), HandleCollectSlots().Select(entry => entry.Slot));
+    }
+
+    // 대화상자에서 받은 이름과 시드로 맵을 만들고 바로 인게임 씬으로 넘어간다.
+    private void HandleCreateConfirmed(string slot, int seed)
+    {
+        _createDialog.Close();
 
         if (!_mapSaveUtil.TryCreateNewMap(slot, seed))
         {
@@ -130,6 +149,12 @@ public class MapManagementUI : MonoBehaviour
         }
 
         HandleEnterIngameScene(slot);
+    }
+
+    // 대화상자에서 취소를 눌렀으므로 아무것도 만들지 않고 닫는다.
+    private void HandleCreateCanceled()
+    {
+        _createDialog.Close();
     }
 
     // 메인 메뉴로 돌아가야 함을 알린다.
