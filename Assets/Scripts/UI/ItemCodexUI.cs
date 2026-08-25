@@ -259,7 +259,7 @@ public class ItemCodexUI : OpenableUIBase<ResourceInventory>
         return _entries[index];
     }
 
-    // 도감에 표시되는 아이템 대비 획득 수를 계산해 게이지 폭과 문구를 갱신한다. (필터와 무관하게 항상 전체 기준)
+    // 현재 선택된 시대 탭의 아이템 대비 획득 수를 계산해 게이지 폭과 문구를 갱신한다. (검색어는 달성도에 영향을 주지 않는다)
     private void RefreshProgress()
     {
         IReadOnlyList<ItemData> items = _itemDataList.Items;
@@ -270,6 +270,7 @@ public class ItemCodexUI : OpenableUIBase<ResourceInventory>
         {
             ItemData item = items[i];
             if (!item.ShowInCodex) continue;
+            if (_selectedAge.HasValue && item.Age != _selectedAge.Value) continue;
 
             total++;
             if (IsDiscovered(item)) discovered++;
