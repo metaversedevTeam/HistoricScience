@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.InputSystem;
 
 // 선택된 유닛의 ICommandable 명령 목록을 하단 패널에 버튼으로 표시하는, 씬에 상주하는 UI
 public class TempCommandPanelUI : MonoBehaviour
@@ -13,8 +12,6 @@ public class TempCommandPanelUI : MonoBehaviour
     [SerializeField] private PlayerManager _playerManager;
 
     private readonly List<GameObject> _activeButtons = new();
-
-    private string _dbg = "waiting...";
 
     // 씬 상주 오브젝트이므로 로드 시점에 바로 PlayerManager의 선택 이벤트를 구독한다.
     private void Awake()
@@ -36,25 +33,6 @@ public class TempCommandPanelUI : MonoBehaviour
 
         _playerManager.OnSelected   -= HandleSelected;
         _playerManager.OnDeselected -= HandleDeselected;
-    }
-
-    private void Update()
-    {
-        if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
-        {
-            bool over = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
-            // EventSystem.current.currentSelectedGameObject가 파괴된 오브젝트를 가리킬 수 있으므로,
-            // Unity의 오버로드된 null 비교(fake-null)를 타지 않는 ?. 대신 명시적으로 null 체크한다.
-            GameObject selectedGameObject = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;
-            string sel = selectedGameObject != null ? selectedGameObject.name : "none";
-            _dbg = $"overUI:{over} sel:{sel}";
-            Debug.Log($"[CommandPanelUI] click — {_dbg}");
-        }
-    }
-
-    private void OnGUI()
-    {
-        GUI.Label(new Rect(10, 10, 700, 30), $"[DBG] {_dbg}  pos:{Mouse.current?.position.ReadValue()}");
     }
 
     // 선택된 오브젝트의 ICommandable 명령 목록을 읽어 버튼을 생성한다.
