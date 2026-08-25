@@ -51,6 +51,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _costRoot: {fileID: 3031959007547}
+  _costLabel: {fileID: 3037028528662}
   _costIcon: {fileID: 3041084145554}
   _costText: {fileID: 3045139762446}
   _descText: {fileID: 3019792156871}

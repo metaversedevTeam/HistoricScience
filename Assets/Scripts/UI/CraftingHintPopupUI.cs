@@ -12,8 +12,14 @@ public class CraftingHintPopupUI : OpenableUIBase<CraftingHintData>
     // 소모할 자원과 개수는 아이템마다 ItemData(HintCostResource·HintCost)에서 읽어 온다.
     // 전체 공개 모드에서는 치를 비용이 없으므로 비용 줄 전체를 끈다.
     [SerializeField] private GameObject _costRoot;
+    // "힌트 비용:" 라벨. 이전 시대를 끝내지 못했을 때는 이 자리에 잠금 안내를 대신 띄운다.
+    [SerializeField] private TextMeshProUGUI _costLabel;
     [SerializeField] private Image _costIcon;
     [SerializeField] private TextMeshProUGUI _costText;
+    // 이전 시대를 끝내지 못했을 때 비용 자리에 띄울 안내. {0}에 이전 시대 이름이 들어간다.
+    [SerializeField] private string _ageLockedFormat = "{0}를 완료하지 않았습니다.";
+    // 위 상태에서 힌트 버튼에 표시할 문구
+    [SerializeField] private string _ageLockedButtonText = "이전 시대 미완료";
 
     [Header("설명")]
     [SerializeField] private TextMeshProUGUI _descText;
@@ -42,12 +48,27 @@ public class CraftingHintPopupUI : OpenableUIBase<CraftingHintData>
     // 힌트를 한 칸씩 공개하는 대신 조합법 전체를 그대로 보여주는 모드인지 여부.
     private bool _revealAll;
 
+    // 이전 시대를 모두 수집하지 못해 힌트가 잠겼는지 여부와, 잠겼다면 그 이전 시대의 이름.
+    private bool _ageLocked;
+    private string _lockedAgeName;
+
+    // 비용 라벨의 프리팹 기본값. 잠금 안내로 바꿨다가 원래대로 되돌릴 때 쓴다.
+    private string _defaultCostLabelText;
+    private Vector2 _costLabelPosition;
+    private Vector2 _costLabelSize;
+    private HorizontalAlignmentOptions _costLabelAlignment;
+
     private readonly List<CraftingHintCellUI> _cells = new();
 
     private void Awake()
     {
         _closeButton.onClick.AddListener(HandleCloseButtonClick);
         _hintButton.onClick.AddListener(HandleHintButtonClick);
+
+        _defaultCostLabelText = _costLabel.text;
+        _costLabelPosition = _costLabel.rectTransform.anchoredPosition;
+        _costLabelSize = _costLabel.rectTransform.sizeDelta;
+        _costLabelAlignment = _costLabel.horizontalAlignment;
     }
 
     // 힌트를 볼 아이템과 비용을 치를 인벤토리, 공개 횟수를 기록할 도감을 주입받고 화면을 그린다.
@@ -62,7 +83,10 @@ public class CraftingHintPopupUI : OpenableUIBase<CraftingHintData>
         if (!_revealAll)
         {
             if (_codex != null)
+            {
                 _codex.OnHintRevealed += HandleHintRevealed;
+                _codex.OnDiscover += HandleDiscover;
+            }
 
             if (_inventory != null)
             {
@@ -78,7 +102,10 @@ public class CraftingHintPopupUI : OpenableUIBase<CraftingHintData>
     protected override void OnReturnToPool()
     {
         if (_codex != null)
+        {
             _codex.OnHintRevealed -= HandleHintRevealed;
+            _codex.OnDiscover -= HandleDiscover;
+        }
 
         if (_inventory != null)
         {
@@ -93,6 +120,8 @@ public class CraftingHintPopupUI : OpenableUIBase<CraftingHintData>
         _inventory = null;
         _codex = null;
         _revealAll = false;
+        _ageLocked = false;
+        _lockedAgeName = null;
     }
 
     // 닫기 버튼을 누르면 UI를 닫는다. (ESC로 닫는 UIManager 경로와 동일한 동작)
@@ -102,6 +131,8 @@ public class CraftingHintPopupUI : OpenableUIBase<CraftingHintData>
     private void HandleHintButtonClick()
     {
         if (_item == null || _codex == null) return;
+        // 이전 시대를 끝내지 못했으면 비용을 치르지도, 힌트를 사지도 못한다.
+        if (_ageLocked) return;
         if (!_codex.CanRevealHint(_item)) return;
         if (!HandlePayHintCost()) return;
 
@@ -126,6 +157,9 @@ public class CraftingHintPopupUI : OpenableUIBase<CraftingHintData>
         if (item == _item) Refresh();
     }
 
+    // 새 아이템이 도감에 등록되면 이전 시대 완료 여부가 바뀔 수 있으므로 화면을 다시 그린다.
+    private void HandleDiscover(ItemData item) => Refresh();
+
     // 비용 자원 보유량이 바뀌면 버튼을 누를 수 있는지 다시 판정한다.
     private void HandleInventoryChanged(ItemData item, int newCount)
     {
@@ -143,8 +177,27 @@ public class CraftingHintPopupUI : OpenableUIBase<CraftingHintData>
         _hintButton.gameObject.SetActive(!_revealAll);
         if (_revealAll) return;
 
+        RefreshAgeLock();
         RefreshCost();
         RefreshHintButton();
+    }
+
+    // 이전 시대를 모두 수집했는지 확인해 힌트 잠금 상태를 갱신한다.
+    // 이전 시대가 없거나 그 시대에 도감 아이템이 하나도 없으면 잠그지 않는다.
+    private void RefreshAgeLock()
+    {
+        _ageLocked = false;
+        _lockedAgeName = null;
+
+        if (_item == null || _codex == null) return;
+        if (!_item.Age.TryGetPreviousAge(out Age previous)) return;
+
+        CodexProgress progress = _codex.GetProgress(previous);
+        // 이전 시대에 셀 아이템이 없으면 막을 근거가 없으므로 통과시킨다.
+        if (progress.Total == 0 || progress.IsCompleted) return;
+
+        _ageLocked = true;
+        _lockedAgeName = previous.ToTabName();
     }
 
     // 모드에 맞는 제목과 설명 문구를 표시한다.
@@ -217,16 +270,46 @@ public class CraftingHintPopupUI : OpenableUIBase<CraftingHintData>
         _gridLayout.cellSize = new Vector2(cellSize, cellSize);
     }
 
-    // 아이템에 설정된 비용 자원의 아이콘과 이름, 개수를 함께 표시한다. ("힌트 비용:" 문구 자체는 프리팹에 고정돼 있다)
+    // 아이템에 설정된 비용 자원의 아이콘과 이름, 개수를 함께 표시한다.
+    // 이전 시대를 끝내지 못했으면 비용 대신 잠금 안내를 같은 자리에 띄운다.
     private void RefreshCost()
     {
+        if (_ageLocked)
+        {
+            ApplyAgeLockedCost();
+            return;
+        }
+
+        ApplyCostLabel(_defaultCostLabelText, locked: false);
+
         bool showIcon = HasCost && _item.HintCostResource.IconSprite != null;
 
         _costIcon.gameObject.SetActive(showIcon);
         if (showIcon)
             _costIcon.sprite = _item.HintCostResource.IconSprite;
 
+        _costText.gameObject.SetActive(true);
         _costText.text = HasCost ? $"{_item.HintCostResource.Nmae} {_item.HintCost}개" : "0개";
+    }
+
+    // 비용 자리를 잠금 안내로 바꾼다. 아이콘과 개수는 감추고 안내 문구만 남긴다.
+    private void ApplyAgeLockedCost()
+    {
+        _costIcon.gameObject.SetActive(false);
+        _costText.gameObject.SetActive(false);
+        ApplyCostLabel(string.Format(_ageLockedFormat, _lockedAgeName), locked: true);
+    }
+
+    // 비용 라벨의 문구와 배치를 정한다. locked면 안내가 길어 비용 줄 전체를 쓰도록 늘려 가운데 정렬한다.
+    private void ApplyCostLabel(string text, bool locked)
+    {
+        RectTransform rect = _costLabel.rectTransform;
+        float rowWidth = ((RectTransform)_costRoot.transform).rect.width;
+
+        rect.anchoredPosition = locked ? new Vector2(0f, _costLabelPosition.y) : _costLabelPosition;
+        rect.sizeDelta = locked ? new Vector2(rowWidth, _costLabelSize.y) : _costLabelSize;
+        _costLabel.horizontalAlignment = locked ? HorizontalAlignmentOptions.Center : _costLabelAlignment;
+        _costLabel.text = text;
     }
 
     // 남은 힌트와 보유 자원에 따라 버튼의 문구와 누를 수 있는지 여부를 갱신한다.
@@ -235,6 +318,13 @@ public class CraftingHintPopupUI : OpenableUIBase<CraftingHintData>
         if (_item == null || _codex == null)
         {
             _hintButton.interactable = false;
+            return;
+        }
+
+        if (_ageLocked)
+        {
+            _hintButton.interactable = false;
+            _hintButtonText.text = _ageLockedButtonText;
             return;
         }
 
