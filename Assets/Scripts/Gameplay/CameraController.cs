@@ -38,6 +38,9 @@ public class CameraController : MonoBehaviour, ISavable
 
     private Camera _camera;
 
+    // 스페이스바를 누른 순간 찾아낸 가장 가까운 시민. 누르고 있는 동안 이 대상을 계속 따라간다.
+    private Transform _focusedCitizen;
+
     // 화면 밖 판정에 쓸 카메라를 캐싱한다. 이 컴포넌트는 카메라에 붙는 것이 기본이고, 아니면 메인 카메라를 쓴다.
     private void Awake()
     {
@@ -64,6 +67,8 @@ public class CameraController : MonoBehaviour, ISavable
     private void LateUpdate()
     {
         HandleZoom();
+
+        if (HandleFocusNearestCitizen()) return;
 
         if (_followTarget != null)
         {
@@ -178,6 +183,53 @@ public class CameraController : MonoBehaviour, ISavable
         {
             TryMoveToXZ(_followTarget.position.x + _followOffset.x, _followTarget.position.z + _followOffset.z);
         }
+    }
+
+    // 스페이스바를 누른 순간 가장 가까운 시민을 찾아 두고, 누르고 있는 동안 그 시민 위치로 카메라를 계속 옮긴다.
+    // 시민을 따라가는 중이면 true를 반환해 이번 프레임의 다른 이동 처리를 건너뛰게 한다.
+    private bool HandleFocusNearestCitizen()
+    {
+        Keyboard keyboard = Keyboard.current;
+        if (keyboard == null || !keyboard.spaceKey.isPressed)
+        {
+            _focusedCitizen = null;
+            return false;
+        }
+
+        // 누른 순간 화살표로 쌓아 둔 오프셋을 지운다. 오프셋을 남겨 두면 스페이스바를 뗀 뒤 선택 유닛을
+        // 다시 따라갈 때 카메라가 방금 보고 있던 자리에서 그 오프셋만큼 튀기 때문이다.
+        if (keyboard.spaceKey.wasPressedThisFrame)
+        {
+            _focusedCitizen = FindNearestCitizen();
+            _followOffset = Vector3.zero;
+        }
+
+        // 누른 순간 시민이 없었거나 따라가던 시민이 파괴되었으면 평소 이동으로 되돌린다
+        if (_focusedCitizen == null) return false;
+
+        MoveTo(_focusedCitizen.position.x, _focusedCitizen.position.z);
+        return true;
+    }
+
+    // 카메라의 XZ 위치에서 가장 가까운 시민의 Transform을 찾는다. 시민이 하나도 없으면 null을 반환한다
+    private Transform FindNearestCitizen()
+    {
+        Citizen[] citizens = FindObjectsByType<Citizen>(FindObjectsSortMode.None);
+
+        Transform nearest = null;
+        float nearestSqrDistance = float.MaxValue;
+
+        foreach (Citizen citizen in citizens)
+        {
+            Vector3 delta = citizen.transform.position - transform.position;
+            float sqrDistance = delta.x * delta.x + delta.z * delta.z;
+            if (sqrDistance >= nearestSqrDistance) continue;
+
+            nearestSqrDistance = sqrDistance;
+            nearest = citizen.transform;
+        }
+
+        return nearest;
     }
 
     // 키보드 화살표 입력으로 카메라를 XZ 평면에서 이동시킨다
