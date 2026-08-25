@@ -21,6 +21,6 @@ MonoBehaviour:
   _editorGridSize: {x: 3, y: 3}
   _craftingTime: 0
   _itemAge: 0
-  _showInCodex: 1
+  _showInCodex: 0
   _hintCostResource: {fileID: 0}
   _hintCost: 50

@@ -16,8 +16,28 @@ MonoBehaviour:
   _iconSprite: {fileID: 21300000, guid: cb0e29b5522d4d55b10ce5beacf76954, type: 3}
   _description: "\uD33D\uC774\uC640 \uBE44\uC2B7\uD558\uAC8C \uC0DD\uAE34 \uD1A0\uAE30\uC785\uB2C8\uB2E4."
   _id: 69
-  _recipe: []
-  _editorGridSize: {x: 3, y: 3}
+  _recipe:
+  - Coord: {x: 0, y: 0}
+    Item: {fileID: 11400000, guid: 31b5da2567272e44890d44dafd7896ea, type: 2}
+  - Coord: {x: 1, y: 0}
+    Item: {fileID: 11400000, guid: 31b5da2567272e44890d44dafd7896ea, type: 2}
+  - Coord: {x: 2, y: 0}
+    Item: {fileID: 11400000, guid: 31b5da2567272e44890d44dafd7896ea, type: 2}
+  - Coord: {x: 3, y: 0}
+    Item: {fileID: 11400000, guid: 31b5da2567272e44890d44dafd7896ea, type: 2}
+  - Coord: {x: 4, y: 0}
+    Item: {fileID: 11400000, guid: 31b5da2567272e44890d44dafd7896ea, type: 2}
+  - Coord: {x: 1, y: 1}
+    Item: {fileID: 11400000, guid: 31b5da2567272e44890d44dafd7896ea, type: 2}
+  - Coord: {x: 3, y: 1}
+    Item: {fileID: 11400000, guid: 31b5da2567272e44890d44dafd7896ea, type: 2}
+  - Coord: {x: 1, y: 2}
+    Item: {fileID: 11400000, guid: 31b5da2567272e44890d44dafd7896ea, type: 2}
+  - Coord: {x: 3, y: 2}
+    Item: {fileID: 11400000, guid: 31b5da2567272e44890d44dafd7896ea, type: 2}
+  - Coord: {x: 2, y: 3}
+    Item: {fileID: 11400000, guid: 31b5da2567272e44890d44dafd7896ea, type: 2}
+  _editorGridSize: {x: 5, y: 4}
   _craftingTime: 60
   _itemAge: 3
   _showInCodex: 1

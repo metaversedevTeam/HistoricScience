@@ -17,7 +17,35 @@ MonoBehaviour:
   _description: "\uB0A8\uD55C \uC9C0\uC5ED\uC5D0\uC11C\uB9CC \uBC1C\uACAC\uB41C \uD1A0\uAE30,
     \uD2B9\uC774\uD55C \uBB34\uB2AC\uB97C \uAC00\uC9D1\uB2C8\uB2E4."
   _id: 5
-  _recipe: []
+  _recipe:
+  - Coord: {x: 1, y: 0}
+    Item: {fileID: 11400000, guid: 31b5da2567272e44890d44dafd7896ea, type: 2}
+  - Coord: {x: 2, y: 0}
+    Item: {fileID: 11400000, guid: 31b5da2567272e44890d44dafd7896ea, type: 2}
+  - Coord: {x: 3, y: 0}
+    Item: {fileID: 11400000, guid: 31b5da2567272e44890d44dafd7896ea, type: 2}
+  - Coord: {x: 0, y: 0}
+    Item: {fileID: 11400000, guid: 31b5da2567272e44890d44dafd7896ea, type: 2}
+  - Coord: {x: 4, y: 0}
+    Item: {fileID: 11400000, guid: 31b5da2567272e44890d44dafd7896ea, type: 2}
+  - Coord: {x: 1, y: 1}
+    Item: {fileID: 11400000, guid: 31b5da2567272e44890d44dafd7896ea, type: 2}
+  - Coord: {x: 0, y: 2}
+    Item: {fileID: 11400000, guid: 31b5da2567272e44890d44dafd7896ea, type: 2}
+  - Coord: {x: 0, y: 3}
+    Item: {fileID: 11400000, guid: 31b5da2567272e44890d44dafd7896ea, type: 2}
+  - Coord: {x: 1, y: 4}
+    Item: {fileID: 11400000, guid: 31b5da2567272e44890d44dafd7896ea, type: 2}
+  - Coord: {x: 2, y: 4}
+    Item: {fileID: 11400000, guid: 31b5da2567272e44890d44dafd7896ea, type: 2}
+  - Coord: {x: 3, y: 4}
+    Item: {fileID: 11400000, guid: 31b5da2567272e44890d44dafd7896ea, type: 2}
+  - Coord: {x: 4, y: 3}
+    Item: {fileID: 11400000, guid: 31b5da2567272e44890d44dafd7896ea, type: 2}
+  - Coord: {x: 4, y: 2}
+    Item: {fileID: 11400000, guid: 31b5da2567272e44890d44dafd7896ea, type: 2}
+  - Coord: {x: 3, y: 1}
+    Item: {fileID: 11400000, guid: 31b5da2567272e44890d44dafd7896ea, type: 2}
   _editorGridSize: {x: 5, y: 5}
   _craftingTime: 60
   _itemAge: 3
