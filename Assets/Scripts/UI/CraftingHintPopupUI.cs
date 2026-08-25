@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -217,7 +217,7 @@ public class CraftingHintPopupUI : OpenableUIBase<CraftingHintData>
         _gridLayout.cellSize = new Vector2(cellSize, cellSize);
     }
 
-    // 아이템에 설정된 비용 자원의 아이콘과 개수를 표시한다. ("힌트 비용:" 문구 자체는 프리팹에 고정돼 있다)
+    // 아이템에 설정된 비용 자원의 아이콘과 이름, 개수를 함께 표시한다. ("힌트 비용:" 문구 자체는 프리팹에 고정돼 있다)
     private void RefreshCost()
     {
         bool showIcon = HasCost && _item.HintCostResource.IconSprite != null;
@@ -226,7 +226,7 @@ public class CraftingHintPopupUI : OpenableUIBase<CraftingHintData>
         if (showIcon)
             _costIcon.sprite = _item.HintCostResource.IconSprite;
 
-        _costText.text = HasCost ? _item.HintCost.ToString() : "0";
+        _costText.text = HasCost ? $"{_item.HintCostResource.Nmae} {_item.HintCost}개" : "0개";
     }
 
     // 남은 힌트와 보유 자원에 따라 버튼의 문구와 누를 수 있는지 여부를 갱신한다.
