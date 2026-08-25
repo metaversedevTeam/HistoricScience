@@ -183,7 +183,8 @@ MonoBehaviour:
   _savable:
     _prefabId: HomeBase
   _buildingName: "\uADFC\uAC70\uC9C0"
-  _buildingDescription: "\uADFC\uAC70\uC9C0 \uC124\uBA85"
+  _buildingDescription: "\uB3C4\uAC10\uC744 \uD655\uC778\uD560 \uC218 \uC788\uB294
+    \uAC74\uBB3C\uC785\uB2C8\uB2E4."
   _buildTime: 0
   _buildingIcon: {fileID: 21300000, guid: 1d4f33092bdd12143845cd724a8682d6, type: 3}
   _buildingModel: {fileID: 2753460799222950205}

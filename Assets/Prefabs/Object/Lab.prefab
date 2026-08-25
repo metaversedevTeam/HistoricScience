@@ -117,8 +117,8 @@ MonoBehaviour:
   _demolishButtonIcon: {fileID: 21300000, guid: 3d470df9a9c7dba4396105716b8737ff, type: 3}
   _savable:
     _prefabId: Lab
-  _buildingName: "\uB3C4\uAD6C \uC81C\uC791\uB300"
-  _buildingDescription: "\uB3C4\uAD6C \uC81C\uC791\uB300 \uC124\uBA85"
+  _buildingName: "\uB300\uC7A5\uAC04"
+  _buildingDescription: "\uC544\uC774\uD15C\uC744 \uC81C\uC791\uD558\uB294 \uAC74\uBB3C\uC785\uB2C8\uB2E4."
   _buildTime: 0
   _buildingIcon: {fileID: 21300000, guid: 0fafbe5296db6c74bbf6e0f8e0cc928b, type: 3}
   _buildingModel: {fileID: 5457373065823405292}
