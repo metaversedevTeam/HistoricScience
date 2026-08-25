@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -19,6 +19,16 @@ public class CameraController : MonoBehaviour, ISavable
     [Tooltip("고도 제한에 막힌 영역의 통과 허용 여부. 켜면 고도만 제한 범위로 고정하고, 끄면 해당 영역으로의 이동을 막는다")]
     [SerializeField] private bool _passThroughBlocked = true;
 
+    [Header("휠 확대/축소")]
+    [Tooltip("휠로 줄일 수 있는 최소 크기. 가장 확대된 상태이다")]
+    [SerializeField] private float _minZoomScale = 0.5f;
+
+    [Tooltip("휠로 키울 수 있는 최대 크기. 가장 축소된 상태이며, 런타임에 MaxZoomScale로 바꿀 수 있다")]
+    [SerializeField] private float _maxZoomScale = 2f;
+
+    [Tooltip("휠을 한 번 굴릴 때 변하는 크기")]
+    [SerializeField] private float _zoomStep = 0.1f;
+
     private Transform _followTarget;
 
     // 따라갈 대상의 이동 컴포넌트. 대상에 이동 기능이 없으면 null이다.
@@ -34,6 +44,8 @@ public class CameraController : MonoBehaviour, ISavable
         _camera = GetComponent<Camera>();
         if (_camera == null)
             _camera = Camera.main;
+
+        ApplyZoomScale(transform.localScale.x);
     }
 
     private void OnEnable()
@@ -51,6 +63,8 @@ public class CameraController : MonoBehaviour, ISavable
 
     private void LateUpdate()
     {
+        HandleZoom();
+
         if (_followTarget != null)
         {
             HandleFollowTarget();
@@ -59,6 +73,36 @@ public class CameraController : MonoBehaviour, ISavable
         {
             HandleKeyboardMovement();
         }
+    }
+
+    // 휠로 키울 수 있는 최대 크기. 런타임에 바꿀 수 있으며, 값을 바꾸면 현재 크기도 즉시 범위 안으로 맞춘다
+    public float MaxZoomScale
+    {
+        get => _maxZoomScale;
+        set
+        {
+            _maxZoomScale = Mathf.Max(value, _minZoomScale);
+            ApplyZoomScale(transform.localScale.x);
+        }
+    }
+
+    // 마우스 휠 입력으로 이 오브젝트의 크기를 조절해 확대/축소한다
+    private void HandleZoom()
+    {
+        Mouse mouse = Mouse.current;
+        if (mouse == null) return;
+
+        float scroll = mouse.scroll.ReadValue().y;
+        if (Mathf.Approximately(scroll, 0f)) return;
+
+        // 휠을 위로 굴리면 크기를 줄여 확대하고, 아래로 굴리면 크기를 키워 축소한다
+        ApplyZoomScale(transform.localScale.x - Mathf.Sign(scroll) * _zoomStep);
+    }
+
+    // 지정한 크기를 최소/최대 범위로 고정해 균등 스케일로 적용한다
+    private void ApplyZoomScale(float scale)
+    {
+        transform.localScale = Vector3.one * Mathf.Clamp(scale, _minZoomScale, _maxZoomScale);
     }
 
     // 선택된 유닛을 따라갈 대상으로 설정하고 이동 오프셋을 초기화하며, 대상의 이동 명령을 구독
