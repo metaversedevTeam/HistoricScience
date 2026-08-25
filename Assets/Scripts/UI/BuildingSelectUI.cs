@@ -4,7 +4,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-// 건축할 건물 선택 UI — 건물 목록을 카드 격자로 나열하고, 카드를 고르면 오른쪽 상세 패널에 설명·건설 비용·건설 시간을 보여준다.
+// 건축할 건물 선택 UI — 건물 목록을 카드 격자로 나열하고, 카드를 고르면 오른쪽 상세 패널에 설명·건설 비용을 보여준다.
 // 상세 패널의 건축 시작 버튼을 눌러야 실제 선택이 확정되며, 건물 선택·닫기를 콜백으로 알린다.
 public class BuildingSelectUI : OpenableUIBase<BuildingSelectData>
 {
@@ -28,7 +28,6 @@ public class BuildingSelectUI : OpenableUIBase<BuildingSelectData>
     [SerializeField] private Image _detailThumbnail;
     [SerializeField] private TextMeshProUGUI _detailNameText;
     [SerializeField] private TextMeshProUGUI _detailDescriptionText;
-    [SerializeField] private TextMeshProUGUI _detailBuildTimeText;
     [SerializeField] private BuildCostChipUI _costChipPrefab;
     [SerializeField] private RectTransform _detailCostChipParent;
     [SerializeField] private Button _buildStartButton;
@@ -150,7 +149,6 @@ public class BuildingSelectUI : OpenableUIBase<BuildingSelectData>
         _detailThumbnail.color = _selectedBuildable.Icon != null ? Color.white : new Color(0.5f, 0.5f, 0.5f, 0.6f);
         _detailNameText.text = _selectedBuildable.BuildingName;
         _detailDescriptionText.text = _selectedBuildable.Description;
-        _detailBuildTimeText.text = _selectedBuildable.BuildTime.ToBuildTimeText();
 
         PopulateDetailCostChips(_selectedBuildable.BuildCost);
     }

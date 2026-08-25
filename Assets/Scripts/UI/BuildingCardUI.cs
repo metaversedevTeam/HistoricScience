@@ -3,7 +3,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-// 건물 선택 UI의 목록 격자에 놓이는 건물 카드 하나. 썸네일·이름·필요 자원·건설 시간을 보여주고, 선택되면 테두리로 강조된다.
+// 건물 선택 UI의 목록 격자에 놓이는 건물 카드 하나. 썸네일·이름·필요 자원을 보여주고, 선택되면 테두리로 강조된다.
 public class BuildingCardUI : MonoBehaviour
 {
     [Header("카드")]
@@ -13,7 +13,6 @@ public class BuildingCardUI : MonoBehaviour
     [Header("내용")]
     [SerializeField] private Image _thumbnail;
     [SerializeField] private TextMeshProUGUI _nameText;
-    [SerializeField] private TextMeshProUGUI _buildTimeText;
 
     [Header("건설 비용")]
     [SerializeField] private BuildCostChipUI _costChipPrefab;
@@ -46,7 +45,6 @@ public class BuildingCardUI : MonoBehaviour
         _thumbnail.sprite = buildable.Icon;
         _thumbnail.color = buildable.Icon != null ? Color.white : new Color(0.5f, 0.5f, 0.5f, 0.6f);
         _nameText.text = buildable.BuildingName;
-        _buildTimeText.text = buildable.BuildTime.ToBuildTimeText();
 
         PopulateCostChips(buildable.BuildCost, inventory);
         SetSelected(false);
