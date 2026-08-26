@@ -214,6 +214,39 @@ public class ResearchManager : MonoBehaviour, ISavable
         return true;
     }
 
+    // 연구 목록의 모든 연구를 비용 없이 완료 처리한다. (에디터 테스트용)
+    [ContextMenu("Unlock All Research")]
+    private void UnlockAllResearch()
+    {
+        if (ResearchList == null)
+        {
+            Debug.LogWarning("ResearchManager: 연구 목록이 없어 해금할 수 없습니다.", this);
+            return;
+        }
+
+        List<ResearchData> unlocked = new();
+
+        foreach (ResearchData research in ResearchList.Researches)
+        {
+            if (research == null) continue;
+            if (_completed.Add(research))
+                unlocked.Add(research);
+        }
+
+        if (unlocked.Count == 0)
+        {
+            Debug.Log("ResearchManager: 이미 모든 연구를 완료한 상태입니다.");
+            return;
+        }
+
+        RebuildBonusTotals();
+
+        foreach (ResearchData research in unlocked)
+            OnCompleted?.Invoke(research);
+
+        Debug.Log($"ResearchManager: 연구 {unlocked.Count}개를 새로 해금했습니다. (전체 {ResearchList.Researches.Count}개)");
+    }
+
     // 해당 종류의 합산된 보너스 값을 반환한다. 아직 그 종류의 보너스를 하나도 얻지 못했으면 0이다.
     public float GetBonus(ResearchBonusData bonus)
     {
