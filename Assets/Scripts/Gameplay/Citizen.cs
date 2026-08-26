@@ -184,14 +184,16 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
     }
 
     // 지정한 대상을 채집 대상으로 설정하고 대상에게 이동을 시작한다.
+    // 이동 명령은 진행 중이던 채집을 취소하므로(HandleMoveOrdered), 이동을 먼저 시작하고 그 뒤에 채집 대상을 설정한다.
     private void BeginGathering(IGatherable gatherable, ResourceInventory inventory, Transform targetTransform)
     {
         // 채집도 대상까지 이동하는 명령이므로, 채집 타겟 지정을 거쳐 들어온 경우까지 포함해 여기서 건축 위치 지정을 정리한다.
         CancelBuildingPlacement();
 
+        _mover.Move(targetTransform);
+
         _gatherTarget = gatherable;
         _gatherInventory = inventory;
-        _mover.Move(targetTransform);
     }
 
     // 채집 타겟 지정 대기 상태를 취소하고 구독을 해제한다.
@@ -224,10 +226,13 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
         _gatherInventory = null;
     }
 
-    // 이동이 시작되면 이동 중으로 표시한다.
+    // 이동이 시작되면 이동 중으로 표시하고 진행 중이던 채집을 취소한다. 건축 명령처럼 시민 밖에서 내려온 이동 명령도 이 이벤트를 거치므로,
+    // 채집 대상이 남은 채로 다른 곳에 도착해 채집 애니메이션이 다시 재생되는 것을 여기서 막는다.
+    // 채집이 대상에게 걸어가려 스스로 내리는 이동 명령은 BeginGathering이 이 호출 뒤에 대상을 설정하므로 취소되지 않는다.
     private void HandleMoveOrdered()
     {
         _isMoving = true;
+        CancelGathering();
     }
 
     // 이동이 끝나면 이동 중 표시를 해제한다.
