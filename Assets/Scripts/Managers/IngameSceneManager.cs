@@ -65,6 +65,7 @@ public class IngameSceneManager : MonoBehaviour
 
         HandleRestoreInventory();
         HandleRestoreCodex();
+        HandleRestoreResearch();
 
         // 청크가 구워질 때마다 각 청크의 스포너가 자기 영역의 저장 오브젝트를 이 목록에서 꺼내 소환한다.
         _pendingSavables = _saveData.Savables != null ? new List<SavableEntry>(_saveData.Savables) : new List<SavableEntry>();
@@ -144,7 +145,7 @@ public class IngameSceneManager : MonoBehaviour
             return false;
         }
 
-        MapSaveData saveData = _mapSaveUtil.GetSaveData(_mapData, _resourceInventory, _itemCodex, HandleCollectSavables(), _cameraController);
+        MapSaveData saveData = _mapSaveUtil.GetSaveData(_mapData, _resourceInventory, _itemCodex, ResearchManager.Instance, HandleCollectSavables(), _cameraController);
 
         // 아직 청크가 로드되지 않아 소환되지 못한 오브젝트는 씬에 없으므로, 원본 항목을 그대로 이어 붙여 유실을 막는다.
         if (_pendingSavables != null)
@@ -201,6 +202,15 @@ public class IngameSceneManager : MonoBehaviour
         _itemCodex.ApplyJson(_saveData.CodexJson);
     }
 
+    // 저장된 연구 현황(현재 시대, 완료한 연구)을 복원한다.
+    private void HandleRestoreResearch()
+    {
+        if (string.IsNullOrEmpty(_saveData.ResearchJson))
+            return;
+
+        ResearchManager.Instance.ApplyJson(_saveData.ResearchJson);
+    }
+
     // 저장된 카메라 위치가 있으면 복원한다.
     private void HandleRestoreCameraPosition()
     {
@@ -210,16 +220,18 @@ public class IngameSceneManager : MonoBehaviour
         _cameraController.ApplyJson(_saveData.CameraJson);
     }
 
-    // 씬에 살아 있는 모든 ISavable 구현체를 찾아 목록으로 만든다. 별도 필드로 저장되는 인벤토리·도감·카메라는 제외한다.
+    // 씬에 살아 있는 모든 ISavable 구현체를 찾아 목록으로 만든다. 별도 필드로 저장되는 인벤토리·도감·연구·카메라는 제외한다.
     private List<ISavable> HandleCollectSavables()
     {
         List<ISavable> savables = new();
+        ResearchManager researchManager = ResearchManager.Instance;
 
         foreach (MonoBehaviour behaviour in FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None))
         {
             if (behaviour is ISavable savable
                 && !ReferenceEquals(savable, _resourceInventory)
                 && !ReferenceEquals(savable, _itemCodex)
+                && !ReferenceEquals(savable, researchManager)
                 && !ReferenceEquals(savable, _cameraController))
                 savables.Add(savable);
         }

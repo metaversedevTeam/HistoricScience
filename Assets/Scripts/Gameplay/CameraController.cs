@@ -29,6 +29,12 @@ public class CameraController : MonoBehaviour, ISavable
     [Tooltip("휠을 한 번 굴릴 때 변하는 크기")]
     [SerializeField] private float _zoomStep = 0.1f;
 
+    [Tooltip("최대 축소 크기를 늘려 더 멀리까지 보게 해 주는 연구 보너스. 비워 두면 위의 최대 크기를 그대로 쓴다")]
+    [SerializeField] private ResearchBonusData _maxZoomBonus;
+
+    // 연구 보너스를 곱하기 전의 최대 축소 크기. 보너스가 바뀔 때마다 이 값에서 다시 계산한다.
+    private float _baseMaxZoomScale;
+
     private Transform _followTarget;
 
     // 따라갈 대상의 이동 컴포넌트. 대상에 이동 기능이 없으면 null이다.
@@ -48,6 +54,7 @@ public class CameraController : MonoBehaviour, ISavable
         if (_camera == null)
             _camera = Camera.main;
 
+        _baseMaxZoomScale = _maxZoomScale;
         ApplyZoomScale(transform.localScale.x);
     }
 
@@ -55,6 +62,8 @@ public class CameraController : MonoBehaviour, ISavable
     {
         _playerManager.OnSelected += OnUnitSelected;
         _playerManager.OnDeselected += OnUnitDeselected;
+
+        HandleSubscribeMaxZoomBonus();
     }
 
     private void OnDisable()
@@ -62,6 +71,31 @@ public class CameraController : MonoBehaviour, ISavable
         _playerManager.OnSelected -= OnUnitSelected;
         _playerManager.OnDeselected -= OnUnitDeselected;
         UnsubscribeFromFollowTargetMover();
+
+        HandleUnsubscribeMaxZoomBonus();
+    }
+
+    // 최대 축소 보너스가 지정되어 있으면 갱신 이벤트를 구독하고 현재 합계를 곧바로 반영한다.
+    private void HandleSubscribeMaxZoomBonus()
+    {
+        if (_maxZoomBonus == null) return;
+
+        ResearchManager.Instance.OnBonusesChanged += ApplyMaxZoomBonus;
+        ApplyMaxZoomBonus();
+    }
+
+    // 구독해 둔 연구 보너스 갱신 이벤트를 해제한다.
+    private void HandleUnsubscribeMaxZoomBonus()
+    {
+        if (_maxZoomBonus == null) return;
+
+        ResearchManager.Instance.OnBonusesChanged -= ApplyMaxZoomBonus;
+    }
+
+    // 합산된 최대 축소 보너스를 기본 최대 크기에 곱해 반영한다. 현재 배율을 범위 안으로 맞추는 일은 MaxZoomScale 세터가 처리한다.
+    private void ApplyMaxZoomBonus()
+    {
+        MaxZoomScale = _baseMaxZoomScale * ResearchManager.Instance.GetMultiplier(_maxZoomBonus);
     }
 
     private void LateUpdate()

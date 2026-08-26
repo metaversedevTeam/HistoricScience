@@ -57,6 +57,7 @@ MonoBehaviour:
     _amount: 1
     _weight: 3
   _gatherCooldown: 3
+  _gatherSpeedBonus: {fileID: 11400000, guid: 88395d34c1e750189d20a8bbb8c656e7, type: 2}
 --- !u!114 &1803116923085429630
 MonoBehaviour:
   m_ObjectHideFlags: 0

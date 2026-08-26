@@ -40,6 +40,9 @@ public class GroundMover : MonoBehaviour, IMover
     // 목적지의 지면 높이를 찾을 때 감지할 지면 레이어. 비워두면 Awake에서 "Ground" 레이어를 자동으로 찾는다.
     [SerializeField] private LayerMask _groundLayer;
 
+    // 이동 속도에 곱해서 적용할 연구 보너스. 비워 두면 연구 보너스를 적용하지 않고 프리팹에 설정된 속도를 그대로 쓴다.
+    [SerializeField] private ResearchBonusData _moveSpeedBonus;
+
     // 새 이동 명령이 실제로 시작됐을 때 발생(Move()가 성공한 경우에만)
     public event Action OnMoveOrdered;
 
@@ -77,12 +80,15 @@ public class GroundMover : MonoBehaviour, IMover
     private Action  _pendingMoveEnd;
     // 이동 명령 세대 번호. Move나 Stop마다 증가시켜, 콜백을 호출하는 도중 새 명령이 들어온 경우를 구분한다.
     private int     _moveOrderId;
+    // 연구 보너스를 곱하기 전의 기본 이동 속도. 보너스가 바뀔 때마다 이 값에서 다시 계산한다.
+    private float   _baseSpeed;
 
-    // NavMeshAgent와 HitableObject 컴포넌트를 캐싱하고 지면 레이어를 확보
+    // NavMeshAgent와 HitableObject 컴포넌트를 캐싱하고 지면 레이어와 기본 이동 속도를 확보
     private void Awake()
     {
         _agent       = GetComponent<NavMeshAgent>();
         _selfHitable = GetComponent<HitableObject>();
+        _baseSpeed   = _agent.speed;
 
         HandleResolveGroundLayer();
     }
@@ -100,18 +106,45 @@ public class GroundMover : MonoBehaviour, IMover
             Debug.LogWarning("[GroundMover] 'Ground' 레이어를 찾을 수 없습니다. Inspector에서 직접 설정해주세요.");
     }
 
-    // 활성화 시 자신을 내브메시 베이커의 추적 대상으로 등록해 주변 내브메시가 구워지게 한다
+    // 활성화 시 자신을 내브메시 베이커의 추적 대상으로 등록해 주변 내브메시가 구워지게 하고, 연구 보너스를 반영한다
     private void OnEnable()
     {
         if (DynamicNavMeshBaker.Instance != null)
             DynamicNavMeshBaker.Instance.AddTarget(transform);
+
+        HandleSubscribeMoveSpeedBonus();
     }
 
-    // 비활성화 시 내브메시 베이커의 추적 대상에서 자신을 제거한다
+    // 비활성화 시 내브메시 베이커의 추적 대상에서 자신을 제거하고 연구 보너스 구독을 해제한다
     private void OnDisable()
     {
         if (DynamicNavMeshBaker.Instance != null)
             DynamicNavMeshBaker.Instance.RemoveTarget(transform);
+
+        HandleUnsubscribeMoveSpeedBonus();
+    }
+
+    // 이동 속도 보너스가 지정되어 있으면 갱신 이벤트를 구독하고 현재 합계를 곧바로 반영한다.
+    private void HandleSubscribeMoveSpeedBonus()
+    {
+        if (_moveSpeedBonus == null) return;
+
+        ResearchManager.Instance.OnBonusesChanged += ApplyMoveSpeedBonus;
+        ApplyMoveSpeedBonus();
+    }
+
+    // 구독해 둔 연구 보너스 갱신 이벤트를 해제한다.
+    private void HandleUnsubscribeMoveSpeedBonus()
+    {
+        if (_moveSpeedBonus == null) return;
+
+        ResearchManager.Instance.OnBonusesChanged -= ApplyMoveSpeedBonus;
+    }
+
+    // 합산된 이동 속도 보너스를 기본 속도에 곱해 에이전트에 반영한다.
+    private void ApplyMoveSpeedBonus()
+    {
+        _agent.speed = _baseSpeed * ResearchManager.Instance.GetMultiplier(_moveSpeedBonus);
     }
 
     // 추적 대상이 있으면 따라가기를 처리하고, 매 프레임 이동 종료 여부를 확인

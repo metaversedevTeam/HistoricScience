@@ -62,7 +62,7 @@ public class MapSaveUtil : MonoBehaviour
     }
 
     //맵 데이터와 저장되어야 하는 오브젝트들을 MapSaveData로 묶어 반환
-    public MapSaveData GetSaveData(MapData mapData, ResourceInventory inventory, ItemCodex codex, List<ISavable> savables, CameraController cameraController)
+    public MapSaveData GetSaveData(MapData mapData, ResourceInventory inventory, ItemCodex codex, ResearchManager research, List<ISavable> savables, CameraController cameraController)
     {
         MapSaveData saveData = new MapSaveData();
         saveData.Seed = mapData.Seed;
@@ -70,6 +70,9 @@ public class MapSaveUtil : MonoBehaviour
 
         if (codex != null)
             saveData.CodexJson = codex.CaptureJson();
+
+        if (research != null)
+            saveData.ResearchJson = research.CaptureJson();
 
         if (cameraController != null)
             saveData.CameraJson = cameraController.CaptureJson();

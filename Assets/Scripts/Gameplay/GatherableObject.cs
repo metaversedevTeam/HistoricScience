@@ -7,8 +7,23 @@ public class GatherableObject : MonoBehaviour, IGatherable
     // 채집할 때마다 이 목록에서 가중치 비율에 따라 하나가 뽑힌다.
     [SerializeField] private List<GatherDrop> _gatherDrops = new List<GatherDrop>();
     [SerializeField] private float _gatherCooldown = 3f;
+    // 채집 쿨타임을 줄여 주는 연구 보너스. 비워 두면 인스펙터에 설정한 쿨타임을 그대로 쓴다.
+    [SerializeField] private ResearchBonusData _gatherSpeedBonus;
 
     private float _lastGatherTime = float.NegativeInfinity;
+
+    // 연구 보너스를 반영한 실제 채집 쿨타임(초). 채집 속도 배율이 높을수록 쿨타임이 짧아진다.
+    private float EffectiveCooldown
+    {
+        get
+        {
+            if (_gatherSpeedBonus == null) return _gatherCooldown;
+
+            // 보너스가 음수로 쌓여 배율이 0 이하가 되면 나눗셈 결과가 깨지므로 하한을 둔다.
+            float multiplier = Mathf.Max(0.01f, ResearchManager.Instance.GetMultiplier(_gatherSpeedBonus));
+            return _gatherCooldown / multiplier;
+        }
+    }
 
     // 채집이 시작될 때 호출되어 쿨타임을 지금부터 다시 세게 한다. 이 때문에 첫 자원도 채집 시간을 기다린 뒤에 나온다.
     public void OnGatherBegin()
@@ -16,10 +31,10 @@ public class GatherableObject : MonoBehaviour, IGatherable
         _lastGatherTime = Time.time;
     }
 
-    // 쿨타임이 지나 채집 가능한 상태인지 확인한다.
+    // 쿨타임이 지나 채집 가능한 상태인지 확인한다. 쿨타임에는 연구 보너스가 반영된다.
     public bool CanGather()
     {
-        return Time.time - _lastGatherTime >= _gatherCooldown;
+        return Time.time - _lastGatherTime >= EffectiveCooldown;
     }
 
     // 채집을 수행하여 무작위로 뽑힌 결과 아이템을 반환하고 쿨타임을 시작한다.
