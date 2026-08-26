@@ -10,6 +10,12 @@ public class GatherableObject : MonoBehaviour, IGatherable
 
     private float _lastGatherTime = float.NegativeInfinity;
 
+    // 채집이 시작될 때 호출되어 쿨타임을 지금부터 다시 세게 한다. 이 때문에 첫 자원도 채집 시간을 기다린 뒤에 나온다.
+    public void OnGatherBegin()
+    {
+        _lastGatherTime = Time.time;
+    }
+
     // 쿨타임이 지나 채집 가능한 상태인지 확인한다.
     public bool CanGather()
     {

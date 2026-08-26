@@ -219,11 +219,12 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
         _gatherer.TryGather(_gatherTarget, _gatherInventory);
     }
 
-    // 진행 중인 채집 대상과 캐싱된 인벤토리 참조를 비운다.
+    // 진행 중인 채집 대상과 캐싱된 인벤토리 참조를 비운다. Gatherer의 채집 진행도 함께 끊어 다시 채집할 때 채집 시간을 처음부터 기다리게 한다.
     private void CancelGathering()
     {
         _gatherTarget = null;
         _gatherInventory = null;
+        _gatherer?.CancelGather();
     }
 
     // 이동이 시작되면 이동 중으로 표시하고 진행 중이던 채집을 취소한다. 건축 명령처럼 시민 밖에서 내려온 이동 명령도 이 이벤트를 거치므로,

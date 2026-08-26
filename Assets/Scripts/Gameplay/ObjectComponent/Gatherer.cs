@@ -7,6 +7,9 @@ public class Gatherer : MonoBehaviour
 
     private const int GizmoCircleSegments = 32;
 
+    // 현재 채집 중인 대상. 대상이 바뀌면 채집을 새로 시작한 것으로 보고 채집 시간을 처음부터 기다린다.
+    private IGatherable _currentTarget;
+
 
     // 지정한 IGatherable 대상이 채집 범위 안에 있는지 확인한다. 대상에 HitableObject가 있다면 HitRadius만큼 범위를 늘려준다.
     private bool IsInRange(IGatherable target)
@@ -28,7 +31,14 @@ public class Gatherer : MonoBehaviour
     // 대상을 채집하여 결과 아이템을 인벤토리에 추가한다. 범위 밖이거나 채집 불가 상태면 false를 반환한다.
     public bool TryGather(IGatherable target, ResourceInventory inventory)
     {
-        if (!IsInRange(target)) return false;
+        if (!IsInRange(target))
+        {
+            CancelGather();
+            return false;
+        }
+
+        BeginGatherIfNewTarget(target);
+
         if (!target.CanGather()) return false;
 
         var (isSuccess, itemType, count) = target.OnGather();
@@ -37,6 +47,21 @@ public class Gatherer : MonoBehaviour
             inventory?.Add(itemType, count, transform.position);
 
         return true;
+    }
+
+    // 직전에 채집하던 대상과 다르면 대상에게 채집 시작을 알려, 첫 자원이 바로 나오지 않고 채집 시간만큼 기다리게 한다.
+    private void BeginGatherIfNewTarget(IGatherable target)
+    {
+        if (ReferenceEquals(_currentTarget, target)) return;
+
+        _currentTarget = target;
+        target.OnGatherBegin();
+    }
+
+    // 진행 중인 채집을 끝내, 같은 대상을 다시 채집할 때도 채집 시간을 처음부터 기다리게 한다.
+    public void CancelGather()
+    {
+        _currentTarget = null;
     }
 
 
