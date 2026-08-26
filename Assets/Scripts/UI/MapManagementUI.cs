@@ -119,7 +119,7 @@ public class MapManagementUI : MonoBehaviour
             return;
         }
 
-        HandleEnterIngameScene(row.Slot);
+        HandleEnterIngameScene(row.Slot, isNewMap: false);
     }
 
     // 선택한 슬롯의 맵 파일을 지우고 목록을 갱신한다.
@@ -148,7 +148,7 @@ public class MapManagementUI : MonoBehaviour
             return;
         }
 
-        HandleEnterIngameScene(slot);
+        HandleEnterIngameScene(slot, isNewMap: true);
     }
 
     // 대화상자에서 취소를 눌렀으므로 아무것도 만들지 않고 닫는다.
@@ -175,14 +175,20 @@ public class MapManagementUI : MonoBehaviour
         }
     }
 
-    // 다음에 열 슬롯을 지정하고 인게임 씬으로 전환한다.
-    private void HandleEnterIngameScene(string slot)
+    // 다음에 열 슬롯을 지정하고 인게임 씬으로 전환한다. isNewMap은 이번 진입이 맵을 새로 만든 세션인지를 뜻한다.
+    private void HandleEnterIngameScene(string slot, bool isNewMap)
     {
         if (string.IsNullOrEmpty(_ingameSceneName))
         {
             Debug.LogWarning($"MapManagementUI: 인게임 씬 이름이 비어 있어 '{slot}' 슬롯으로 전환하지 않았습니다.");
             return;
         }
+
+        // 튜토리얼 진입부 — 맵을 새로 만든 세션에서만 튜토리얼이 진행된다. 튜토리얼을 걷어낼 때는 이 세 줄만 지우면 된다.
+        if (isNewMap)
+            TutorialSession.MarkNewMapCreated();
+        else
+            TutorialSession.MarkExistingMapLoaded();
 
         IngameSceneManager.NextMapSlot = slot;
         SceneManager.LoadScene(_ingameSceneName);
