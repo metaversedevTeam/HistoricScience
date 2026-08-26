@@ -13,7 +13,15 @@ public class ResourceInventory : MonoBehaviour, ISavable
 
     public ItemDataList ItemDataList => _itemDataList;
 
+    // 켜져 있으면 Has는 무조건 true를 반환하고 Remove는 실제 차감 없이 성공한 것처럼 동작해, 모든 자원이 무한한 것처럼 보이게 한다.
+    public bool IsCheatModeEnabled
+    {
+        get => _isCheatModeEnabled;
+        set => _isCheatModeEnabled = value;
+    }
+
     [SerializeField] private ItemDataList _itemDataList;
+    [SerializeField] private bool _isCheatModeEnabled;
 
     private Dictionary<int, int> _counts = new();
 
@@ -50,10 +58,11 @@ public class ResourceInventory : MonoBehaviour, ISavable
         return true;
     }
 
-    // 자원을 지정한 수량만큼 차감한다. 수량이 부족하면 false를 반환하고 변경하지 않는다.
+    // 자원을 지정한 수량만큼 차감한다. 수량이 부족하면 false를 반환하고 변경하지 않는다. 치트 모드에서는 차감 없이 항상 성공한다.
     public bool Remove(ResourceData data, int amount)
     {
         if (!_counts.ContainsKey(data.Id)) return false;
+        if (_isCheatModeEnabled) return true;
         if (_counts[data.Id] < amount) return false;
 
         _counts[data.Id] -= amount;
@@ -61,9 +70,9 @@ public class ResourceInventory : MonoBehaviour, ISavable
         return true;
     }
 
-    // 자원이 지정한 수량 이상 있는지 확인한다.
+    // 자원이 지정한 수량 이상 있는지 확인한다. 치트 모드에서는 항상 true다.
     public bool Has(ResourceData data, int amount = 1) =>
-        Get(data) >= amount;
+        _isCheatModeEnabled || Get(data) >= amount;
 
     // 씬에 상주하는 객체라 프리팹 소환에 쓰이지 않는 고정 식별자
     public string PrefabId => "ResourceInventory";
