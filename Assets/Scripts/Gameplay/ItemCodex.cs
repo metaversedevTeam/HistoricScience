@@ -99,6 +99,23 @@ public class ItemCodex : MonoBehaviour, ISavable
         return revealed;
     }
 
+    // 도감 대상 아이템을 모두 발견 상태로 등록한다. (에디터 테스트용)
+    [ContextMenu("Unlock All Items")]
+    private void UnlockAllItems()
+    {
+        int unlocked = 0;
+
+        foreach (ItemData item in Items)
+        {
+            if (_discovered.Contains(item.Id)) continue;
+
+            HandleDiscover(item.Id);
+            unlocked++;
+        }
+
+        Debug.Log($"ItemCodex: 아이템 {unlocked}개를 새로 해금했습니다. (전체 {Items.Count}개)");
+    }
+
     // 씬에 상주하는 객체라 프리팹 소환에 쓰이지 않는 고정 식별자
     public string PrefabId => "ItemCodex";
 
