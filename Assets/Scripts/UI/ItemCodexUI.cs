@@ -8,6 +8,7 @@ using UnityEngine.UI;
 // 획득 여부는 씬에 있는 ItemCodex에서 읽으며, ItemCodex가 없으면 전부 미획득으로 표시한다.
 // 힌트 비용을 치를 인벤토리를 페이로드로 받아, 미획득 카드의 힌트 버튼으로 조합법 힌트 팝업을 연다.
 // 이미 획득한 카드의 "수집 완료" 버튼은 같은 팝업을 전체 공개 모드로 열어 조합법 전체를 보여준다.
+// 이미 획득한 카드의 썸네일을 누르면 아이템 정보 팝업이 열려 설명과 큰 그림을 보여준다.
 public class ItemCodexUI : OpenableUIBase<ResourceInventory>
 {
     [Header("데이터")]
@@ -27,6 +28,9 @@ public class ItemCodexUI : OpenableUIBase<ResourceInventory>
 
     [Header("힌트")]
     [SerializeField] private CraftingHintPopupUI _hintPopupPrefab;
+
+    [Header("아이템 정보")]
+    [SerializeField] private ItemDetailPopupUI _detailPopupPrefab;
 
     [Header("검색")]
     [SerializeField] private TMP_InputField _searchInput;
@@ -48,6 +52,9 @@ public class ItemCodexUI : OpenableUIBase<ResourceInventory>
 
     // 이 도감이 열어 둔 힌트 팝업. 닫히면 다시 null이 되어 창이 겹쳐 쌓이지 않게 한다.
     private CraftingHintPopupUI _openHintPopup;
+
+    // 이 도감이 열어 둔 아이템 정보 팝업. 닫히면 다시 null이 되어 창이 겹쳐 쌓이지 않게 한다.
+    private ItemDetailPopupUI _openDetailPopup;
 
     private readonly List<CodexAgeTabUI> _tabs = new();
     private readonly List<Age?> _tabAges = new();
@@ -90,14 +97,18 @@ public class ItemCodexUI : OpenableUIBase<ResourceInventory>
         Refresh();
     }
 
-    // 풀로 돌아가기 전에 검색어·선택 탭·스크롤 위치를 초기 상태로 되돌리고, 열어 둔 힌트 팝업을 정리한다.
+    // 풀로 돌아가기 전에 검색어·선택 탭·스크롤 위치를 초기 상태로 되돌리고, 열어 둔 팝업들을 정리한다.
     protected override void OnReturnToPool()
     {
-        // 도감이 닫히면 도감이 띄운 힌트 팝업도 함께 정리한다. (닫히면서 구독 해제까지 이어진다)
+        // 도감이 닫히면 도감이 띄운 팝업도 함께 정리한다. (닫히면서 구독 해제까지 이어진다)
         if (_openHintPopup != null)
             _openHintPopup.Close(immediate: true);
 
+        if (_openDetailPopup != null)
+            _openDetailPopup.Close(immediate: true);
+
         UnsubscribeFromHintPopup();
+        UnsubscribeFromDetailPopup();
         _inventory = null;
         _searchInput.SetTextWithoutNotify(string.Empty);
         SelectAge(null, refresh: false);
@@ -190,6 +201,33 @@ public class ItemCodexUI : OpenableUIBase<ResourceInventory>
         _openHintPopup = null;
     }
 
+    // 해당 아이템의 정보 팝업을 연다. 이미 떠 있는 팝업이 있으면 다시 열지 않는다.
+    private void OpenDetailPopup(ItemData item, int codexNumber)
+    {
+        if (_openDetailPopup != null) return;
+
+        if (_detailPopupPrefab == null)
+        {
+            Debug.LogWarning($"ItemCodexUI({name}): 아이템 정보 팝업 프리팹이 설정되지 않아 정보를 열 수 없습니다.");
+            return;
+        }
+
+        _openDetailPopup = UIManager.Instance.OpenUI(_detailPopupPrefab, new ItemDetailData(item, codexNumber));
+        _openDetailPopup.OnFinishClose += HandleDetailPopupClosed;
+    }
+
+    // 정보 팝업이 닫히면 구독을 해제해 다시 열 수 있게 한다.
+    private void HandleDetailPopupClosed(IManagedUI ui) => UnsubscribeFromDetailPopup();
+
+    // 열어 둔 정보 팝업의 구독을 해제하고 참조를 비운다.
+    private void UnsubscribeFromDetailPopup()
+    {
+        if (_openDetailPopup == null) return;
+
+        _openDetailPopup.OnFinishClose -= HandleDetailPopupClosed;
+        _openDetailPopup = null;
+    }
+
     // 현재 필터·검색어에 맞는 카드 목록과 달성도를 모두 다시 그린다.
     private void Refresh()
     {
@@ -216,7 +254,7 @@ public class ItemCodexUI : OpenableUIBase<ResourceInventory>
 
             ItemCodexEntryUI entry = GetOrCreateEntry(visibleCount);
             entry.gameObject.SetActive(true);
-            entry.Setup(item, codexNumber, IsDiscovered(item), MakeHintCallback(item));
+            entry.Setup(item, codexNumber, IsDiscovered(item), MakeHintCallback(item), MakeDetailCallback(item, codexNumber));
             visibleCount++;
         }
 
@@ -234,6 +272,14 @@ public class ItemCodexUI : OpenableUIBase<ResourceInventory>
 
         bool revealAll = IsDiscovered(item);
         return () => OpenHintPopup(item, revealAll);
+    }
+
+    // 이미 획득한 아이템에만 썸네일 콜백을 만들어 준다. 아직 획득하지 않았으면 null을 반환해 썸네일을 누를 수 없게 한다.
+    private Action MakeDetailCallback(ItemData item, int codexNumber)
+    {
+        if (!IsDiscovered(item)) return null;
+
+        return () => OpenDetailPopup(item, codexNumber);
     }
 
     // 아이템이 현재 시대 필터와 검색어를 모두 만족하는지 판정한다.

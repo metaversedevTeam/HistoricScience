@@ -6,6 +6,7 @@ using UnityEngine.UI;
 // 도감 격자에 놓이는 아이템 카드 하나. 획득 여부에 따라 썸네일·이름·상태 표시가 달라지고,
 // 아직 획득하지 못한 아이템은 상태 바가 조합법 힌트 버튼으로 바뀐다.
 // 이미 획득한 아이템은 "수집 완료" 표시 그대로 두되, 눌러서 전체 조합법을 볼 수 있다.
+// 이미 획득한 아이템은 썸네일을 눌러 아이템 정보 팝업도 열 수 있다.
 public class ItemCodexEntryUI : MonoBehaviour
 {
     [Header("카드")]
@@ -16,6 +17,8 @@ public class ItemCodexEntryUI : MonoBehaviour
     [SerializeField] private Image _thumbnailOutline;
     [SerializeField] private Image _thumbnail;
     [SerializeField] private Image _lockIcon;
+    // 썸네일 액자에 붙는 버튼. 이미 획득해 정보를 볼 수 있는 카드에서만 켜진다.
+    [SerializeField] private Button _thumbnailButton;
 
     [Header("정보")]
     [SerializeField] private TextMeshProUGUI _indexText;
@@ -56,25 +59,32 @@ public class ItemCodexEntryUI : MonoBehaviour
     // 상태 바를 눌렀을 때 호출할 콜백. null이면 이 카드의 상태 바는 누를 수 없다.
     private Action _onStatusClick;
 
+    // 썸네일을 눌렀을 때 호출할 콜백. null이면 이 카드의 썸네일은 누를 수 없다.
+    private Action _onThumbnailClick;
+
     private void Awake()
     {
         _statusButton.onClick.AddListener(HandleStatusButtonClick);
+        _thumbnailButton.onClick.AddListener(HandleThumbnailButtonClick);
     }
 
     // 아이템 정보와 획득 여부를 카드에 반영한다. displayNumber는 "No. 001"에 쓰는 도감 번호,
     // onStatusClick은 상태 바를 눌렀을 때 조합법을 여는 콜백이며 null이면 누를 수 없는 상태 바로 그린다.
-    public void Setup(ItemData item, int displayNumber, bool discovered, Action onStatusClick)
+    // onThumbnailClick은 썸네일을 눌렀을 때 아이템 정보 팝업을 여는 콜백이며 null이면 썸네일을 누를 수 없다.
+    public void Setup(ItemData item, int displayNumber, bool discovered, Action onStatusClick, Action onThumbnailClick)
     {
         _indexText.text = $"No. {displayNumber:D3}";
         _ageBadgeText.text = item.Age.ToShortName();
         _nameText.text = item.Nmae;
         _onStatusClick = onStatusClick;
+        _onThumbnailClick = onThumbnailClick;
 
         ApplyThumbnail(item, discovered);
         ApplyStateColors(discovered);
     }
 
     // 획득한 아이템만 아이콘을 보여주고, 미획득이면 자물쇠 표시로 대체한다.
+    // 정보 팝업을 열 수 없는 카드는 버튼 자체를 꺼서 눌리지도, 눌린 색으로 물들지도 않게 한다.
     private void ApplyThumbnail(ItemData item, bool discovered)
     {
         bool hasIcon = discovered && item.IconSprite != null;
@@ -82,6 +92,7 @@ public class ItemCodexEntryUI : MonoBehaviour
         _thumbnail.gameObject.SetActive(hasIcon);
         _thumbnail.sprite = hasIcon ? item.IconSprite : null;
         _lockIcon.gameObject.SetActive(!discovered);
+        _thumbnailButton.enabled = _onThumbnailClick != null;
     }
 
     // 획득 여부에 따른 색상 팔레트를 카드 전체에 적용하고, 상태 바를 상태 표시나 힌트 버튼으로 그린다.
@@ -134,4 +145,7 @@ public class ItemCodexEntryUI : MonoBehaviour
 
     // 상태 바를 누르면 등록된 콜백을 호출한다. 콜백이 없는 상태에서는 아무 일도 하지 않는다.
     private void HandleStatusButtonClick() => _onStatusClick?.Invoke();
+
+    // 썸네일을 누르면 등록된 콜백을 호출한다. 콜백이 없는 상태에서는 아무 일도 하지 않는다.
+    private void HandleThumbnailButtonClick() => _onThumbnailClick?.Invoke();
 }

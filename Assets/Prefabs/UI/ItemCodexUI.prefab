@@ -2349,6 +2349,7 @@ MonoBehaviour:
   _scrollRect: {fileID: 9221878267697764297}
   _emptyText: {fileID: 6741932970265399056}
   _hintPopupPrefab: {fileID: 2974166466836, guid: 4c9e21a7b0d84f36ad57e2c918f30b45, type: 3}
+  _detailPopupPrefab: {fileID: 4100000003, guid: 5d1c8a63f47b4e0f9c2a71b6d8e30f45, type: 3}
   _searchInput: {fileID: 2631791831474583801}
   _closeButton: {fileID: 6431809928373468514}
   _progressFill: {fileID: 2015569529723185578}
