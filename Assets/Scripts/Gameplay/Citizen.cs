@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -7,6 +7,10 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
 {
     [SerializeField] private Sprite _gatherCommandIcon;
     [SerializeField] private Sprite _buildCommandIcon;
+    // 채집 대상 선택 모드일 때 마우스에 표시할 곡괭이 커서 텍스처
+    [SerializeField] private Texture2D _gatherTargetingCursor;
+    // 곡괭이 커서에서 실제 클릭 지점으로 쓸 텍스처 안의 좌표(픽셀). 기본값은 32x32 커서의 중앙이다.
+    [SerializeField] private Vector2 _gatherTargetingCursorHotspot = new Vector2(16f, 16f);
     // 건물 선택 UI 프리팹
     [SerializeField] private BuildingSelectUI _buildingSelectUiPrefab;
     // 건물 선택 UI에 나열할, IBuildable을 구현한 건물 프리팹 목록
@@ -169,6 +173,7 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
 
         _pendingGatherPlayer = _selectedBy;
         _pendingGatherPlayer.OnMouseLeftClick += HandleGatherTargetClick;
+        ApplyGatherTargetingCursor(true);
     }
 
     // 대기 중이던 채집 타겟 지정 모드에서 좌클릭 결과를 받아 대상이 유효하면 채집을 시작한다.
@@ -203,6 +208,17 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
 
         _pendingGatherPlayer.OnMouseLeftClick -= HandleGatherTargetClick;
         _pendingGatherPlayer = null;
+        ApplyGatherTargetingCursor(false);
+    }
+
+    // 채집 대상 선택 모드에 진입하면 곡괭이 커서를, 빠져나오면 시스템 기본 커서를 표시한다.
+    private void ApplyGatherTargetingCursor(bool isTargeting)
+    {
+        if (_gatherTargetingCursor == null) return;
+
+        Texture2D texture = isTargeting ? _gatherTargetingCursor : null;
+        Vector2 hotspot = isTargeting ? _gatherTargetingCursorHotspot : Vector2.zero;
+        Cursor.SetCursor(texture, hotspot, CursorMode.Auto);
     }
 
     // 채집 대상이 유효하면 Gatherer로 채집을 시도하고, 대상이 파괴되었으면 채집을 취소한다.
