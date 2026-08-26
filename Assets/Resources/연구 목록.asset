@@ -12,4 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8ff8f60aa4ccc74f3bb05991179563d, type: 3}
   m_Name: "\uC5F0\uAD6C \uBAA9\uB85D"
   m_EditorClassIdentifier: 
-  _researches: []
+  _researches:
+  - {fileID: 11400000, guid: d9eede92fe119b942b21c759f1fafbcf, type: 2}
+  - {fileID: 11400000, guid: 1893947ada517824ab02fb0f555a5288, type: 2}
+  - {fileID: 11400000, guid: a11eea47838bf7044b254c8b63b7d011, type: 2}
+  - {fileID: 11400000, guid: 7f60e45b8d5773442ba6f91da2d077da, type: 2}
+  - {fileID: 11400000, guid: d122544714530b64ca55cec1a1072583, type: 2}
+  - {fileID: 11400000, guid: 08f80b1187aa3ef4dbba800b1593523a, type: 2}
+  - {fileID: 11400000, guid: 53dd247857073c743a92aaec5fb607a1, type: 2}
+  - {fileID: 11400000, guid: 0186f221a38cec046827714f2ffaefeb, type: 2}
