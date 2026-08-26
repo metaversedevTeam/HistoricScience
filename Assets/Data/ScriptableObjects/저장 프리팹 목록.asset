@@ -17,8 +17,6 @@ MonoBehaviour:
     Prefab: {fileID: 5471225282963636213, guid: 34e93f6778c62bb47849c233e64a2344, type: 3}
   - PrefabId: Lab
     Prefab: {fileID: 753727767457213253, guid: 4dc7a3bbb63f6384cb22731100466160, type: 3}
-  - PrefabId: TownHall
-    Prefab: {fileID: 753727767457213253, guid: 23cdd92ec85b1904084b2b56623b10a4, type: 3}
   - PrefabId: HomeBase
     Prefab: {fileID: 2878647143197780136, guid: f74ac44a49c2b2d4b990c6a65e50d334, type: 3}
   - PrefabId: Warehouse
