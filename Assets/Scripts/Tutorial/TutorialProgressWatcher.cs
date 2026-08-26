@@ -21,8 +21,17 @@ public class TutorialProgressWatcher : IDisposable
     // 카메라 위치를 아직 한 번도 재지 않았는지 여부
     private bool _hasCameraSample;
 
+    // 직전 프레임의 확대 배율. 배율 변화를 누적하는 기준이다.
+    private float _lastZoomScale;
+
+    // 확대 배율을 아직 한 번도 재지 않았는지 여부
+    private bool _hasZoomSample;
+
     // 이번 단계에서 카메라가 XZ 평면에서 움직인 누적 거리
     public float CameraTravel { get; private set; }
+
+    // 이번 단계에서 휠로 바뀐 확대 배율의 누적 변화량
+    public float ZoomChange { get; private set; }
 
     // 이번 단계에서 선택된 시민에게 이동 명령이 내려졌는지 여부
     public bool MoveOrdered { get; private set; }
@@ -42,10 +51,11 @@ public class TutorialProgressWatcher : IDisposable
             _context.Codex.OnHintRevealed += HandleHintRevealed;
     }
 
-    // 카메라 이동 거리를 누적하고, 선택이 바뀌었으면 이동 명령 구독을 새 시민으로 옮긴다.
+    // 카메라 이동 거리와 확대 배율 변화를 누적하고, 선택이 바뀌었으면 이동 명령 구독을 새 시민으로 옮긴다.
     public void Tick()
     {
         HandleTrackCamera();
+        HandleTrackZoom();
         HandleTrackSelectedMover();
     }
 
@@ -61,9 +71,11 @@ public class TutorialProgressWatcher : IDisposable
     {
         _gained.Clear();
         CameraTravel = 0f;
+        ZoomChange = 0f;
         MoveOrdered = false;
         HintRevealed = false;
         _hasCameraSample = false;
+        _hasZoomSample = false;
     }
 
     // 구독을 모두 끊는다. 튜토리얼이 끝날 때 호출한다.
@@ -96,6 +108,26 @@ public class TutorialProgressWatcher : IDisposable
         float dz = position.z - _lastCameraPosition.z;
         CameraTravel += Mathf.Sqrt(dx * dx + dz * dz);
         _lastCameraPosition = position;
+    }
+
+    // 휠로 바뀐 확대 배율의 변화량을 누적한다. 확대와 축소 어느 쪽이든 움직인 만큼 세므로,
+    // 이미 최대나 최소까지 당겨 둔 상태에서도 반대쪽으로 굴리면 진행된다.
+    private void HandleTrackZoom()
+    {
+        Transform cameraRoot = _context.CameraRoot;
+        if (cameraRoot == null) return;
+
+        float scale = cameraRoot.localScale.x;
+
+        if (!_hasZoomSample)
+        {
+            _lastZoomScale = scale;
+            _hasZoomSample = true;
+            return;
+        }
+
+        ZoomChange += Mathf.Abs(scale - _lastZoomScale);
+        _lastZoomScale = scale;
     }
 
     // 현재 선택된 시민의 이동 컴포넌트로 구독을 옮긴다. 선택이 풀렸으면 구독을 끊는다.

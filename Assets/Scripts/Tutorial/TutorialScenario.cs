@@ -26,6 +26,9 @@ public static class TutorialScenario
     // 카메라 조작 단계를 마쳤다고 볼 누적 이동 거리(월드 단위)
     private const float CameraTravelGoal = 25f;
 
+    // 휠 확대 단계를 마쳤다고 볼 누적 배율 변화량. CameraController의 확대 범위(0.5~2)에서 휠 서너 번에 해당한다.
+    private const float ZoomChangeGoal = 0.25f;
+
     // 좀돌날 조합법이 요구하는 돌 개수. 재료가 모자랄 때 안내 문구를 덧붙이는 데만 쓴다.
     private const int MicrobladeStoneCost = 2;
 
@@ -65,6 +68,12 @@ public static class TutorialScenario
             runner => new TutorialStepStatus(
                 $"{Accent}화살표 키{AccentEnd}를 눌러 카메라를 움직여 보세요.",
                 runner.Progress.CameraTravel >= CameraTravelGoal)));
+
+        steps.Add(new TutorialTaskStep(
+            new[] { "가까이 들여다볼 수도, 멀리서 넓게 볼 수도 있습니다." },
+            runner => new TutorialStepStatus(
+                $"{Accent}마우스 휠{AccentEnd}을 굴려 화면을 확대하거나 축소해 보세요.",
+                runner.Progress.ZoomChange >= ZoomChangeGoal)));
 
         steps.Add(new TutorialTaskStep(
             new[] { "이 땅에는 당신을 도울 시민이 있습니다." },

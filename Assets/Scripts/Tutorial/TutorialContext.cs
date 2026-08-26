@@ -26,6 +26,9 @@ public class TutorialContext : IDisposable
     // 월드 좌표를 화면 좌표로 옮길 때와 카메라 이동을 재는 데 쓰는 카메라
     public Camera WorldCamera { get; private set; }
 
+    // 카메라 이동·휠 확대를 담당하는 컨트롤러. 확대 배율이 이 오브젝트의 스케일로 표현된다.
+    public CameraController CameraController { get; private set; }
+
     // 채집·건축 안내에서 개수를 세는 데 쓰는 돌 아이템
     public ItemData Stone { get; private set; }
 
@@ -62,6 +65,7 @@ public class TutorialContext : IDisposable
         SceneManager = UnityEngine.Object.FindFirstObjectByType<IngameSceneManager>();
         CommandPanel = UnityEngine.Object.FindFirstObjectByType<TempCommandPanelUI>();
         WorldCamera = Camera.main;
+        CameraController = UnityEngine.Object.FindFirstObjectByType<CameraController>();
 
         if (PlayerManager == null || Inventory == null || SceneManager == null)
         {
@@ -110,6 +114,11 @@ public class TutorialContext : IDisposable
         SceneManager != null &&
         SceneManager.MapData != null &&
         UnityEngine.Object.FindFirstObjectByType<LoadingScreenUI>() == null;
+
+    // 휠 확대/축소가 실제로 반영되는 트랜스폼. 카메라 컨트롤러가 자기 스케일을 바꾸므로 그 오브젝트를 본다.
+    // 컨트롤러를 찾지 못했으면 카메라 자신으로 대신한다.
+    public Transform CameraRoot =>
+        CameraController != null ? CameraController.transform : (WorldCamera != null ? WorldCamera.transform : null);
 
     // 씬에 지어져 있는 대장간. 아직 없으면 null이다. (강조·완료 판정용, 잠시 캐싱된다)
     public Lab Lab => _lab?.Get();
