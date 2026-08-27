@@ -181,6 +181,7 @@ public class WorkbenchUI : OpenableUIBase<WorkbenchData>
             _inventory.Remove(resource, count);
 
         _inventory.Add(result, 1, _workbenchWorldPosition);
+        AudioManager.PlayConfirm();
 
         foreach (var slot in _craftingSlots)
             slot.Clear();
@@ -229,6 +230,8 @@ public class WorkbenchUI : OpenableUIBase<WorkbenchData>
     // 경고 메시지를 표시하고 2초 후 자동으로 숨긴다.
     private void ShowWarning(string message)
     {
+        AudioManager.PlayError();
+
         _warningText.text = message;
         _warningText.gameObject.SetActive(true);
 

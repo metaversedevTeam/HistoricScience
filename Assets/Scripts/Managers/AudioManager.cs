@@ -114,6 +114,24 @@ public class AudioManager : MonoBehaviour
         Instance.PlayUISfx(clip);
     }
 
+    // 버튼을 눌렀을 때의 효과음을 프리셋에서 꺼내 재생한다
+    public static void PlayButtonClick() => PlayUI(Preset.ButtonClick);
+
+    // 팝업·창이 열릴 때의 효과음을 프리셋에서 꺼내 재생한다
+    public static void PlayPopupOpen() => PlayUI(Preset.PopupOpen);
+
+    // 팝업·창이 닫힐 때의 효과음을 프리셋에서 꺼내 재생한다
+    public static void PlayPopupClose() => PlayUI(Preset.PopupClose);
+
+    // 확인·수락을 눌렀을 때의 효과음을 프리셋에서 꺼내 재생한다
+    public static void PlayConfirm() => PlayUI(Preset.Confirm);
+
+    // 취소·뒤로가기를 눌렀을 때의 효과음을 프리셋에서 꺼내 재생한다
+    public static void PlayCancel() => PlayUI(Preset.Cancel);
+
+    // 할 수 없는 동작을 시도했을 때의 효과음을 프리셋에서 꺼내 재생한다
+    public static void PlayError() => PlayUI(Preset.Error);
+
     // 씬의 BGM 목록에서 무작위로 한 곡을 골라 재생을 시작한다
     public void PlayBgm()
     {

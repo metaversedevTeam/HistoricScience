@@ -88,8 +88,16 @@ public class BuildingSelectUI : OpenableUIBase<BuildingSelectData>
     {
         if (_selectedBuildable == null) return;
 
+        AudioManager.PlayConfirm();
         _hasConfirmedBuilding = true;
         OnBuildingSelected?.Invoke(_selectedBuildable);
+    }
+
+    // 건물 카드를 눌렀을 때 효과음을 내고 상세 패널의 대상을 그 건물로 바꾼다.
+    private void HandleCardClick(IBuildable buildable)
+    {
+        AudioManager.PlayButtonClick();
+        SelectBuildable(buildable);
     }
 
     // 기존 카드를 제거하고 건물 목록마다 카드를 새로 생성하며, 목록 개수 표시도 갱신한다.
@@ -101,7 +109,7 @@ public class BuildingSelectUI : OpenableUIBase<BuildingSelectData>
         {
             BuildingCardUI card = Instantiate(_buildingCardPrefab, _content);
             card.Setup(buildable, _inventory);
-            card.Button.onClick.AddListener(() => SelectBuildable(buildable));
+            card.Button.onClick.AddListener(() => HandleCardClick(buildable));
             _cards.Add(card);
         }
 

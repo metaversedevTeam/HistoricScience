@@ -328,11 +328,23 @@ public class TutorialDialogueUI : MonoBehaviour
     }
 
     // 본문 클릭을 다음으로 넘어가려는 요청으로 알린다.
-    private void HandleAdvanceClick() => AdvanceRequested?.Invoke();
+    private void HandleAdvanceClick()
+    {
+        AudioManager.PlayButtonClick();
+        AdvanceRequested?.Invoke();
+    }
 
     // 예를 골랐음을 알린다.
-    private void HandleYesClick() => ChoiceSelected?.Invoke(true);
+    private void HandleYesClick()
+    {
+        AudioManager.PlayConfirm();
+        ChoiceSelected?.Invoke(true);
+    }
 
     // 아니요를 골랐음을 알린다.
-    private void HandleNoClick() => ChoiceSelected?.Invoke(false);
+    private void HandleNoClick()
+    {
+        AudioManager.PlayCancel();
+        ChoiceSelected?.Invoke(false);
+    }
 }

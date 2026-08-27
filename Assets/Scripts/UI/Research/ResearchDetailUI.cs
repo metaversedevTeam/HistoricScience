@@ -240,7 +240,11 @@ public class ResearchDetailUI : OpenableUIBase<ResearchDetailData>
     {
         if (_manager == null || _research == null) return;
 
-        _manager.TryResearch(_research, _inventory);
+        if (_manager.TryResearch(_research, _inventory))
+            AudioManager.PlayConfirm();
+        else
+            AudioManager.PlayError();
+
         RefreshDynamicContent();
     }
 

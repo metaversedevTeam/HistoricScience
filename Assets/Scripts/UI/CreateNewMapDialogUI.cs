@@ -51,6 +51,7 @@ public class CreateNewMapDialogUI : MonoBehaviour
 
         // 입력 칸을 만지기 전에 켜 둬야 Awake에서 건 리스너가 첫 값 변경부터 반응한다.
         gameObject.SetActive(true);
+        AudioManager.PlayPopupOpen();
 
         _mapNameInput.text = suggestedName;
         _seedInput.text = string.Empty;
@@ -113,6 +114,7 @@ public class CreateNewMapDialogUI : MonoBehaviour
     // 취소 요청을 알린다.
     private void HandleCancelClick()
     {
+        AudioManager.PlayCancel();
         Canceled?.Invoke();
     }
 }

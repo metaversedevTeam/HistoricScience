@@ -52,7 +52,14 @@ public class CraftingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
     // 슬롯을 비운다.
     public void Clear() => SetItem(null);
 
-    public void OnPointerClick(PointerEventData eventData) => Clear();
+    // 재료가 놓인 칸을 누르면 효과음을 내며 비운다. 이미 빈 칸이면 아무 소리도 내지 않는다.
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (Item == null) return;
+
+        AudioManager.PlayButtonClick();
+        Clear();
+    }
 
     public void OnDrop(PointerEventData eventData)
     {
@@ -69,6 +76,7 @@ public class CraftingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
             // 같은 재료를 다시 놓는 것은 총량이 그대로라 항상 허용한다. 다른 재료라면 한 개를 새로 쓰는 셈이다.
             if (fromInventory.Item != Item && _canPlace != null && !_canPlace(fromInventory.Item)) return;
 
+            AudioManager.PlayButtonClick();
             SetItem(fromInventory.Item);
             return;
         }
@@ -77,6 +85,8 @@ public class CraftingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
         var fromCraft = dragged.GetComponent<CraftingSlotUI>();
         if (fromCraft != null && fromCraft != this && fromCraft.Item != null)
         {
+            AudioManager.PlayButtonClick();
+
             var previous = Item;
             SetItem(fromCraft.Item);
             fromCraft.SetItem(previous);

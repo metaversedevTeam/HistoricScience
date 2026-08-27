@@ -38,19 +38,29 @@ public class PauseMenuUI : OpenableUIBase
         FinishClose();
     }
 
+    // 이어하기는 창을 닫기만 하므로 닫기 효과음(ManagedUIBase)만 울린다.
     private void HandleResumeClick() => Close();
 
     // 현재 맵을 저장한 뒤 메인 메뉴로 나간다.
     private void HandleSaveAndExitClick()
     {
+        AudioManager.PlayConfirm();
+
         if (_sceneManager != null)
             _sceneManager.SaveMap(_sceneManager.CurrentSlot);
 
-        HandleQuitToMenuClick();
+        LoadMainMenuScene();
     }
 
-    // 시간 배속을 되돌리고 메인 메뉴 씬으로 나간다.
+    // 저장하지 않고 메인 메뉴로 나간다.
     private void HandleQuitToMenuClick()
+    {
+        AudioManager.PlayCancel();
+        LoadMainMenuScene();
+    }
+
+    // 시간 배속을 되돌리고 메인 메뉴 씬으로 넘어간다.
+    private void LoadMainMenuScene()
     {
         Time.timeScale = 1f;
         SceneManager.LoadScene(_mainMenuSceneName);

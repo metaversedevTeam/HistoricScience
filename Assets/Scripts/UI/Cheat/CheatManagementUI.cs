@@ -110,6 +110,7 @@ public class CheatManagementUI : OpenableUIBase<CheatMenuData>
                 break;
         }
 
+        AudioManager.PlayConfirm();
         RefreshRows();
     }
 

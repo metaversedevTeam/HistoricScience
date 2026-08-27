@@ -107,6 +107,8 @@ public class WarehouseSlotUI : MonoBehaviour
     private void HandleClick()
     {
         if (Item == null) return;
+
+        AudioManager.PlayButtonClick();
         _onClick?.Invoke(this);
     }
 

@@ -131,11 +131,15 @@ public class CraftingHintPopupUI : OpenableUIBase<CraftingHintData>
     private void HandleHintButtonClick()
     {
         if (_item == null || _codex == null) return;
-        // 이전 시대를 끝내지 못했으면 비용을 치르지도, 힌트를 사지도 못한다.
-        if (_ageLocked) return;
-        if (!_codex.CanRevealHint(_item)) return;
-        if (!HandlePayHintCost()) return;
 
+        // 이전 시대를 끝내지 못했으면 비용을 치르지도, 힌트를 사지도 못한다.
+        if (_ageLocked || !_codex.CanRevealHint(_item) || !HandlePayHintCost())
+        {
+            AudioManager.PlayError();
+            return;
+        }
+
+        AudioManager.PlayConfirm();
         _codex.TryRevealHint(_item);
     }
 

@@ -25,12 +25,15 @@ public class MainMenuUI : MonoBehaviour
     // PLAY 요청을 바깥(씬 매니저)에 알린다.
     private void HandlePlayClick()
     {
+        AudioManager.PlayConfirm();
         PlayRequested?.Invoke();
     }
 
     // 게임(에디터에서는 플레이 모드)을 종료한다.
     private void HandleExitClick()
     {
+        AudioManager.PlayCancel();
+
 #if UNITY_EDITOR
         UnityEditor.EditorApplication.isPlaying = false;
 #else

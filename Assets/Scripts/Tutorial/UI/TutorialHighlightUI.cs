@@ -92,6 +92,9 @@ public class TutorialHighlightUI : OpenableUIBase<TutorialHighlightData>
         HandleFollowTarget();
     }
 
+    // 창이 아니라 화면을 덮는 강조 오버레이라, 열고 닫을 때 창 여닫는 효과음을 내지 않는다.
+    protected override bool UsesWindowSfx => false;
+
     // 강조 대상 제공자와 형제 순서 기준을 받아 둔다.
     protected override void ApplyData(TutorialHighlightData data)
     {

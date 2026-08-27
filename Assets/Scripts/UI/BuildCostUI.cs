@@ -7,6 +7,9 @@ public class BuildCostUI : OpenableUIBase<BuildCostData>
     [SerializeField] private BuildCostRowUI _rowPrefab;
     [SerializeField] private RectTransform _rowContainer;
 
+    // 배치를 확정·취소할 때마다 따라 붙었다 사라지는 HUD 패널이라, 창 여닫는 효과음을 내지 않는다.
+    protected override bool UsesWindowSfx => false;
+
     // 전달받은 비용·인벤토리로 자원별 행을 채운다.
     protected override void ApplyData(BuildCostData data)
     {

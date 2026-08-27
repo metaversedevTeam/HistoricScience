@@ -114,11 +114,13 @@ public class MapManagementUI : MonoBehaviour
     {
         if (_mapSaveUtil.TryReadMapFile(row.Slot) == null)
         {
+            AudioManager.PlayError();
             Debug.LogError($"MapManagementUI: '{row.Slot}' 맵 파일을 열지 못했습니다.");
             Refresh();
             return;
         }
 
+        AudioManager.PlayConfirm();
         HandleEnterIngameScene(row.Slot, isNewMap: false);
     }
 
@@ -126,8 +128,12 @@ public class MapManagementUI : MonoBehaviour
     private void HandleDelete(MapListRowUI row)
     {
         if (!_mapSaveUtil.TryDeleteMap(row.Slot))
+        {
+            AudioManager.PlayError();
             return;
+        }
 
+        AudioManager.PlayConfirm();
         Refresh();
     }
 
@@ -144,10 +150,12 @@ public class MapManagementUI : MonoBehaviour
 
         if (!_mapSaveUtil.TryCreateNewMap(slot, seed))
         {
+            AudioManager.PlayError();
             Debug.LogError($"MapManagementUI: '{slot}' 맵 생성에 실패했습니다.");
             return;
         }
 
+        AudioManager.PlayConfirm();
         HandleEnterIngameScene(slot, isNewMap: true);
     }
 
@@ -160,6 +168,7 @@ public class MapManagementUI : MonoBehaviour
     // 메인 메뉴로 돌아가야 함을 알린다.
     private void HandleBackClick()
     {
+        AudioManager.PlayCancel();
         BackRequested?.Invoke();
     }
 

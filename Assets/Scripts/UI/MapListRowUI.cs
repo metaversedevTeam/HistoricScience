@@ -63,6 +63,7 @@ public class MapListRowUI : MonoBehaviour
     // 줄을 눌러 선택했음을 알린다.
     private void HandleSelectClick()
     {
+        AudioManager.PlayButtonClick();
         _onSelect?.Invoke(this);
     }
 

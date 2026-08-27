@@ -68,5 +68,9 @@ public class CodexAgeTabUI : MonoBehaviour
     }
 
     // 버튼 클릭을 등록된 콜백으로 전달한다.
-    private void HandleClick() => _onClick?.Invoke();
+    private void HandleClick()
+    {
+        AudioManager.PlayButtonClick();
+        _onClick?.Invoke();
+    }
 }

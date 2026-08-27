@@ -15,7 +15,14 @@ public class CommandButtonView : MonoBehaviour
         ApplyContent(cmd);
 
         _button.onClick.RemoveAllListeners();
-        _button.onClick.AddListener(() => cmd.OnExecute?.Invoke());
+        _button.onClick.AddListener(() => HandleClick(cmd));
+    }
+
+    // 명령 버튼을 눌렀을 때 효과음을 내고 연결된 명령을 실행한다.
+    private void HandleClick(CommandData cmd)
+    {
+        AudioManager.PlayButtonClick();
+        cmd.OnExecute?.Invoke();
     }
 
     // 아이콘이 있으면 아이콘만, 없으면 이름 텍스트만 표시한다.

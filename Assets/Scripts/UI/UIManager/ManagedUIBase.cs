@@ -42,10 +42,12 @@ public abstract class ManagedUIBase : MonoBehaviour, IManagedUI
 
         if (immediate)
         {
+            // 씬 전환처럼 여러 UI를 한꺼번에 걷어내는 경로이므로, 닫기 효과음이 겹쳐 울리지 않도록 소리 없이 닫는다
             FinishClose();
         }
         else
         {
+            PlayCloseSfx();
             PlayCloseTransition();
         }
     }
@@ -61,7 +63,24 @@ public abstract class ManagedUIBase : MonoBehaviour, IManagedUI
 
         State = UIState.Opening;
         gameObject.SetActive(true);
+        PlayOpenSfx();
         return true;
+    }
+
+    // 창이 열릴 때 공용 프리셋의 열기 효과음을 낸다 (UsesWindowSfx가 false면 아무 소리도 내지 않는다)
+    private void PlayOpenSfx()
+    {
+        if (!UsesWindowSfx) return;
+
+        AudioManager.PlayPopupOpen();
+    }
+
+    // 창이 닫힐 때 공용 프리셋의 닫기 효과음을 낸다 (UsesWindowSfx가 false면 아무 소리도 내지 않는다)
+    private void PlayCloseSfx()
+    {
+        if (!UsesWindowSfx) return;
+
+        AudioManager.PlayPopupClose();
     }
 
     // 열기 연출 완료 처리 — 파생 클래스의 열기 연출이 끝나는 시점에 호출할 것 (Opening이 아닐 때의 호출은 무시)
@@ -88,6 +107,9 @@ public abstract class ManagedUIBase : MonoBehaviour, IManagedUI
         OnReturnToPool();
         OnFinishClose?.Invoke(this);
     }
+
+    // 창처럼 여닫히는 UI인지 여부 — 화면에 늘 겹쳐 있는 오버레이나 HUD 패널은 false로 덮어써 열기·닫기 효과음을 끈다
+    protected virtual bool UsesWindowSfx => true;
 
     // 풀 반납 직전 정리 훅 — 재사용 시 이전 상태(입력값, 스크롤 위치, 임시 구독 등)가 남지 않도록 오버라이드
     protected virtual void OnReturnToPool()
