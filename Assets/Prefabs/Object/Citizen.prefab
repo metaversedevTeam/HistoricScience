@@ -80,6 +80,9 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 0
   _moveSpeedBonus: {fileID: 11400000, guid: f68e999ac17f08dadba2f99bb86d65aa, type: 2}
+  _walkSfx: {fileID: 8300000, guid: 7a1da8275935858428d3af22a10ab810, type: 3}
+  _walkSfxVolume: 1
+  _walkSfxPitch: 0.5
 --- !u!114 &6999619144125511097
 MonoBehaviour:
   m_ObjectHideFlags: 0

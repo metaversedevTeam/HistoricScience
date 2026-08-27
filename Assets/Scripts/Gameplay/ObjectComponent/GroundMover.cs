@@ -37,11 +37,25 @@ public class GroundMover : MonoBehaviour, IMover
     // 지면 높이를 구하는 레이캐스트의 총 길이(m). 위 시작 높이를 지나 터레인 아래까지 닿을 만큼 충분히 커야 한다.
     private const float k_GroundRaycastLength = 1000f;
 
+    // 실제 속도가 잠시 0으로 떨어져도 발소리를 바로 끊지 않고 기다려 주는 시간(초). 새 이동 명령으로 경로를 다시 잡는 동안
+    // 한두 프레임 속도가 0이 되는데, 그때마다 소리를 끊으면 이동 명령이 연달아 들어올 때 발소리가 계속 처음부터 다시 재생된다.
+    private const float k_WalkSfxStopGrace = 0.2f;
+
     // 목적지의 지면 높이를 찾을 때 감지할 지면 레이어. 비워두면 Awake에서 "Ground" 레이어를 자동으로 찾는다.
     [SerializeField] private LayerMask _groundLayer;
 
     // 이동 속도에 곱해서 적용할 연구 보너스. 비워 두면 연구 보너스를 적용하지 않고 프리팹에 설정된 속도를 그대로 쓴다.
     [SerializeField] private ResearchBonusData _moveSpeedBonus;
+
+    // 이동하는 동안 계속 반복 재생할 걷는 소리. 비워 두면 발소리를 내지 않는다.
+    [SerializeField] private AudioClip _walkSfx;
+
+    // 걷는 소리에 적용할 볼륨 배율. AudioManager의 효과음 볼륨에 곱해진다.
+    [SerializeField, Range(0f, 1f)] private float _walkSfxVolume = 1f;
+
+    // 걷는 소리의 기본 재생 속도(피치). 1이면 클립 원본 속도로, 올리면 발걸음이 빨라진다.
+    // 실제 재생 속도는 여기에 이동 속도 배율과 SetWalkSfxPitchScale로 지정한 배율을 곱해 구한다.
+    [SerializeField, Range(0.1f, 3f)] private float _walkSfxPitch = 1f;
 
     // 새 이동 명령이 실제로 시작됐을 때 발생(Move()가 성공한 경우에만)
     public event Action OnMoveOrdered;
@@ -82,6 +96,12 @@ public class GroundMover : MonoBehaviour, IMover
     private int     _moveOrderId;
     // 연구 보너스를 곱하기 전의 기본 이동 속도. 보너스가 바뀔 때마다 이 값에서 다시 계산한다.
     private float   _baseSpeed;
+    // 재생 중인 걷는 소리를 가리키는 손잡이. 발소리를 내고 있지 않으면 null이다.
+    private AudioManager.LoopSfxHandle _walkSfxHandle;
+    // 기본 재생 속도에 곱해 쓰는 배율. 밖에서 SetWalkSfxPitchScale로 바꾼다.
+    private float   _walkSfxPitchScale = 1f;
+    // 속도가 떨어졌을 때 발소리를 실제로 멈출 시각. 그 전에 다시 움직이면 소리를 끊지 않고 이어 간다.
+    private float   _walkSfxStopTime;
 
     // NavMeshAgent와 HitableObject 컴포넌트를 캐싱하고 지면 레이어와 기본 이동 속도를 확보
     private void Awake()
@@ -115,13 +135,20 @@ public class GroundMover : MonoBehaviour, IMover
         HandleSubscribeMoveSpeedBonus();
     }
 
-    // 비활성화 시 내브메시 베이커의 추적 대상에서 자신을 제거하고 연구 보너스 구독을 해제한다
+    // 비활성화 시 내브메시 베이커의 추적 대상에서 자신을 제거하고 연구 보너스 구독과 내고 있던 걷는 소리를 정리한다
     private void OnDisable()
     {
         if (DynamicNavMeshBaker.Instance != null)
             DynamicNavMeshBaker.Instance.RemoveTarget(transform);
 
         HandleUnsubscribeMoveSpeedBonus();
+        StopWalkSfx();
+    }
+
+    // 인스펙터에서 값을 바꾸면 이미 나고 있는 발소리에도 바로 반영해, 플레이 중에 재생 속도를 들어 보며 맞출 수 있게 한다
+    private void OnValidate()
+    {
+        ApplyWalkSfxPitch();
     }
 
     // 이동 속도 보너스가 지정되어 있으면 갱신 이벤트를 구독하고 현재 합계를 곧바로 반영한다.
@@ -145,15 +172,17 @@ public class GroundMover : MonoBehaviour, IMover
     private void ApplyMoveSpeedBonus()
     {
         _agent.speed = _baseSpeed * ResearchManager.Instance.GetMultiplier(_moveSpeedBonus);
+        ApplyWalkSfxPitch();
     }
 
-    // 추적 대상이 있으면 따라가기를 처리하고, 매 프레임 이동 종료 여부를 확인
+    // 추적 대상이 있으면 따라가기를 처리하고, 매 프레임 이동 종료 여부와 걷는 소리 재생 여부를 갱신
     private void Update()
     {
         if (_followTarget != null)
             HandleFollow();
 
         HandleMoveEnd();
+        HandleWalkSfx();
     }
 
     // 이동 명령이 살아 있는 동안 정지 상태로 바뀌는 순간에만 이벤트를 발생시킨다. 목적지에 실제로 닿았으면
@@ -431,6 +460,83 @@ public class GroundMover : MonoBehaviour, IMover
         BeginDestinationSettle();
 
         OnMoveOrdered?.Invoke();
+    }
+
+    // 에이전트가 실제로 움직이는 동안에만 걷는 소리가 나게 한다. 이동 명령의 시작·종료가 아니라 실제 속도를 기준으로 삼아,
+    // 추적 중 대상 옆에 멈췄다가 다시 따라가는 경우나 다른 유닛에 막혀 잠시 멈춰 선 순간까지 소리가 실제 움직임과 어긋나지 않게 한다.
+    // 다만 속도가 떨어졌다고 곧바로 끊지는 않는다. 그러면 이동 명령이 연달아 들어와 경로를 다시 잡는 한두 프레임마다
+    // 소리가 끊겨, 이미 재생 중이던 발소리가 계속 처음부터 다시 재생되기 때문이다.
+    private void HandleWalkSfx()
+    {
+        if (IsWalking())
+        {
+            _walkSfxStopTime = Time.time + k_WalkSfxStopGrace;
+            PlayWalkSfx();
+            return;
+        }
+
+        // 기다려 주는 시간 안에 다시 움직이면 소리를 그대로 이어 가고, 그 뒤에도 멈춰 있으면 실제로 멈춘다.
+        if (Time.time < _walkSfxStopTime) return;
+
+        StopWalkSfx();
+    }
+
+    // 발소리를 낼 만큼 에이전트가 실제로 움직이고 있는지 판정한다. 정지 판정과 같은 속도 임계값을 쓴다.
+    private bool IsWalking()
+    {
+        if (!_agent.isOnNavMesh)
+            return false;
+
+        return _agent.velocity.sqrMagnitude > k_StoppedSqrVelocity;
+    }
+
+    // 걷는 소리의 기본 재생 속도에 곱할 배율을 지정한다. 발소리를 내고 있는 중이면 곧바로 반영된다.
+    public void SetWalkSfxPitchScale(float scale)
+    {
+        _walkSfxPitchScale = Mathf.Max(0f, scale);
+        ApplyWalkSfxPitch();
+    }
+
+    // 지금 재생 중인 걷는 소리에 계산된 재생 속도를 반영한다. 발소리를 내고 있지 않으면 다음에 시작할 때 적용된다.
+    private void ApplyWalkSfxPitch()
+    {
+        if (_walkSfxHandle == null) return;
+
+        AudioManager.SetLoopPitch(_walkSfxHandle, GetWalkSfxPitch());
+    }
+
+    // 인스펙터에 지정한 기본 재생 속도에 밖에서 지정한 배율과 이동 속도 배율을 곱해 실제 재생 속도를 구한다.
+    private float GetWalkSfxPitch()
+    {
+        return _walkSfxPitch * _walkSfxPitchScale * GetMoveSpeedRatio();
+    }
+
+    // 기본 이동 속도 대비 지금 이동 속도의 비율. 연구로 걸음이 빨라지면 발소리도 그만큼 빨라지게 하는 값이다.
+    // 기본 속도를 알 수 없거나 아직 캐싱되지 않았으면 비율을 따질 수 없으므로 1로 본다.
+    private float GetMoveSpeedRatio()
+    {
+        if (_baseSpeed <= 0f)
+            return 1f;
+
+        return _agent.speed / _baseSpeed;
+    }
+
+    // 걷는 소리를 반복 재생하기 시작한다. 이미 내고 있으면 그대로 두므로, 움직이는 내내 매 프레임 불러도 소리가 처음부터 다시 시작되지 않는다.
+    private void PlayWalkSfx()
+    {
+        if (_walkSfx == null) return;
+        if (_walkSfxHandle != null && _walkSfxHandle.IsPlaying) return;
+
+        _walkSfxHandle = AudioManager.PlayLoop(_walkSfx, transform, _walkSfxVolume, GetWalkSfxPitch());
+    }
+
+    // 내고 있던 걷는 소리를 멈춘다.
+    private void StopWalkSfx()
+    {
+        if (_walkSfxHandle == null) return;
+
+        AudioManager.StopLoop(_walkSfxHandle);
+        _walkSfxHandle = null;
     }
 
     // 목적지 XZ의 지면 높이를 아래로 레이캐스트해 구한다. 맵이 청크 터레인 여러 개로 이루어져 있어 Terrain.activeTerrain은
