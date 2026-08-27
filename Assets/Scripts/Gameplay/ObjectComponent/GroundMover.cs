@@ -508,17 +508,20 @@ public class GroundMover : MonoBehaviour, IMover
     // 인스펙터에 지정한 기본 재생 속도에 밖에서 지정한 배율과 이동 속도 배율을 곱해 실제 재생 속도를 구한다.
     private float GetWalkSfxPitch()
     {
-        return _walkSfxPitch * _walkSfxPitchScale * GetMoveSpeedRatio();
+        return _walkSfxPitch * _walkSfxPitchScale * MoveSpeedRatio;
     }
 
-    // 기본 이동 속도 대비 지금 이동 속도의 비율. 연구로 걸음이 빨라지면 발소리도 그만큼 빨라지게 하는 값이다.
-    // 기본 속도를 알 수 없거나 아직 캐싱되지 않았으면 비율을 따질 수 없으므로 1로 본다.
-    private float GetMoveSpeedRatio()
+    // 프리팹에 설정된 기본 이동 속도 대비 지금 이동 속도의 배율. 연구 보너스가 곱해진 값이라, 걸음이 빨라지면
+    // 발소리와 걷는 애니메이션도 이 배율만큼 빨라진다. 기본 속도를 아직 알 수 없으면 배율을 따질 수 없으므로 1로 본다.
+    public float MoveSpeedRatio
     {
-        if (_baseSpeed <= 0f)
-            return 1f;
+        get
+        {
+            if (_baseSpeed <= 0f)
+                return 1f;
 
-        return _agent.speed / _baseSpeed;
+            return _agent.speed / _baseSpeed;
+        }
     }
 
     // 걷는 소리를 반복 재생하기 시작한다. 이미 내고 있으면 그대로 두므로, 움직이는 내내 매 프레임 불러도 소리가 처음부터 다시 시작되지 않는다.

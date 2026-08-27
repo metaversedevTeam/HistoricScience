@@ -421,6 +421,9 @@ public class AudioManager : MonoBehaviour
         source.loop = true;
         source.spatialBlend = 1f; // 거리에 따라 줄어드는 3D 재생
         source.rolloffMode = AudioRolloffMode.Linear;
+        // 이 소리는 매 프레임 대상 위치로 옮겨 주는데, 오디오 엔진은 그 이동을 소리의 속도로 보고 도플러 효과를 건다.
+        // 그 결과 지정한 재생 속도에 배율이 한 번 더 곱해져, 대상이 빨라질수록 음이 들리는 범위 밖으로 밀려나 소리가 사라진다.
+        source.dopplerLevel = 0f;
         source.minDistance = _loopSfxMinDistance;
         source.maxDistance = _loopSfxMaxDistance;
         return source;
@@ -443,6 +446,9 @@ public class AudioManager : MonoBehaviour
     // 넘겨받은 재생 속도를 AudioSource가 받아 주는 범위로 자른다
     private static float ClampLoopSfxPitch(float pitch)
     {
+        // 계산이 어긋나 NaN이 들어오면 Clamp가 그대로 통과시키는데, 그 값을 넣으면 소리가 아예 나지 않으므로 원래 속도로 되돌린다.
+        if (float.IsNaN(pitch)) return 1f;
+
         return Mathf.Clamp(pitch, k_MinLoopSfxPitch, k_MaxLoopSfxPitch);
     }
 

@@ -266,6 +266,10 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
 
         _animator.SetBool(k_IsMovingParam, _isMoving);
         _animator.SetBool(k_IsGatheringParam, !_isMoving && _gatherTarget != null);
+
+        // 연구로 걸음이 빨라진 만큼 걷는 동작도 빠르게 재생해 발이 미끄러져 보이지 않게 한다.
+        // 애니메이터 전체 속도라 이동 중이 아닐 때는 원래 속도로 되돌려, 채집 같은 다른 동작은 영향을 받지 않게 한다.
+        _animator.speed = _isMoving ? _mover.MoveSpeedRatio : 1f;
     }
 
     // 건물 짓기 명령을 실행해 건물 선택 UI를 열고 선택·닫기 결과를 구독한다. 이미 건축 위치로 이동 중이면 열지 않는다.
