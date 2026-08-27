@@ -99,9 +99,27 @@ public class ItemCodex : MonoBehaviour, ISavable
         return revealed;
     }
 
-    // 도감 대상 아이템을 모두 발견 상태로 등록하고, 조합법 힌트도 전부 공개한다. (에디터 테스트용)
+    // 도감 대상 아이템을 모두 발견했고 공개할 힌트도 남지 않았는지 반환한다. (치트 관리 UI의 일회성 스위치 잠금 판단용)
+    public bool IsEverythingUnlocked
+    {
+        get
+        {
+            IReadOnlyList<ItemData> items = Items;
+            if (items.Count == 0) return false;
+
+            foreach (ItemData item in items)
+            {
+                if (!IsDiscovered(item)) return false;
+                if (CanRevealHint(item)) return false;
+            }
+
+            return true;
+        }
+    }
+
+    // 도감 대상 아이템을 모두 발견 상태로 등록하고, 조합법 힌트도 전부 공개한다. (에디터 테스트용·치트)
     [ContextMenu("Unlock All Items")]
-    private void UnlockAllItems()
+    public void UnlockAllItems()
     {
         int unlocked = 0;
         int hintsRevealed = 0;

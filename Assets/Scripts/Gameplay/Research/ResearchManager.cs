@@ -214,9 +214,30 @@ public class ResearchManager : MonoBehaviour, ISavable
         return true;
     }
 
-    // 연구 목록의 모든 연구를 비용 없이 완료 처리한다. (에디터 테스트용)
+    // 연구 목록의 모든 연구를 이미 완료했는지 반환한다. (치트 관리 UI의 일회성 스위치 잠금 판단용)
+    public bool IsEverythingCompleted
+    {
+        get
+        {
+            if (ResearchList == null) return false;
+
+            bool hasAny = false;
+
+            foreach (ResearchData research in ResearchList.Researches)
+            {
+                if (research == null) continue;
+
+                hasAny = true;
+                if (!_completed.Contains(research)) return false;
+            }
+
+            return hasAny;
+        }
+    }
+
+    // 연구 목록의 모든 연구를 비용 없이 완료 처리한다. (에디터 테스트용·치트)
     [ContextMenu("Unlock All Research")]
-    private void UnlockAllResearch()
+    public void UnlockAllResearch()
     {
         if (ResearchList == null)
         {
