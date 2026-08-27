@@ -12,9 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 598360c40e6b725479aa28dbe732a3a3, type: 3}
   m_Name: "\uC624\uB514\uC624 \uD504\uB9AC\uC14B"
   m_EditorClassIdentifier: 
-  _buttonClick: {fileID: 0}
-  _popupOpen: {fileID: 0}
-  _popupClose: {fileID: 0}
-  _confirm: {fileID: 0}
-  _cancel: {fileID: 0}
-  _error: {fileID: 0}
+  _buttonClick: {fileID: 8300000, guid: 60865ed1afbe64b6c8ba93c611861637, type: 3}
+  _popupOpen: {fileID: 8300000, guid: 50e5d54a69d6b4543a016c665e9f12c6, type: 3}
+  _popupClose: {fileID: 8300000, guid: 028da1dc76fc74a9881aa389a9f19e60, type: 3}
+  _confirm: {fileID: 8300000, guid: f23f0509acdaa42bca07fbdc71c556d7, type: 3}
+  _cancel: {fileID: 8300000, guid: e31701ea2c9fe4921a9c8620dec12c95, type: 3}
+  _error: {fileID: 8300000, guid: 63aaa33e00f12447989b15ba6a803b35, type: 3}
