@@ -24,7 +24,7 @@ GameObject:
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 2147483647
   m_IsActive: 1
 --- !u!4 &2685821945704387688
 Transform:
@@ -296,6 +296,14 @@ PrefabInstance:
       propertyPath: m_Name
       value: Building Bottom
       objectReference: {fileID: 0}
+    - target: {fileID: 5794049703006084936, guid: 8410fe6d03482cf45918bb464a030db8, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
+    - target: {fileID: 6661949698702816548, guid: 8410fe6d03482cf45918bb464a030db8, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -319,9 +327,17 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 2685821945704387688}
     m_Modifications:
+    - target: {fileID: 2630743297157442435, guid: f8bcecbcaec361d4f8e2b71a965a0f5e, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
     - target: {fileID: 3265502659246817283, guid: f8bcecbcaec361d4f8e2b71a965a0f5e, type: 3}
       propertyPath: m_Name
       value: WareHouse Model
+      objectReference: {fileID: 0}
+    - target: {fileID: 3265502659246817283, guid: f8bcecbcaec361d4f8e2b71a965a0f5e, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
       objectReference: {fileID: 0}
     - target: {fileID: 8993655891697604494, guid: f8bcecbcaec361d4f8e2b71a965a0f5e, type: 3}
       propertyPath: m_LocalScale.x

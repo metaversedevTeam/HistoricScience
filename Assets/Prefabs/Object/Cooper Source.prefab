@@ -19,7 +19,7 @@ GameObject:
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 2147483647
   m_IsActive: 1
 --- !u!4 &7224650727096111167
 Transform:
@@ -125,9 +125,17 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 7224650727096111167}
     m_Modifications:
+    - target: {fileID: 1595786685782294151, guid: 5362a999e5fb9224ea47759ead034084, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
     - target: {fileID: 3675848875911225706, guid: 5362a999e5fb9224ea47759ead034084, type: 3}
       propertyPath: m_Name
       value: Cooper Model
+      objectReference: {fileID: 0}
+    - target: {fileID: 3675848875911225706, guid: 5362a999e5fb9224ea47759ead034084, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
       objectReference: {fileID: 0}
     - target: {fileID: 6019299320804778285, guid: 5362a999e5fb9224ea47759ead034084, type: 3}
       propertyPath: m_LocalScale.x
