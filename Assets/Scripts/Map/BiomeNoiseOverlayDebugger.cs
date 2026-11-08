@@ -4,7 +4,8 @@ using UnityEngine.Rendering;
 using HistoricScience.Test;
 
 // 소환된 청크마다 바이옴 판정용 고도/습도 노이즈를 흑백 텍스처로 구워, 지형 표면을 따라가는 반투명 메쉬로 겹쳐 보여주는 에디터 전용 디버그 툴.
-// 고도와 습도는 별도 레이어라 따로 켜고 끄고 색을 정할 수 있고, 레이어 색에 가까울수록 노이즈 값이 1에, 검을수록 0에 가깝다. 노이즈는 MapData의 에디터 전용 함수로 읽으므로 빌드에서는 아무 동작도 하지 않는다.
+// 고도와 습도는 별도 레이어라 따로 켜고 끄고 색을 정할 수 있고, 레이어 색에 가까울수록 노이즈 값이 1에, 검을수록 0에 가깝다.
+// 바이옴 레이어는 노이즈 대신 최종 판정된 바이옴을 각 바이옴의 GizmoColor로 칠해 보여준다. 노이즈는 MapData의 에디터 전용 함수로 읽으므로 빌드에서는 아무 동작도 하지 않는다.
 [ExecuteAlways]
 public class BiomeNoiseOverlayDebugger : MonoBehaviour
 {
@@ -16,6 +17,8 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
     [SerializeField] private bool m_ShowElevation = false;
     // 습도 노이즈 레이어를 표시할지 여부
     [SerializeField] private bool m_ShowMoisture = false;
+    // 최종 판정된 바이옴을 각 바이옴의 GizmoColor로 칠한 레이어를 표시할지 여부
+    [SerializeField] private bool m_ShowBiome = false;
     // 고도 노이즈 레이어의 색. 노이즈 값이 1에 가까울수록 이 색에 가깝고, 0에 가까울수록 검게 표시된다. 투명도는 Opacity로 정한다.
     [SerializeField, ColorUsage(false)] private Color m_ElevationColor = new Color(1f, 1f, 0f);
     // 습도 노이즈 레이어의 색. 노이즈 값이 1에 가까울수록 이 색에 가깝고, 0에 가까울수록 검게 표시된다. 투명도는 Opacity로 정한다.
@@ -34,8 +37,8 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
 #if UNITY_EDITOR
     // URP 언릿 셰이더 경로
     private const string k_UnlitShaderName = "Universal Render Pipeline/Unlit";
-    // 두 레이어를 함께 켰을 때 서로 겹쳐 깜빡이지 않도록 습도 레이어를 고도 레이어보다 더 띄울 높이(월드 단위)
-    private const float k_MoistureLayerGap = 0.5f;
+    // 여러 레이어를 함께 켰을 때 서로 겹쳐 깜빡이지 않도록 레이어마다 더 띄울 높이 간격(월드 단위). 고도, 습도, 바이옴 순으로 쌓인다.
+    private const float k_LayerGap = 0.5f;
     // 매 프레임 불투명도를 적용할 때 문자열 조회를 피하기 위한 셰이더 프로퍼티 ID
     private static readonly int s_BaseColorId = Shader.PropertyToID("_BaseColor");
 
@@ -47,12 +50,13 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
         public Material Material;
     }
 
-    // 청크 하나에 붙은 오버레이(고도/습도 레이어와 공유 메쉬)를 묶어 두는 클래스
+    // 청크 하나에 붙은 오버레이(고도/습도/바이옴 레이어와 공유 메쉬)를 묶어 두는 클래스
     private sealed class OverlayEntry
     {
         public Mesh Mesh;
         public OverlayLayer Elevation;
         public OverlayLayer Moisture;
+        public OverlayLayer Biome;
         // 이 오버레이를 구울 때 사용한 맵 데이터와 해상도. 하나라도 달라지면 오버레이를 다시 굽는다.
         public MapData MapData;
         public int TextureResolution;
@@ -152,10 +156,10 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
         HandleBuildPendingOverlays(m_MaxBuildsPerFrame);
     }
 
-    // 굽기가 필요한 청크의 오버레이를 최대 maxBuilds개까지 굽는다. 두 레이어가 모두 꺼져 있으면 굽지 않는다.
+    // 굽기가 필요한 청크의 오버레이를 최대 maxBuilds개까지 굽는다. 모든 레이어가 꺼져 있으면 굽지 않는다.
     private void HandleBuildPendingOverlays(int maxBuilds)
     {
-        if (!m_ShowElevation && !m_ShowMoisture)
+        if (!m_ShowElevation && !m_ShowMoisture && !m_ShowBiome)
             return;
 
         int builtCount = 0;
@@ -178,12 +182,13 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
     {
         return entry.Elevation.Root != null
             && entry.Moisture.Root != null
+            && entry.Biome.Root != null
             && entry.MapData == mapData
             && entry.TextureResolution == m_TextureResolution
             && entry.MeshResolution == m_MeshResolution;
     }
 
-    // 청크 하나의 표면 메쉬와 고도/습도 레이어를 굽고 청크 터레인의 자식으로 오버레이 오브젝트를 만든다. 굽지 못했으면 false를 반환한다.
+    // 청크 하나의 표면 메쉬와 고도/습도/바이옴 레이어를 굽고 청크 터레인의 자식으로 오버레이 오브젝트를 만든다. 굽지 못했으면 false를 반환한다.
     private bool HandleBuildOverlay(TerrainPainter painter)
     {
         MapData mapData = painter.CurrentMapData;
@@ -205,13 +210,17 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
 
         HandleDestroyOverlay(painter);
 
-        // 켜기/끄기를 다시 굽지 않고 바로 반영할 수 있도록 두 레이어를 항상 함께 굽는다. 메쉬는 두 레이어가 공유한다.
-        Mesh mesh = HandleCreateSurfaceMesh(mapData, mapArea, terrainSize);
+        // 메쉬 높이와 바이옴 판정이 정점을 매번 다시 계산하지 않도록 청크 영역의 정점을 한 번만 계산해 둔다.
+        ChunkRegionField field = mapData.CreateRegionField(mapArea);
+
+        // 켜기/끄기를 다시 굽지 않고 바로 반영할 수 있도록 모든 레이어를 항상 함께 굽는다. 메쉬는 모든 레이어가 공유한다.
+        Mesh mesh = HandleCreateSurfaceMesh(mapData, mapArea, terrainSize, field);
         OverlayEntry entry = new OverlayEntry
         {
             Mesh = mesh,
-            Elevation = HandleCreateLayer("BiomeNoiseOverlay_Elevation", terrain.transform, mesh, shader, mapData, mapArea, BiomeNoiseOverlayMode.Elevation),
-            Moisture = HandleCreateLayer("BiomeNoiseOverlay_Moisture", terrain.transform, mesh, shader, mapData, mapArea, BiomeNoiseOverlayMode.Moisture),
+            Elevation = HandleCreateLayer("BiomeNoiseOverlay_Elevation", terrain.transform, mesh, shader, HandleCreateNoiseTexture(mapData, mapArea, BiomeNoiseOverlayMode.Elevation)),
+            Moisture = HandleCreateLayer("BiomeNoiseOverlay_Moisture", terrain.transform, mesh, shader, HandleCreateNoiseTexture(mapData, mapArea, BiomeNoiseOverlayMode.Moisture)),
+            Biome = HandleCreateLayer("BiomeNoiseOverlay_Biome", terrain.transform, mesh, shader, HandleCreateBiomeTexture(mapData, mapArea, field)),
             MapData = mapData,
             TextureResolution = m_TextureResolution,
             MeshResolution = m_MeshResolution,
@@ -221,12 +230,12 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
         return true;
     }
 
-    // 노이즈 한 종류의 텍스처와 머티리얼, 오브젝트를 만들어 레이어 하나로 묶는다.
-    private OverlayLayer HandleCreateLayer(string objectName, Transform terrainTransform, Mesh mesh, Shader shader, MapData mapData, Rect mapArea, BiomeNoiseOverlayMode mode)
+    // 구운 텍스처로 머티리얼과 오브젝트를 만들어 레이어 하나로 묶는다.
+    private OverlayLayer HandleCreateLayer(string objectName, Transform terrainTransform, Mesh mesh, Shader shader, Texture2D texture)
     {
         OverlayLayer layer = new OverlayLayer
         {
-            Texture = HandleCreateNoiseTexture(mapData, mapArea, mode),
+            Texture = texture,
         };
         layer.Material = HandleCreateMaterial(shader, layer.Texture);
         layer.Root = HandleCreateOverlayObject(objectName, terrainTransform, mesh, layer.Material);
@@ -260,12 +269,41 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
             }
         }
 
+        return HandleCreateTexture(pixels, resolution, FilterMode.Bilinear);
+    }
+
+    // 맵 영역 전체를 픽셀 중심마다 판정해, 최종 바이옴의 GizmoColor를 담은 텍스처를 만든다. 경계가 번지지 않도록 점 필터를 쓴다.
+    private Texture2D HandleCreateBiomeTexture(MapData mapData, Rect mapArea, ChunkRegionField field)
+    {
+        int resolution = m_TextureResolution;
+        Color32[] pixels = new Color32[resolution * resolution];
+
+        for (int y = 0; y < resolution; y++)
+        {
+            for (int x = 0; x < resolution; x++)
+            {
+                Vector2 position = new Vector2(
+                    mapArea.xMin + (x + 0.5f) / resolution * mapArea.width,
+                    mapArea.yMin + (y + 0.5f) / resolution * mapArea.height);
+
+                MapBiome biome = mapData.GetBiome(position, field);
+                Color color = biome != null ? biome.GizmoColor : Color.black;
+                pixels[y * resolution + x] = new Color(color.r, color.g, color.b, 1f);
+            }
+        }
+
+        return HandleCreateTexture(pixels, resolution, FilterMode.Point);
+    }
+
+    // 픽셀 배열로 씬에 저장되지 않는 정사각형 텍스처를 만든다.
+    private Texture2D HandleCreateTexture(Color32[] pixels, int resolution, FilterMode filterMode)
+    {
         Texture2D texture = new Texture2D(resolution, resolution, TextureFormat.RGBA32, false)
         {
             name = "BiomeNoiseOverlayTexture",
             hideFlags = HideFlags.DontSave,
             wrapMode = TextureWrapMode.Clamp,
-            filterMode = FilterMode.Bilinear,
+            filterMode = filterMode,
         };
         texture.SetPixels32(pixels);
         texture.Apply(false, true);
@@ -281,16 +319,13 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
     }
 
     // 맵 데이터의 표면 높이를 따라가는 격자 메쉬를 터레인 로컬 좌표로 만든다. 터레인 높이맵이 아직 적용되기 전이어도 같은 높이가 나온다.
-    private Mesh HandleCreateSurfaceMesh(MapData mapData, Rect mapArea, Vector3 terrainSize)
+    private Mesh HandleCreateSurfaceMesh(MapData mapData, Rect mapArea, Vector3 terrainSize, ChunkRegionField field)
     {
         int quadCount = m_MeshResolution;
         int vertexCountPerSide = quadCount + 1;
         Vector3[] vertices = new Vector3[vertexCountPerSide * vertexCountPerSide];
         Vector2[] uvs = new Vector2[vertices.Length];
         int[] triangles = new int[quadCount * quadCount * 6];
-
-        // 메쉬 정점마다 정점 영역을 다시 계산하지 않도록 청크 영역의 정점을 한 번만 계산해 둔다.
-        ChunkRegionField field = mapData.CreateRegionField(mapArea);
 
         for (int y = 0; y < vertexCountPerSide; y++)
         {
@@ -383,11 +418,14 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
     {
         Color elevationColor = HandleGetLayerColor(m_ElevationColor);
         Color moistureColor = HandleGetLayerColor(m_MoistureColor);
+        // 바이옴 레이어는 텍스처에 이미 GizmoColor가 담겨 있으므로 흰색을 곱해 색을 그대로 쓴다.
+        Color biomeColor = HandleGetLayerColor(Color.white);
 
         foreach (OverlayEntry entry in m_Overlays.Values)
         {
             HandleApplyLayerSettings(entry.Elevation, m_ShowElevation, m_HeightOffset, elevationColor);
-            HandleApplyLayerSettings(entry.Moisture, m_ShowMoisture, m_HeightOffset + k_MoistureLayerGap, moistureColor);
+            HandleApplyLayerSettings(entry.Moisture, m_ShowMoisture, m_HeightOffset + k_LayerGap, moistureColor);
+            HandleApplyLayerSettings(entry.Biome, m_ShowBiome, m_HeightOffset + k_LayerGap * 2f, biomeColor);
         }
     }
 
@@ -429,11 +467,12 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
         m_Overlays.Clear();
     }
 
-    // 오버레이 하나가 가진 두 레이어와 공유 메쉬를 파괴한다.
+    // 오버레이 하나가 가진 모든 레이어와 공유 메쉬를 파괴한다.
     private void HandleDestroyEntry(OverlayEntry entry)
     {
         HandleDestroyLayer(entry.Elevation);
         HandleDestroyLayer(entry.Moisture);
+        HandleDestroyLayer(entry.Biome);
         HandleDestroyObject(entry.Mesh);
     }
 
