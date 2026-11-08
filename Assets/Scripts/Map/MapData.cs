@@ -6,11 +6,14 @@ public sealed class MapData
     // 높이 샘플 격자의 정규화 맵 좌표 1단위당 샘플 개수. GetHeight의 정수 격자 좌표를 이 값으로 나누면 맵 좌표가 된다.
     public const int HeightSamplesPerUnit = 64;
 
-    // 이 정규화 높이(0~1) 미만의 지형은 해수면 아래로 잠겨 걸을 수 없다. 씬에 배치되는 바다 평면의 높이(터레인 최대 높이 대비)와 같은 값으로 유지해야 한다.
-    public const float SeaLevelHeight = 0.12f;
+    // 청크 지형의 최대 높이(m). 높이는 0 ~ 이 값으로 잘리고, 터레인 높이맵의 1이 이 높이에 해당한다.
+    public const float MaxTerrainHeight = 100f;
 
-    // 이 정규화 높이(0~1)를 초과하는 지형은 산/절벽 지대로 간주해 걸을 수 없다.
-    public const float WalkableMaxHeight = 0.28f;
+    // 이 높이(m, 월드 Y) 미만의 지형은 해수면 아래로 잠겨 걸을 수 없다. 씬에 배치되는 바다 평면의 높이와 같은 값으로 유지해야 한다.
+    public const float SeaLevelHeight = 12f;
+
+    // 이 높이(m, 월드 Y)를 초과하는 지형은 산/절벽 지대로 간주해 걸을 수 없다.
+    public const float WalkableMaxHeight = 28f;
 
     // 높이 영향력 계산의 완충값. 가중 거리에 더해져 정점 근처에서 영향력이 발산하는 것을 막고, 클수록 경계의 높이 전환이 넓고 완만해진다.
     private const float k_HeightBlendSoftness = 0.01f;
@@ -90,7 +93,7 @@ public sealed class MapData
         return m_RegionMap.GetRegions(area);
     }
 
-    // 높이 샘플 격자 좌표(맵 좌표 × HeightSamplesPerUnit)의 지형 높이(0~1)를 반환한다. 범위 내 정점이 없으면 기본 바이옴의 높이를 반환한다.
+    // 높이 샘플 격자 좌표(맵 좌표 × HeightSamplesPerUnit)의 지형 높이(m, 0 ~ 최대 높이)를 반환한다. 범위 내 정점이 없으면 기본 바이옴의 높이를 반환한다.
     public float GetHeight(Vector2Int pos)
     {
         return GetHeight(pos, null);
@@ -124,12 +127,12 @@ public sealed class MapData
         }
 
         if (!hasCandidate)
-            return Mathf.Clamp01(HandleSampleBiomeHeight(m_DefaultBiome, position));
+            return HandleClampHeight(HandleSampleBiomeHeight(m_DefaultBiome, position));
 
-        return Mathf.Clamp01(blendedHeight / totalInfluence);
+        return HandleClampHeight(blendedHeight / totalInfluence);
     }
 
-    // 맵 좌표를 둘러싼 높이 격자점 4개를 이중선형 보간해, 실제 터레인 표면과 같은 높이(0~1)를 계산한다. (TerrainPainter가 높이맵을 굽는 방식과 동일하다)
+    // 맵 좌표를 둘러싼 높이 격자점 4개를 이중선형 보간해, 실제 터레인 표면과 같은 높이(m)를 계산한다. (TerrainPainter가 높이맵을 굽는 방식과 동일하다)
     // GetHeight만 사용하는 순수 계산이라 터레인을 굽기 전이나 백그라운드 스레드에서도 표면 높이를 구할 수 있다.
     public float GetSurfaceHeight(Vector2 position)
     {
@@ -153,7 +156,7 @@ public sealed class MapData
         return Mathf.Lerp(Mathf.Lerp(h00, h10, tx), Mathf.Lerp(h01, h11, tx), ty);
     }
 
-    // 주어진 맵 좌표가 걸을 수 있는 지형인지 판정한다. 지형 표면 높이가 해수면 위이면서 지정한 최대 높이 이하이면 걸을 수 있다. GetHeight만 사용하는 순수 계산이라 Unity 내비게이션/피직스 API에 의존하지 않고 백그라운드 스레드에서도 안전하다.
+    // 주어진 맵 좌표가 걸을 수 있는 지형인지 판정한다. 지형 표면 높이(m)가 해수면 위이면서 지정한 최대 높이 이하이면 걸을 수 있다. GetHeight만 사용하는 순수 계산이라 Unity 내비게이션/피직스 API에 의존하지 않고 백그라운드 스레드에서도 안전하다.
     public bool IsWalkable(Vector2 position, float minHeight = SeaLevelHeight, float maxHeight = WalkableMaxHeight)
     {
         return HandleIsHeightWalkable(GetSurfaceHeight(position), minHeight, maxHeight);
@@ -293,7 +296,13 @@ public sealed class MapData
         return noise * m_BoundaryNoiseStrength;
     }
 
-    // 한 바이옴의 높이 프로필(기준 높이 + 굴곡 노이즈)을 주어진 맵 좌표에서 샘플링한다.
+    // 높이(m)를 0 ~ 터레인 최대 높이 범위로 자른다. 터레인 높이맵은 이 범위 밖을 표현할 수 없다.
+    private static float HandleClampHeight(float height)
+    {
+        return Mathf.Clamp(height, 0f, MaxTerrainHeight);
+    }
+
+    // 한 바이옴의 높이 프로필(기준 높이 + 굴곡 노이즈, m)을 주어진 맵 좌표에서 샘플링한다.
     private float HandleSampleBiomeHeight(MapBiome biome, Vector2 position)
     {
         // 바이옴마다 샘플 위치를 밀어, 서로 다른 바이옴이 같은 굴곡 패턴을 공유하지 않게 한다.

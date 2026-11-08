@@ -21,10 +21,10 @@ public class MapBiome : ScriptableObject
     [SerializeField] private MapBiome[] m_IncompatibleBiomes;
     // 인접 금지 규칙에 걸렸을 때 대신 배치될 바이옴. 비어 있으면 인접 금지 규칙이 무시된다.
     [SerializeField] private MapBiome m_FallbackBiome;
-    // 이 바이옴 지형의 기준 높이 (터레인 최대 높이 대비 0~1)
-    [SerializeField, Range(0f, 1f)] private float m_BaseHeight = 0.25f;
-    // 기준 높이 위에 더해질 굴곡 노이즈의 최대 높이 (터레인 최대 높이 대비 0~1)
-    [SerializeField, Range(0f, 1f)] private float m_HeightNoiseAmplitude = 0.05f;
+    // 이 바이옴 지형의 기준 높이(m). 터레인 최대 높이를 넘는 부분은 잘린다.
+    [SerializeField, Min(0f)] private float m_BaseHeight = 25f;
+    // 기준 높이 위에 더해질 굴곡 노이즈의 최대 높이(m)
+    [SerializeField, Min(0f)] private float m_HeightNoiseAmplitude = 5f;
     // 굴곡 노이즈의 스케일 (정규화 맵 좌표 기준). 클수록 더 잘게, 자주 굴곡진다.
     [SerializeField, Min(0f)] private float m_HeightNoiseScale = 3f;
 

@@ -22,6 +22,6 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 91f64ac3ccafd8947a939d5ed25d7307, type: 2}
   - {fileID: 11400000, guid: 011b8d3e13524994b8bf3dab990a2ed9, type: 2}
   m_FallbackBiome: {fileID: 0}
-  m_BaseHeight: 0.22
-  m_HeightNoiseAmplitude: 0.06
+  m_BaseHeight: 22
+  m_HeightNoiseAmplitude: 6
   m_HeightNoiseScale: 5

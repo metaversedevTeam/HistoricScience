@@ -20,6 +20,6 @@ MonoBehaviour:
   m_MoistureRange: {x: 0, y: 1}
   m_IncompatibleBiomes: []
   m_FallbackBiome: {fileID: 0}
-  m_BaseHeight: 0.32
-  m_HeightNoiseAmplitude: 0.6
+  m_BaseHeight: 32
+  m_HeightNoiseAmplitude: 60
   m_HeightNoiseScale: 6

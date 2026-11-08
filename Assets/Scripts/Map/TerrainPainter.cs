@@ -11,7 +11,7 @@ namespace HistoricScience.Test
         // 터레인에 TerrainData가 없을 때 새로 생성할 알파맵 해상도
         private const int k_AlphamapResolution = 512;
         // 터레인에 TerrainData가 없을 때 새로 생성할 터레인 크기
-        private static readonly Vector3 k_TerrainSize = new Vector3(500f, 100f, 500f);
+        private static readonly Vector3 k_TerrainSize = new Vector3(500f, MapData.MaxTerrainHeight, 500f);
 
         // 터레인에 TerrainData가 없을 때 런타임에 새로 만들 터레인 크기. 청크 관리자가 청크 하나의 월드 크기를 미리 알아야 할 때 쓴다.
         public static Vector3 DefaultTerrainSize => k_TerrainSize;
@@ -298,10 +298,12 @@ namespace HistoricScience.Test
             return alphamap;
         }
 
-        // 각 높이맵 셀의 높이를 MapData의 높이 샘플 격자에서 받아와 높이맵을 만든다. 높이 계산 로직은 MapData가 담당한다.
+        // 각 높이맵 셀의 높이(m)를 MapData의 높이 샘플 격자에서 받아와, 터레인이 쓰는 최대 높이 대비 비율(0~1)의 높이맵을 만든다. 높이 계산 로직은 MapData가 담당한다.
         private float[,] HandleBuildHeightmap(int resolution, MapData mapData, ChunkRegionField regionField)
         {
             float[,] heightmap = new float[resolution, resolution];
+            // 터레인은 맵의 최대 높이로 만들어지므로(HandleAssignTerrainData), 같은 값으로 나눠 미터를 높이맵 비율로 바꾼다.
+            float inverseMaxHeight = 1f / MapData.MaxTerrainHeight;
             // 이웃 셀들이 같은 격자점을 공유하므로 격자점 높이를 캐시해 중복 계산을 줄인다.
             var heightCache = new Dictionary<Vector2Int, float>();
 
@@ -311,7 +313,7 @@ namespace HistoricScience.Test
                 {
                     // 높이맵은 양 끝 셀이 터레인 가장자리에 정확히 걸치므로 resolution-1로 나눈다.
                     Vector2 mapPosition = HandleTerrainToMapPosition(new Vector2((float)x / (resolution - 1), (float)z / (resolution - 1)));
-                    heightmap[z, x] = HandleSampleHeight(mapData, mapPosition, heightCache, regionField);
+                    heightmap[z, x] = HandleSampleHeight(mapData, mapPosition, heightCache, regionField) * inverseMaxHeight;
                 }
             }
 
