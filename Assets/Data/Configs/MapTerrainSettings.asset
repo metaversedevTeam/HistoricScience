@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_ChunkWorldSize: 500
   m_MapViewSize: 3
-  m_MaxTerrainHeight: 100
+  m_MaxTerrainHeight: 512
   m_HeightmapResolution: 257
   m_AlphamapResolution: 512
   m_SeaLevel: 12

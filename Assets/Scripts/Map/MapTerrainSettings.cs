@@ -18,19 +18,21 @@ public class MapTerrainSettings : ScriptableObject
     // 청크 하나가 출력하는 정규화 맵 영역의 한 변 길이. 클수록 같은 청크에 더 넓은 맵 영역이 축소되어 담긴다.
     [SerializeField, Min(0.0001f)] private float m_MapViewSize = 3f;
 
+    // 아래 필드들은 OnValidate가 서로 묶어 보정하므로, 입력 도중의 중간값(예: 28을 치려다 누른 2)에 보정이 걸리지 않도록
+    // Delayed로 Enter를 누르거나 칸을 벗어날 때만 값을 적용한다.
     [Header("지형 해상도")]
     // 청크 지형의 최대 높이(m). 터레인 높이맵의 1이 이 높이에 해당한다.
-    [SerializeField, Min(1f)] private float m_MaxTerrainHeight = 100f;
+    [SerializeField, Min(1f), Delayed] private float m_MaxTerrainHeight = 100f;
     // 청크 터레인의 높이맵 해상도 (2의 거듭제곱 + 1)
-    [SerializeField] private int m_HeightmapResolution = 129;
+    [SerializeField, Delayed] private int m_HeightmapResolution = 129;
     // 청크 터레인의 알파맵(바이옴 페인팅) 해상도
-    [SerializeField] private int m_AlphamapResolution = 512;
+    [SerializeField, Delayed] private int m_AlphamapResolution = 512;
 
     [Header("기준 높이 (m)")]
     // 이 높이(월드 Y) 미만의 지형은 해수면 아래로 잠겨 걸을 수 없다. 씬의 바다 평면 높이와 같아야 한다.
-    [SerializeField, Min(0f)] private float m_SeaLevel = 12f;
+    [SerializeField, Min(0f), Delayed] private float m_SeaLevel = 12f;
     // 이 높이(월드 Y)를 초과하는 지형은 산/절벽 지대로 보고 걸을 수 없다. 경사 기반 판정으로 바뀌기 전까지 쓰는 임시 기준이다.
-    [SerializeField, Min(0f)] private float m_WalkableMaxHeight = 28f;
+    [SerializeField, Min(0f), Delayed] private float m_WalkableMaxHeight = 28f;
 
     // 청크 하나가 월드에서 차지하는 가로/세로 길이(m)
     public float ChunkWorldSize => m_ChunkWorldSize;
