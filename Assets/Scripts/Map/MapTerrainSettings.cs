@@ -1,7 +1,7 @@
 using UnityEngine;
 
-// 맵 좌표계와 청크 지형의 크기·해상도·기준 높이를 한곳에 모아 두는 설정 에셋. 같은 값을 쓰는 모든 쪽(맵 데이터, 청크 굽기, 좌표 변환, 내브메시)이
-// 이 에셋 하나만 바라보게 해, 값이 여러 곳에 흩어져 서로 어긋나는 일을 막는다. 런타임 계산에는 이 에셋 대신 CreateConfig로 만든 불변 값 묶음을 쓴다.
+// 맵 좌표계와 청크 지형의 크기·해상도·기준 높이, 내륙 노이즈 규칙을 한곳에 모아 두는 설정 에셋. 같은 값을 쓰는 모든 쪽(맵 데이터, 청크 굽기, 좌표 변환, 내브메시)이
+// 이 에셋 하나만 바라보게 해, 값이 여러 곳에 흩어져 서로 어긋나는 일을 막는다. 런타임 계산에는 이 에셋 대신 CreateConfig/CreateInlandConfig로 만든 불변 값 묶음을 쓴다.
 [CreateAssetMenu(fileName = "MapTerrainSettings", menuName = "HistoricScience/Map/Terrain Settings")]
 public class MapTerrainSettings : ScriptableObject
 {
@@ -11,6 +11,8 @@ public class MapTerrainSettings : ScriptableObject
     // Unity 터레인이 허용하는 알파맵 해상도 범위
     private const int k_MinAlphamapResolution = 16;
     private const int k_MaxAlphamapResolution = 2048;
+    // 내륙 노이즈 높이 커브를 미리 샘플링할 지점 수
+    private const int k_InlandHeightCurveSampleCount = 256;
 
     [Header("좌표계")]
     // 청크 하나가 월드에서 차지하는 가로/세로 길이(m). 청크는 정사각형이다.
@@ -34,6 +36,18 @@ public class MapTerrainSettings : ScriptableObject
     // 이 높이(월드 Y)를 초과하는 지형은 산/절벽 지대로 보고 걸을 수 없다. 경사 기반 판정으로 바뀌기 전까지 쓰는 임시 기준이다.
     [SerializeField, Min(0f), Delayed] private float m_WalkableMaxHeight = 28f;
 
+    [Header("내륙 노이즈")]
+    // 내륙 노이즈가 이 값 이상이면 무조건 산(Mountain 분류) 바이옴이 배치된다. (0~1, 바다 기준 이상)
+    [SerializeField, Delayed] private float m_InlandMountainThreshold = 0.7f;
+    // 내륙 노이즈가 이 값 이하이면 무조건 바다(Sea 분류) 바이옴이 배치된다. (0~1, 산 기준 이하)
+    [SerializeField, Delayed] private float m_InlandSeaThreshold = 0.3f;
+    // 두 기준 사이에서 내륙 노이즈가 판정용 고도를 보정하는 세기. 고도에 (내륙 노이즈 - 0.5) × 이 값이 더해져, 클수록 산/바다가 내륙 노이즈를 더 따른다.
+    [SerializeField, Min(0f)] private float m_InlandElevationBias = 0.5f;
+    // 산 바이옴 높이에 더할 값의 배율(m). 산 바이옴 높이에 높이 커브(내륙 노이즈) × 이 값이 더해진다.
+    [SerializeField, Min(0f)] private float m_MountainInlandHeight = 30f;
+    // 내륙 노이즈(가로축, 0~1)를 산 높이 보정값(세로축)으로 바꾸는 커브. 세로축 값에 Mountain Inland Height가 곱해진다. 바이옴 판정에는 영향을 주지 않는다.
+    [SerializeField] private AnimationCurve m_InlandHeightCurve = AnimationCurve.Linear(0f, 0f, 1f, 1f);
+
     // 청크 하나가 월드에서 차지하는 가로/세로 길이(m)
     public float ChunkWorldSize => m_ChunkWorldSize;
     // 청크 하나가 출력하는 정규화 맵 영역의 한 변 길이
@@ -49,13 +63,22 @@ public class MapTerrainSettings : ScriptableObject
         return new MapTerrainConfig(m_ChunkWorldSize, m_MapViewSize, m_MaxTerrainHeight, m_HeightmapResolution, m_AlphamapResolution, m_SeaLevel, m_WalkableMaxHeight);
     }
 
-    // 인스펙터에서 값을 바꿀 때 해상도를 터레인이 허용하는 값으로, 기준 높이를 최대 높이 안으로 보정한다.
+    // 현재 내륙 노이즈 설정값을 복사하고 높이 커브를 미리 샘플링한 불변 값 묶음을 만든다. 커브를 읽으므로 메인 스레드에서 호출해야 한다.
+    public MapInlandConfig CreateInlandConfig()
+    {
+        float[] heightCurveSamples = MapInlandConfig.BakeHeightCurve(m_InlandHeightCurve, k_InlandHeightCurveSampleCount);
+        return new MapInlandConfig(m_InlandElevationBias, m_InlandMountainThreshold, m_InlandSeaThreshold, m_MountainInlandHeight, heightCurveSamples);
+    }
+
+    // 인스펙터에서 값을 바꿀 때 해상도를 터레인이 허용하는 값으로, 기준 높이를 최대 높이 안으로, 내륙 노이즈 기준을 0~1 안에서 바다 ≤ 산이 되도록 보정한다.
     private void OnValidate()
     {
         m_HeightmapResolution = HandleSnapHeightmapResolution(m_HeightmapResolution);
         m_AlphamapResolution = Mathf.Clamp(Mathf.ClosestPowerOfTwo(m_AlphamapResolution), k_MinAlphamapResolution, k_MaxAlphamapResolution);
         m_SeaLevel = Mathf.Min(m_SeaLevel, m_MaxTerrainHeight);
         m_WalkableMaxHeight = Mathf.Clamp(m_WalkableMaxHeight, m_SeaLevel, m_MaxTerrainHeight);
+        m_InlandMountainThreshold = Mathf.Clamp01(m_InlandMountainThreshold);
+        m_InlandSeaThreshold = Mathf.Clamp(m_InlandSeaThreshold, 0f, m_InlandMountainThreshold);
     }
 
     // 높이맵 해상도를 가장 가까운 (2의 거듭제곱 + 1) 값으로 맞춘다.
