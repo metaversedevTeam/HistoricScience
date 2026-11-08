@@ -3,9 +3,6 @@
 // 보로노이 다이어그램을 기반으로 맵의 바이옴/높이 정보를 계산하는 불변 클래스 (생성 후 상태가 변하지 않아 여러 스레드에서 동시에 읽어도 안전하다)
 public sealed class MapData
 {
-    // 높이 샘플 격자의 정규화 맵 좌표 1단위당 샘플 개수. GetHeight의 정수 격자 좌표를 이 값으로 나누면 맵 좌표가 된다.
-    public const int HeightSamplesPerUnit = 64;
-
     // 높이 영향력 계산의 완충값. 가중 거리에 더해져 정점 근처에서 영향력이 발산하는 것을 막고, 클수록 경계의 높이 전환이 넓고 완만해진다.
     private const float k_HeightBlendSoftness = 0.01f;
 
@@ -26,6 +23,8 @@ public sealed class MapData
     private readonly Vector2 m_HeightNoiseOffset;
     // 이 맵의 좌표계와 청크 지형 크기·해상도·기준 높이. 맵 데이터를 받는 쪽은 이 값을 기준으로 지형을 굽고 좌표를 변환한다.
     private readonly MapTerrainConfig m_TerrainConfig;
+    // 높이 샘플 격자 한 칸의 길이 (정규화 맵 좌표). 조회마다 다시 나누지 않도록 지형 설정에서 한 번 계산해 둔다.
+    private readonly float m_HeightSampleSpacing;
 
     // 이 맵 데이터를 생성할 때 사용된 랜덤 시드를 반환한다.
     public int Seed => m_Seed;
@@ -39,11 +38,15 @@ public sealed class MapData
     // 걸을 수 있는 최대 높이(m). 이 높이를 초과하는 지형은 산/절벽 지대로 보고 걸을 수 없다.
     public float WalkableMaxHeight => m_TerrainConfig.WalkableMaxHeight;
 
+    // 높이 샘플 격자 한 칸의 길이 (정규화 맵 좌표). GetHeight의 정수 격자 좌표에 곱하면 맵 좌표가 된다.
+    public float HeightSampleSpacing => m_HeightSampleSpacing;
+
     // 주어진 시드와 바이옴 목록, 지형 설정으로 바이옴 영역 맵을 생성한다.
     public MapData(int seed, MapBiome[] biomes, MapBiome defaultBiome, MapTerrainConfig terrainConfig, float minWeight = 0.5f, float maxWeight = 2f, float boundaryNoiseScale = 4f, float boundaryNoiseStrength = 0.15f, float maxInfluenceDistance = 0.6f)
     {
         m_Seed = seed;
         m_TerrainConfig = terrainConfig;
+        m_HeightSampleSpacing = terrainConfig.HeightSampleSpacing;
         m_HeightNoiseOffset = HandleGetHeightNoiseOffset(seed);
         m_BoundaryNoiseScale = boundaryNoiseScale;
         m_BoundaryNoiseStrength = boundaryNoiseStrength;
@@ -96,7 +99,7 @@ public sealed class MapData
         return m_RegionMap.GetRegions(area);
     }
 
-    // 높이 샘플 격자 좌표(맵 좌표 × HeightSamplesPerUnit)의 지형 높이(m, 0 ~ 최대 높이)를 반환한다. 범위 내 정점이 없으면 기본 바이옴의 높이를 반환한다.
+    // 높이 샘플 격자 좌표(맵 좌표 ÷ HeightSampleSpacing)의 지형 높이(m, 0 ~ 최대 높이)를 반환한다. 범위 내 정점이 없으면 기본 바이옴의 높이를 반환한다.
     public float GetHeight(Vector2Int pos)
     {
         return GetHeight(pos, null);
@@ -105,7 +108,7 @@ public sealed class MapData
     // 미리 만들어 둔 정점 필드를 이용해 높이를 계산하는 버전. 필드 범위 밖이면 정점을 그 자리에서 계산하므로 결과는 무인자 버전과 같다.
     public float GetHeight(Vector2Int pos, ChunkRegionField field)
     {
-        Vector2 position = (Vector2)pos / HeightSamplesPerUnit;
+        Vector2 position = (Vector2)pos * m_HeightSampleSpacing;
 
         // 각 정점의 영향력(가중 거리 역수의 제곱)에 비례해 바이옴 높이 프로필을 섞어, 바이옴 경계에서 높이가 자연스럽게 이어지도록 한다.
         float totalInfluence = 0f;
@@ -145,7 +148,7 @@ public sealed class MapData
     // 미리 만들어 둔 정점 필드를 이용해 표면 높이를 계산하는 버전. 격자점 4개를 모두 같은 필드로 조회한다.
     public float GetSurfaceHeight(Vector2 position, ChunkRegionField field)
     {
-        Vector2 gridPosition = position * HeightSamplesPerUnit;
+        Vector2 gridPosition = position / m_HeightSampleSpacing;
         int gridX = Mathf.FloorToInt(gridPosition.x);
         int gridY = Mathf.FloorToInt(gridPosition.y);
         float tx = gridPosition.x - gridX;
@@ -185,8 +188,8 @@ public sealed class MapData
         if (!HandleIsHeightWalkable(GetSurfaceHeight(center), minHeight, maxHeight))
             return true;
 
-        Vector2 centerGrid = center * HeightSamplesPerUnit;
-        float gridRadius = Mathf.Abs(radius) * HeightSamplesPerUnit;
+        Vector2 centerGrid = center / m_HeightSampleSpacing;
+        float gridRadius = Mathf.Abs(radius) / m_HeightSampleSpacing;
         float gridRadiusSqr = gridRadius * gridRadius;
 
         int minGridX = Mathf.FloorToInt(centerGrid.x - gridRadius);
@@ -228,8 +231,8 @@ public sealed class MapData
             return true;
         }
 
-        Vector2 centerGrid = position * HeightSamplesPerUnit;
-        float gridRadius = Mathf.Abs(searchRadius) * HeightSamplesPerUnit;
+        Vector2 centerGrid = position / m_HeightSampleSpacing;
+        float gridRadius = Mathf.Abs(searchRadius) / m_HeightSampleSpacing;
         float gridRadiusSqr = gridRadius * gridRadius;
 
         int minGridX = Mathf.FloorToInt(centerGrid.x - gridRadius);
@@ -261,7 +264,7 @@ public sealed class MapData
             }
         }
 
-        result = found ? (Vector2)nearestGrid / HeightSamplesPerUnit : position;
+        result = found ? (Vector2)nearestGrid * m_HeightSampleSpacing : position;
         return found;
     }
 

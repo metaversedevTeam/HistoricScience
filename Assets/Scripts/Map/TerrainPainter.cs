@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace HistoricScience.Test
 {
@@ -146,7 +145,7 @@ namespace HistoricScience.Test
         private ChunkRegionField HandleCreateRegionField(MapData mapData, int alphamapWidth, int padding)
         {
             float alphamapSlack = padding / (float)Mathf.Max(alphamapWidth - 1, 1) * m_MapViewSize;
-            float heightGridSlack = 1f / MapData.HeightSamplesPerUnit;
+            float heightGridSlack = mapData.HeightSampleSpacing;
             float slack = alphamapSlack + heightGridSlack;
 
             Rect area = new Rect(
@@ -286,55 +285,51 @@ namespace HistoricScience.Test
             return alphamap;
         }
 
-        // 각 높이맵 셀의 높이(m)를 MapData의 높이 샘플 격자에서 받아와, 터레인이 쓰는 최대 높이 대비 비율(0~1)의 높이맵을 만든다. 높이 계산 로직은 MapData가 담당한다.
+        // 각 높이맵 셀의 높이(m)를 MapData에서 받아와, 터레인이 쓰는 최대 높이 대비 비율(0~1)의 높이맵을 만든다. 높이 계산 로직은 MapData가 담당한다.
+        // 청크 좌표로 배치된 청크는 높이맵 정점이 높이 격자점과 1:1로 겹치므로 격자점을 그대로 읽고, 그 밖의 경우(에디터에서 원점을 직접 지정 등)는 격자를 보간한다.
         private float[,] HandleBuildHeightmap(int resolution, MapData mapData, ChunkRegionField regionField)
         {
             float[,] heightmap = new float[resolution, resolution];
             // 터레인은 맵 설정의 최대 높이로 만들어지므로(HandleAssignTerrainData), 같은 값으로 나눠 미터를 높이맵 비율로 바꾼다.
             float inverseMaxHeight = 1f / mapData.TerrainConfig.MaxTerrainHeight;
-            // 이웃 셀들이 같은 격자점을 공유하므로 격자점 높이를 캐시해 중복 계산을 줄인다.
-            var heightCache = new Dictionary<Vector2Int, float>();
 
+            bool isGridAligned = m_ChunkCoordinate.HasValue && resolution == mapData.TerrainConfig.HeightmapResolution;
+            if (isGridAligned)
+                HandleFillGridAlignedHeightmap(heightmap, resolution, mapData, regionField, inverseMaxHeight);
+            else
+                HandleFillInterpolatedHeightmap(heightmap, resolution, mapData, regionField, inverseMaxHeight);
+
+            return heightmap;
+        }
+
+        // 청크 원점의 격자 좌표부터 높이맵 정점마다 대응하는 격자점 높이를 그대로 채운다. 경계 정점은 이웃 청크와 같은 격자점을 읽어 높이가 정확히 일치한다.
+        private void HandleFillGridAlignedHeightmap(float[,] heightmap, int resolution, MapData mapData, ChunkRegionField regionField, float inverseMaxHeight)
+        {
+            int cellsPerChunk = mapData.TerrainConfig.HeightCellsPerChunk;
+            int gridOriginX = m_ChunkCoordinate.Value.x * cellsPerChunk;
+            int gridOriginZ = m_ChunkCoordinate.Value.y * cellsPerChunk;
+
+            for (int z = 0; z < resolution; z++)
+            {
+                for (int x = 0; x < resolution; x++)
+                {
+                    heightmap[z, x] = mapData.GetHeight(new Vector2Int(gridOriginX + x, gridOriginZ + z), regionField) * inverseMaxHeight;
+                }
+            }
+        }
+
+        // 높이맵 정점의 맵 좌표에서 격자를 이중선형 보간한 표면 높이를 채운다. 정점과 격자가 어긋나는 경우에만 쓰는 느린 경로다.
+        private void HandleFillInterpolatedHeightmap(float[,] heightmap, int resolution, MapData mapData, ChunkRegionField regionField, float inverseMaxHeight)
+        {
             for (int z = 0; z < resolution; z++)
             {
                 for (int x = 0; x < resolution; x++)
                 {
                     // 높이맵은 양 끝 셀이 터레인 가장자리에 정확히 걸치므로 resolution-1로 나눈다.
                     Vector2 mapPosition = HandleTerrainToMapPosition(new Vector2((float)x / (resolution - 1), (float)z / (resolution - 1)));
-                    heightmap[z, x] = HandleSampleHeight(mapData, mapPosition, heightCache, regionField) * inverseMaxHeight;
+                    heightmap[z, x] = mapData.GetSurfaceHeight(mapPosition, regionField) * inverseMaxHeight;
                 }
             }
-
-            return heightmap;
-        }
-
-        // 맵 좌표를 둘러싼 높이 격자점 4개를 MapData에서 받아와 이중선형 보간한 높이를 반환한다.
-        private float HandleSampleHeight(MapData mapData, Vector2 mapPosition, Dictionary<Vector2Int, float> heightCache, ChunkRegionField regionField)
-        {
-            Vector2 gridPosition = mapPosition * MapData.HeightSamplesPerUnit;
-            int gridX = Mathf.FloorToInt(gridPosition.x);
-            int gridY = Mathf.FloorToInt(gridPosition.y);
-            float tx = gridPosition.x - gridX;
-            float ty = gridPosition.y - gridY;
-
-            float h00 = HandleGetGridHeight(mapData, new Vector2Int(gridX, gridY), heightCache, regionField);
-            float h10 = HandleGetGridHeight(mapData, new Vector2Int(gridX + 1, gridY), heightCache, regionField);
-            float h01 = HandleGetGridHeight(mapData, new Vector2Int(gridX, gridY + 1), heightCache, regionField);
-            float h11 = HandleGetGridHeight(mapData, new Vector2Int(gridX + 1, gridY + 1), heightCache, regionField);
-
-            return Mathf.Lerp(Mathf.Lerp(h00, h10, tx), Mathf.Lerp(h01, h11, tx), ty);
-        }
-
-        // 격자점 높이를 캐시에서 찾고, 없으면 MapData.GetHeight로 계산해 캐시에 저장한다.
-        private float HandleGetGridHeight(MapData mapData, Vector2Int gridPosition, Dictionary<Vector2Int, float> heightCache, ChunkRegionField regionField)
-        {
-            if (!heightCache.TryGetValue(gridPosition, out float height))
-            {
-                height = mapData.GetHeight(gridPosition, regionField);
-                heightCache[gridPosition] = height;
-            }
-
-            return height;
         }
 
         // 알파맵에 가로/세로 박스 블러를 차례로 적용해 바이옴 경계가 그라데이션으로 자연스럽게 섞이도록 만든다.

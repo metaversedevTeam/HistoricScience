@@ -95,4 +95,11 @@ public readonly struct MapTerrainConfig
 
     // 청크 터레인의 월드 크기 (x/z = 청크 크기, y = 최대 높이)
     public Vector3 ChunkTerrainSize => new Vector3(ChunkWorldSize, MaxTerrainHeight, ChunkWorldSize);
+
+    // 높이 샘플 격자 한 칸의 길이 (정규화 맵 좌표). 청크 하나의 맵 영역을 (높이맵 해상도 - 1)칸으로 나눠, 격자점이 청크 높이맵 정점과 1:1로 겹치게 한다.
+    // 청크 경계의 정점은 이웃 청크와 같은 격자점을 가리키므로 경계 높이가 정확히 일치한다.
+    public float HeightSampleSpacing => MapViewSize / (HeightmapResolution - 1);
+
+    // 청크 하나의 한 변에 놓이는 높이 격자 칸 수 (= 높이맵 해상도 - 1). 청크 좌표에 곱하면 그 청크 원점의 격자 좌표가 된다.
+    public int HeightCellsPerChunk => HeightmapResolution - 1;
 }
