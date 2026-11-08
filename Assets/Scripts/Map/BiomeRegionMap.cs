@@ -148,13 +148,8 @@ public sealed class BiomeRegionMap
 
         Vector2 position = HandleGetRegionPosition(cellX, cellY);
 
-        float elevation = Mathf.PerlinNoise(
-            position.x * k_ElevationNoiseScale + m_ElevationNoiseOffset.x,
-            position.y * k_ElevationNoiseScale + m_ElevationNoiseOffset.y);
-
-        float moisture = Mathf.PerlinNoise(
-            position.x * k_MoistureNoiseScale + m_MoistureNoiseOffset.x,
-            position.y * k_MoistureNoiseScale + m_MoistureNoiseOffset.y);
+        float elevation = HandleSampleElevationNoise(position);
+        float moisture = HandleSampleMoistureNoise(position);
 
         for (int i = 0; i < m_Biomes.Length; i++)
         {
@@ -164,6 +159,36 @@ public sealed class BiomeRegionMap
 
         return m_Biomes[0];
     }
+
+    // 주어진 맵 좌표에서 바이옴 판정용 고도 노이즈 값(대략 0~1)을 샘플링한다.
+    private float HandleSampleElevationNoise(Vector2 position)
+    {
+        return Mathf.PerlinNoise(
+            position.x * k_ElevationNoiseScale + m_ElevationNoiseOffset.x,
+            position.y * k_ElevationNoiseScale + m_ElevationNoiseOffset.y);
+    }
+
+    // 주어진 맵 좌표에서 바이옴 판정용 습도 노이즈 값(대략 0~1)을 샘플링한다.
+    private float HandleSampleMoistureNoise(Vector2 position)
+    {
+        return Mathf.PerlinNoise(
+            position.x * k_MoistureNoiseScale + m_MoistureNoiseOffset.x,
+            position.y * k_MoistureNoiseScale + m_MoistureNoiseOffset.y);
+    }
+
+#if UNITY_EDITOR
+    // [에디터 전용] 디버그 표시용으로, 주어진 맵 좌표의 바이옴 판정용 고도 노이즈 값을 반환한다.
+    public float EditorSampleElevationNoise(Vector2 position)
+    {
+        return HandleSampleElevationNoise(position);
+    }
+
+    // [에디터 전용] 디버그 표시용으로, 주어진 맵 좌표의 바이옴 판정용 습도 노이즈 값을 반환한다.
+    public float EditorSampleMoistureNoise(Vector2 position)
+    {
+        return HandleSampleMoistureNoise(position);
+    }
+#endif
 
     // 셀 좌표와 용도 구분값(salt)을 시드와 섞어 결정론적인 32비트 해시를 계산한다.
     private uint HandleHash(int cellX, int cellY, int salt)

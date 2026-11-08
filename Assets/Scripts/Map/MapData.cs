@@ -99,6 +99,20 @@ public sealed class MapData
         return m_RegionMap.GetRegions(area);
     }
 
+#if UNITY_EDITOR
+    // [에디터 전용] 디버그 표시용으로, 주어진 맵 좌표의 바이옴 판정용 고도 노이즈 값을 반환한다.
+    public float EditorSampleElevationNoise(Vector2 position)
+    {
+        return m_RegionMap.EditorSampleElevationNoise(position);
+    }
+
+    // [에디터 전용] 디버그 표시용으로, 주어진 맵 좌표의 바이옴 판정용 습도 노이즈 값을 반환한다.
+    public float EditorSampleMoistureNoise(Vector2 position)
+    {
+        return m_RegionMap.EditorSampleMoistureNoise(position);
+    }
+#endif
+
     // 높이 샘플 격자 좌표(맵 좌표 ÷ HeightSampleSpacing)의 지형 높이(m, 0 ~ 최대 높이)를 반환한다. 범위 내 정점이 없으면 기본 바이옴의 높이를 반환한다.
     public float GetHeight(Vector2Int pos)
     {
