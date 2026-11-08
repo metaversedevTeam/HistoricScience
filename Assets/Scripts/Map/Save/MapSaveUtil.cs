@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
-using UnityEngine.Serialization;
 using HistoricScience.Test;
 
 //MapSaveData의 조립과 JSON 파일 저장/읽기, 그리고 이 맵의 월드 좌표 ↔ 정규화 맵 좌표 변환을 단독으로 관리하는 유틸리티
@@ -18,10 +17,6 @@ public class MapSaveUtil : MonoBehaviour
     [SerializeField] private Citizen m_InitialCitizenPrefab;
     // 시작 시민 위치를 찾을 때 (0,0)에서 걸을 수 있는 곳까지 검색할 반경 (정규화 맵 좌표 단위)
     [SerializeField] private float m_InitialCitizenSearchRadius = 2f;
-    // 청크 TerrainPainter의 Map View Size와 반드시 같아야 하는, 월드 좌표와 맵 좌표를 환산할 때 쓰는 값
-    [SerializeField, FormerlySerializedAs("m_OriginMapViewSize")] private float m_MapViewSize = 3f;
-    // 청크 하나가 실제로 만들어내는 터레인의 가로/세로 크기(월드 단위)와 반드시 같아야 하는 값
-    [SerializeField, FormerlySerializedAs("m_OriginTerrainSize")] private Vector2 m_ChunkTerrainSize = new Vector2(500f, 500f);
 
     // 전역 접근 경로로 자신을 등록한다
     private void Awake()
@@ -42,9 +37,6 @@ public class MapSaveUtil : MonoBehaviour
             Instance = null;
     }
 
-    // 터레인 한 청크가 출력하는 맵 영역의 한 변 길이 (정규화 맵 좌표). 청크를 굽는 쪽이 백그라운드 계산에 들어가기 전에 받아 간다.
-    public float MapViewSize => m_MapViewSize;
-
     // 현재 열려 있는 맵의 데이터. GetMapData나 TryCreateNewMap으로 한 번 생성되기 전에는 null이다.
     public MapData CurrentMapData => m_MapDataGenerator != null ? m_MapDataGenerator.LastMapData : null;
 
@@ -52,13 +44,30 @@ public class MapSaveUtil : MonoBehaviour
     // 어느 청크 위인지 따질 필요 없이 월드 XZ만으로 결정되는 하나의 변환식이 된다. (청크 매니저가 원점에 있다고 가정한다)
     public Vector2 WorldToMapPosition(Vector3 worldPosition)
     {
-        return new Vector2(worldPosition.x, worldPosition.z) / m_ChunkTerrainSize * m_MapViewSize;
+        if (!HandleTryGetTerrainSettings(out MapTerrainSettings settings))
+            return Vector2.zero;
+
+        return new Vector2(worldPosition.x, worldPosition.z) / settings.ChunkWorldSize * settings.MapViewSize;
     }
 
     // 정규화 맵 좌표를 월드 XZ 좌표로 변환한다. WorldToMapPosition의 역함수다.
     public Vector2 MapToWorldXZ(Vector2 mapPosition)
     {
-        return mapPosition / m_MapViewSize * m_ChunkTerrainSize;
+        if (!HandleTryGetTerrainSettings(out MapTerrainSettings settings))
+            return Vector2.zero;
+
+        return mapPosition / settings.MapViewSize * settings.ChunkWorldSize;
+    }
+
+    // 좌표 변환에 쓸 지형 설정을 제너레이터에서 받아 온다. 맵 데이터가 아직 없어도 좌표계는 알 수 있도록 설정 에셋을 직접 읽는다.
+    private bool HandleTryGetTerrainSettings(out MapTerrainSettings settings)
+    {
+        settings = m_MapDataGenerator != null ? m_MapDataGenerator.TerrainSettings : null;
+        if (settings != null)
+            return true;
+
+        Debug.LogError("MapSaveUtil: MapDataGenerator 또는 그 TerrainSettings가 지정되지 않아 좌표를 변환할 수 없습니다.", this);
+        return false;
     }
 
     //맵 데이터와 저장되어야 하는 오브젝트들을 MapSaveData로 묶어 반환

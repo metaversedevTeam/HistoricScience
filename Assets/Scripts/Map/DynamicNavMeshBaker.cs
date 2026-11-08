@@ -19,10 +19,8 @@ public class DynamicNavMeshBaker : MonoBehaviour
     [SerializeField] private List<Transform> m_FollowTargets = new List<Transform>();
     // 구울 영역의 한 변 절반 길이(정사각형 반경)
     [SerializeField, Min(1f)] private float m_BakeRadius = 750f;
-    // 이 높이(월드 Y) 아래의 표면은 굽지 않아 걸을 수 없다. 기본값은 해수면 높이.
-    [SerializeField] private float m_MinBakeHeight = 12f;
-    // 이 높이(월드 Y) 위의 표면은 굽지 않아 걸을 수 없다. 기본값은 터레인 최대 높이.
-    [SerializeField] private float m_MaxBakeHeight = 100f;
+    // 굽는 높이 구간을 정하는 지형 설정. 해수면 아래와 터레인 최대 높이 위의 표면은 굽지 않아 걸을 수 없다.
+    [SerializeField] private MapTerrainSettings m_TerrainSettings;
 
     // 대상 하나를 따라다니며 굽는 데 필요한 상태를 한데 묶은 것
     private class TargetBaker
@@ -58,15 +56,12 @@ public class DynamicNavMeshBaker : MonoBehaviour
             Instance = null;
     }
 
-    // 인스펙터에서 값을 바꿀 때 최대 높이가 항상 최소 높이보다 크도록 보정한다
-    private void OnValidate()
-    {
-        m_MaxBakeHeight = Mathf.Max(m_MaxBakeHeight, m_MinBakeHeight + 1f);
-    }
-
     // 설정된 대상마다 내브메시 데이터를 만들어 등록하고 추적을 시작한다
     private void OnEnable()
     {
+        if (m_TerrainSettings == null)
+            Debug.LogError("[DynamicNavMeshBaker] TerrainSettings가 지정되지 않아 높이 구간 없이 굽습니다.", this);
+
         foreach (Transform target in m_FollowTargets)
             AddTarget(target);
     }
@@ -153,14 +148,29 @@ public class DynamicNavMeshBaker : MonoBehaviour
     private Bounds HandleGetBounds(Transform target)
     {
         Vector3 targetPosition = target != null ? target.position : transform.position;
-        float bakeHeight = m_MaxBakeHeight - m_MinBakeHeight;
+        HandleGetBakeHeightRange(out float minBakeHeight, out float maxBakeHeight);
+        float bakeHeight = maxBakeHeight - minBakeHeight;
         Vector3 size = new Vector3(m_BakeRadius * 2f, bakeHeight, m_BakeRadius * 2f);
-        Vector3 center = new Vector3(targetPosition.x, m_MinBakeHeight + bakeHeight * 0.5f, targetPosition.z);
+        Vector3 center = new Vector3(targetPosition.x, minBakeHeight + bakeHeight * 0.5f, targetPosition.z);
 
         Vector3 quantizedCenter = HandleQuantize(center, size * 0.1f);
         quantizedCenter.y = center.y; // y까지 스냅하면 걷기 가능 높이 구간이 어긋나므로 그대로 둔다
 
         return new Bounds(quantizedCenter, size);
+    }
+
+    // 굽는 높이 구간(월드 Y)을 지형 설정의 해수면 ~ 최대 높이로 정한다. 설정이 없으면 위아래로 넉넉한 구간을 쓴다.
+    private void HandleGetBakeHeightRange(out float minBakeHeight, out float maxBakeHeight)
+    {
+        if (m_TerrainSettings == null)
+        {
+            minBakeHeight = -1000f;
+            maxBakeHeight = 1000f;
+            return;
+        }
+
+        minBakeHeight = m_TerrainSettings.SeaLevel;
+        maxBakeHeight = Mathf.Max(m_TerrainSettings.MaxTerrainHeight, minBakeHeight + 1f);
     }
 
     // 각 축을 quant 간격으로 내림해 스냅한다

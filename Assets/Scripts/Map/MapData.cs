@@ -6,15 +6,6 @@ public sealed class MapData
     // 높이 샘플 격자의 정규화 맵 좌표 1단위당 샘플 개수. GetHeight의 정수 격자 좌표를 이 값으로 나누면 맵 좌표가 된다.
     public const int HeightSamplesPerUnit = 64;
 
-    // 청크 지형의 최대 높이(m). 높이는 0 ~ 이 값으로 잘리고, 터레인 높이맵의 1이 이 높이에 해당한다.
-    public const float MaxTerrainHeight = 100f;
-
-    // 이 높이(m, 월드 Y) 미만의 지형은 해수면 아래로 잠겨 걸을 수 없다. 씬에 배치되는 바다 평면의 높이와 같은 값으로 유지해야 한다.
-    public const float SeaLevelHeight = 12f;
-
-    // 이 높이(m, 월드 Y)를 초과하는 지형은 산/절벽 지대로 간주해 걸을 수 없다.
-    public const float WalkableMaxHeight = 28f;
-
     // 높이 영향력 계산의 완충값. 가중 거리에 더해져 정점 근처에서 영향력이 발산하는 것을 막고, 클수록 경계의 높이 전환이 넓고 완만해진다.
     private const float k_HeightBlendSoftness = 0.01f;
 
@@ -33,14 +24,26 @@ public sealed class MapData
     private readonly MapBiome[] m_Biomes;
     // 시드마다 높이 굴곡 노이즈가 달라지도록 하는 펄린 샘플 오프셋
     private readonly Vector2 m_HeightNoiseOffset;
+    // 이 맵의 좌표계와 청크 지형 크기·해상도·기준 높이. 맵 데이터를 받는 쪽은 이 값을 기준으로 지형을 굽고 좌표를 변환한다.
+    private readonly MapTerrainConfig m_TerrainConfig;
 
     // 이 맵 데이터를 생성할 때 사용된 랜덤 시드를 반환한다.
     public int Seed => m_Seed;
 
-    // 주어진 시드와 바이옴 목록으로 바이옴 영역 맵을 생성한다.
-    public MapData(int seed, MapBiome[] biomes, MapBiome defaultBiome, float minWeight = 0.5f, float maxWeight = 2f, float boundaryNoiseScale = 4f, float boundaryNoiseStrength = 0.15f, float maxInfluenceDistance = 0.6f)
+    // 이 맵의 좌표계와 청크 지형 설정
+    public MapTerrainConfig TerrainConfig => m_TerrainConfig;
+
+    // 해수면 높이(m). 이 높이 미만의 지형은 물에 잠겨 걸을 수 없다.
+    public float SeaLevel => m_TerrainConfig.SeaLevel;
+
+    // 걸을 수 있는 최대 높이(m). 이 높이를 초과하는 지형은 산/절벽 지대로 보고 걸을 수 없다.
+    public float WalkableMaxHeight => m_TerrainConfig.WalkableMaxHeight;
+
+    // 주어진 시드와 바이옴 목록, 지형 설정으로 바이옴 영역 맵을 생성한다.
+    public MapData(int seed, MapBiome[] biomes, MapBiome defaultBiome, MapTerrainConfig terrainConfig, float minWeight = 0.5f, float maxWeight = 2f, float boundaryNoiseScale = 4f, float boundaryNoiseStrength = 0.15f, float maxInfluenceDistance = 0.6f)
     {
         m_Seed = seed;
+        m_TerrainConfig = terrainConfig;
         m_HeightNoiseOffset = HandleGetHeightNoiseOffset(seed);
         m_BoundaryNoiseScale = boundaryNoiseScale;
         m_BoundaryNoiseStrength = boundaryNoiseStrength;
@@ -156,15 +159,27 @@ public sealed class MapData
         return Mathf.Lerp(Mathf.Lerp(h00, h10, tx), Mathf.Lerp(h01, h11, tx), ty);
     }
 
-    // 주어진 맵 좌표가 걸을 수 있는 지형인지 판정한다. 지형 표면 높이(m)가 해수면 위이면서 지정한 최대 높이 이하이면 걸을 수 있다. GetHeight만 사용하는 순수 계산이라 Unity 내비게이션/피직스 API에 의존하지 않고 백그라운드 스레드에서도 안전하다.
-    public bool IsWalkable(Vector2 position, float minHeight = SeaLevelHeight, float maxHeight = WalkableMaxHeight)
+    // 주어진 맵 좌표가 이 맵의 기준 높이(해수면 ~ 걸을 수 있는 최대 높이)로 보아 걸을 수 있는 지형인지 판정한다.
+    public bool IsWalkable(Vector2 position)
+    {
+        return IsWalkable(position, SeaLevel, WalkableMaxHeight);
+    }
+
+    // 주어진 맵 좌표가 걸을 수 있는 지형인지 판정한다. 지형 표면 높이(m)가 최소 높이 이상이면서 최대 높이 이하이면 걸을 수 있다. GetHeight만 사용하는 순수 계산이라 Unity 내비게이션/피직스 API에 의존하지 않고 백그라운드 스레드에서도 안전하다.
+    public bool IsWalkable(Vector2 position, float minHeight, float maxHeight)
     {
         return HandleIsHeightWalkable(GetSurfaceHeight(position), minHeight, maxHeight);
     }
 
+    // 중심에서 반지름 안에 이 맵의 기준 높이로 보아 걸을 수 없는 지형이 하나라도 있으면 true를 반환한다.
+    public bool HasUnwalkableWithin(Vector2 center, float radius)
+    {
+        return HasUnwalkableWithin(center, radius, SeaLevel, WalkableMaxHeight);
+    }
+
     // 중심(center)에서 반지름(radius, 정규화 맵 좌표 단위) 안에 걸을 수 없는 지형이 하나라도 있으면 true를 반환한다. 건물 배치처럼 일정 범위 전체가 걸을 수 있어야 하는 경우에 쓴다.
     // 높이 표본 격자 해상도로 원 안의 표본만 검사하므로 비용은 반지름의 제곱에 비례하며, 걸을 수 없는 표본을 처음 만나면 즉시 종료한다. IsWalkable과 마찬가지로 Unity API에 의존하지 않는다.
-    public bool HasUnwalkableWithin(Vector2 center, float radius, float minHeight = SeaLevelHeight, float maxHeight = WalkableMaxHeight)
+    public bool HasUnwalkableWithin(Vector2 center, float radius, float minHeight, float maxHeight)
     {
         // 반지름이 표본 격자 한 칸보다 작아 원이 격자점을 하나도 담지 못하더라도 중심점만은 항상 검사한다.
         if (!HandleIsHeightWalkable(GetSurfaceHeight(center), minHeight, maxHeight))
@@ -196,10 +211,16 @@ public sealed class MapData
         return false;
     }
 
+    // 이 맵의 기준 높이로 보아 position에서 가장 가까운 걸을 수 있는 위치를 찾는다.
+    public bool TryGetNearestWalkablePosition(Vector2 position, out Vector2 result, float searchRadius)
+    {
+        return TryGetNearestWalkablePosition(position, out result, searchRadius, SeaLevel, WalkableMaxHeight);
+    }
+
     // position에서 가장 가까운 걸을 수 있는 위치를 찾아 result에 채운다. position 자체가 이미 걸을 수 있으면 검색 없이 그 자리를 그대로 반환한다.
     // searchRadius(정규화 맵 좌표 단위) 안에서 걸을 수 있는 곳을 찾지 못하면 false를 반환하고 result에는 원래 position을 담는다.
     // HasUnwalkableWithin과 마찬가지로 높이 표본 격자점만 후보로 삼아 비용은 반지름의 제곱에 비례하며, Unity API에 의존하지 않아 백그라운드 스레드에서도 안전하다.
-    public bool TryGetNearestWalkablePosition(Vector2 position, out Vector2 result, float searchRadius, float minHeight = SeaLevelHeight, float maxHeight = WalkableMaxHeight)
+    public bool TryGetNearestWalkablePosition(Vector2 position, out Vector2 result, float searchRadius, float minHeight, float maxHeight)
     {
         if (IsWalkable(position, minHeight, maxHeight))
         {
@@ -297,9 +318,9 @@ public sealed class MapData
     }
 
     // 높이(m)를 0 ~ 터레인 최대 높이 범위로 자른다. 터레인 높이맵은 이 범위 밖을 표현할 수 없다.
-    private static float HandleClampHeight(float height)
+    private float HandleClampHeight(float height)
     {
-        return Mathf.Clamp(height, 0f, MaxTerrainHeight);
+        return Mathf.Clamp(height, 0f, m_TerrainConfig.MaxTerrainHeight);
     }
 
     // 한 바이옴의 높이 프로필(기준 높이 + 굴곡 노이즈, m)을 주어진 맵 좌표에서 샘플링한다.

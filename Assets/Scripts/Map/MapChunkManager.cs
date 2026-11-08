@@ -20,7 +20,7 @@ public class MapChunkManager : MonoBehaviour
     // 현재 소환되어 있는 청크 오브젝트를 청크 좌표 기준으로 보관한다.
     private readonly Dictionary<Vector2Int, GameObject> m_ActiveChunks = new Dictionary<Vector2Int, GameObject>();
 
-    // 청크 하나가 월드에서 차지하는 XZ 크기 캐시. 모든 청크가 같은 프리팹에서 나오므로 한 번만 계산해 둔다.
+    // 청크 하나가 월드에서 차지하는 XZ 크기 캐시. 맵 데이터의 지형 설정에서 한 번만 계산해 두고, 맵 데이터가 바뀌면 다시 계산한다.
     private Vector2? m_ChunkWorldSize;
 
     // 청크가 새로 소환되었을 때 그 청크의 터레인 페인터를 알린다. 아직 지형이 구워지기 전 시점이다.
@@ -32,13 +32,22 @@ public class MapChunkManager : MonoBehaviour
     // 현재 소환되어 있는 청크들의 좌표. 청크 로더가 해제 대상을 고를 때 쓴다.
     public IReadOnlyCollection<Vector2Int> ActiveChunkCoordinates => m_ActiveChunks.Keys;
 
-    // 청크 하나가 월드에서 차지하는 XZ 크기. 월드 좌표와 청크 좌표를 변환할 때 쓴다.
+    // 청크 하나가 월드에서 차지하는 XZ 크기. 월드 좌표와 청크 좌표를 변환할 때 쓴다. 맵 데이터가 주입되기 전에는 알 수 없다.
     public Vector2 ChunkWorldSize
     {
         get
         {
             if (m_ChunkWorldSize == null)
-                m_ChunkWorldSize = HandleResolveChunkWorldSize();
+            {
+                if (m_MapData == null)
+                {
+                    Debug.LogError("MapChunkManager: 맵 데이터가 주입되지 않아 청크 크기를 알 수 없습니다. SetMapData를 먼저 호출해야 합니다.");
+                    return Vector2.one;
+                }
+
+                float chunkSize = m_MapData.TerrainConfig.ChunkWorldSize;
+                m_ChunkWorldSize = new Vector2(chunkSize, chunkSize);
+            }
 
             return m_ChunkWorldSize.Value;
         }
@@ -57,15 +66,6 @@ public class MapChunkManager : MonoBehaviour
         Vector2 chunkSize = ChunkWorldSize;
 
         return new Vector2Int(Mathf.FloorToInt(localPosition.x / chunkSize.x), Mathf.FloorToInt(localPosition.z / chunkSize.y));
-    }
-
-    // 프리팹 터레인에 데이터가 있으면 그 크기를, 없으면 TerrainPainter가 런타임에 새로 만들 기본 크기를 청크 크기로 쓴다.
-    private Vector2 HandleResolveChunkWorldSize()
-    {
-        Terrain terrain = m_ChunkPrefab != null ? m_ChunkPrefab.GetComponent<Terrain>() : null;
-        Vector3 size = terrain != null && terrain.terrainData != null ? terrain.terrainData.size : TerrainPainter.DefaultTerrainSize;
-
-        return new Vector2(size.x, size.z);
     }
 
     // 주어진 좌표에 청크 프리팹을 소환하고 곧바로 지형을 굽는다. 이미 소환된 좌표면 기존 오브젝트를 그대로 반환한다.
@@ -106,6 +106,7 @@ public class MapChunkManager : MonoBehaviour
     public void SetMapData(MapData mapData)
     {
         m_MapData = mapData;
+        m_ChunkWorldSize = null;
     }
 
     // 청크가 구워질 때 각 청크 영역의 저장 오브젝트를 소환하는 데 쓸 대기 목록을 설정한다. 소환된 항목은 목록에서 제거되므로 호출자와 목록을 공유한다.

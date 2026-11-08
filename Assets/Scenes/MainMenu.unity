@@ -6942,8 +6942,6 @@ MonoBehaviour:
   m_MapDataGenerator: {fileID: 944376830}
   m_InitialCitizenPrefab: {fileID: 4581206732114982103, guid: 34e93f6778c62bb47849c233e64a2344, type: 3}
   m_InitialCitizenSearchRadius: 2
-  m_MapViewSize: 3
-  m_ChunkTerrainSize: {x: 500, y: 500}
 --- !u!114 &944376830
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6956,6 +6954,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f078855d01e47824c9fa010ed5f8ada2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  m_TerrainSettings: {fileID: 11400000, guid: c3d0070294b28ad43b546613f0e7f064, type: 2}
   m_WeightRange: {x: 0.5, y: 2}
   m_BoundaryNoiseScale: 20
   m_BoundaryNoiseStrength: 0.003

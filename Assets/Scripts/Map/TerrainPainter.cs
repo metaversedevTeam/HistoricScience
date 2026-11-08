@@ -6,16 +6,6 @@ namespace HistoricScience.Test
     // 터레인에 TerrainData가 없으면 인메모리로 새로 만들어 할당하고, MapData가 계산한 보로노이 바이옴 정보를 이용해 터레인의 알파맵과 높이맵을 굽는 클래스
     public class TerrainPainter : MonoBehaviour
     {
-        // 터레인에 TerrainData가 없을 때 새로 생성할 높이맵 해상도
-        private const int k_HeightmapResolution = 129;
-        // 터레인에 TerrainData가 없을 때 새로 생성할 알파맵 해상도
-        private const int k_AlphamapResolution = 512;
-        // 터레인에 TerrainData가 없을 때 새로 생성할 터레인 크기
-        private static readonly Vector3 k_TerrainSize = new Vector3(500f, MapData.MaxTerrainHeight, 500f);
-
-        // 터레인에 TerrainData가 없을 때 런타임에 새로 만들 터레인 크기. 청크 관리자가 청크 하나의 월드 크기를 미리 알아야 할 때 쓴다.
-        public static Vector3 DefaultTerrainSize => k_TerrainSize;
-
         [Header("Terrain Settings")]
         // 칠할 대상 터레인
         [SerializeField] private Terrain m_Terrain;
@@ -27,8 +17,11 @@ namespace HistoricScience.Test
         [SerializeField] private int m_EditorPaintSeed = 0;
 
         // 터레인에 출력할 맵 영역의 한 변 길이 (정규화 맵 좌표). 1이면 맵의 1x1 영역이 터레인 전체에 칠해지고, 클수록 더 넓은 영역이 축소되어 보인다.
-        // 맵 좌표계는 MapSaveUtil이 단독으로 소유하므로 인스펙터에서 따로 설정하지 않고, 굽기 직전에 메인 스레드에서 받아 캐시한다.
+        // 맵 좌표계는 MapTerrainSettings가 단독으로 소유하므로 인스펙터에서 따로 설정하지 않고, 굽기 직전에 주입받은 맵 데이터에서 받아 캐시한다.
         private float m_MapViewSize;
+
+        // 청크 관리자가 지정한 청크 좌표. 지정되면 굽기 직전에 이 좌표로 출력 원점을 다시 계산하고, 없으면 인스펙터의 원점을 그대로 쓴다.
+        private Vector2Int? m_ChunkCoordinate;
 
         // 굽기를 요청받을 때 주입받은 맵 데이터. 맵 전체를 담당하는 불변 객체라 모든 청크가 같은 인스턴스를 공유한다.
         private MapData m_MapData;
@@ -58,11 +51,10 @@ namespace HistoricScience.Test
             PaintVoronoiTerrain(generator.GenerateMapData(m_EditorPaintSeed));
         }
 
-        // 청크 좌표에 맞춰 이 터레인이 출력할 정규화 맵 영역의 원점을 설정한다. (원점 = 좌표 × MapViewSize). 청크 관리자가 여러 청크를 이어 붙일 때 사용한다.
+        // 이 터레인이 출력할 청크 좌표를 지정한다. 출력 원점(= 좌표 × MapViewSize)은 맵 데이터를 받는 굽기 직전에 계산된다. 청크 관리자가 여러 청크를 이어 붙일 때 사용한다.
         public void SetChunkCoordinate(Vector2Int chunkCoordinate)
         {
-            HandleCaptureMapViewSize();
-            m_MapViewOrigin = new Vector2(chunkCoordinate.x, chunkCoordinate.y) * m_MapViewSize;
+            m_ChunkCoordinate = chunkCoordinate;
         }
 
         // 이 터레인이 마지막으로 구운 맵 데이터. 굽기 전에는 null이다.
@@ -115,10 +107,10 @@ namespace HistoricScience.Test
                 return null;
             }
 
-            HandleCaptureMapViewSize();
-            HandleAssignTerrainData();
-
             m_MapData = mapData;
+
+            HandleApplyMapViewArea(mapData.TerrainConfig);
+            HandleAssignTerrainData(mapData.TerrainConfig);
 
             // 알파맵 레이어 순서는 맵이 바이옴을 판정할 때 쓴 목록 순서와 반드시 같아야 하므로, 목록도 맵에서 그대로 받아 온다.
             MapBiome[] biomes = mapData.CopyBiomes();
@@ -187,22 +179,18 @@ namespace HistoricScience.Test
             spawner.SpawnResources(m_MapViewOrigin, m_MapViewSize, m_MapData, regionField);
         }
 
-        // 맵 좌표계를 소유한 MapSaveUtil에서 출력 영역 크기를 받아 캐시한다.
-        // ComputePaint가 백그라운드 스레드에서 이 값을 읽으므로, 계산에 들어가기 전 메인 스레드에서 반드시 미리 받아 두어야 한다.
-        private void HandleCaptureMapViewSize()
+        // 맵 설정에서 출력 영역 크기를 받아 캐시하고, 청크 좌표가 지정되어 있으면 출력 원점을 그 좌표에 맞춘다.
+        // ComputePaint가 백그라운드 스레드에서 이 값들을 읽으므로, 계산에 들어가기 전 메인 스레드에서 반드시 미리 맞춰 두어야 한다.
+        private void HandleApplyMapViewArea(MapTerrainConfig config)
         {
-            MapSaveUtil mapSaveUtil = MapSaveUtil.Instance;
-            if (mapSaveUtil == null)
-            {
-                Debug.LogError("TerrainPainter: 씬에 MapSaveUtil이 없어 맵 출력 영역 크기를 받아올 수 없습니다.", this);
-                return;
-            }
+            m_MapViewSize = config.MapViewSize;
 
-            m_MapViewSize = mapSaveUtil.MapViewSize;
+            if (m_ChunkCoordinate.HasValue)
+                m_MapViewOrigin = new Vector2(m_ChunkCoordinate.Value.x, m_ChunkCoordinate.Value.y) * m_MapViewSize;
         }
 
-        // 터레인에 TerrainData가 없으면 에셋으로 저장하지 않는 인메모리 TerrainData를 새로 만들어 터레인과 터레인 콜라이더에 할당한다.
-        private void HandleAssignTerrainData()
+        // 터레인에 TerrainData가 없으면 에셋으로 저장하지 않는 인메모리 TerrainData를 맵 설정의 크기·해상도로 새로 만들어 터레인과 터레인 콜라이더에 할당한다.
+        private void HandleAssignTerrainData(MapTerrainConfig config)
         {
             if (m_Terrain.terrainData != null)
             {
@@ -211,9 +199,9 @@ namespace HistoricScience.Test
 
             TerrainData terrainData = new TerrainData
             {
-                heightmapResolution = k_HeightmapResolution,
-                alphamapResolution = k_AlphamapResolution,
-                size = k_TerrainSize,
+                heightmapResolution = config.HeightmapResolution,
+                alphamapResolution = config.AlphamapResolution,
+                size = config.ChunkTerrainSize,
             };
 
             m_Terrain.terrainData = terrainData;
@@ -302,8 +290,8 @@ namespace HistoricScience.Test
         private float[,] HandleBuildHeightmap(int resolution, MapData mapData, ChunkRegionField regionField)
         {
             float[,] heightmap = new float[resolution, resolution];
-            // 터레인은 맵의 최대 높이로 만들어지므로(HandleAssignTerrainData), 같은 값으로 나눠 미터를 높이맵 비율로 바꾼다.
-            float inverseMaxHeight = 1f / MapData.MaxTerrainHeight;
+            // 터레인은 맵 설정의 최대 높이로 만들어지므로(HandleAssignTerrainData), 같은 값으로 나눠 미터를 높이맵 비율로 바꾼다.
+            float inverseMaxHeight = 1f / mapData.TerrainConfig.MaxTerrainHeight;
             // 이웃 셀들이 같은 격자점을 공유하므로 격자점 높이를 캐시해 중복 계산을 줄인다.
             var heightCache = new Dictionary<Vector2Int, float>();
 

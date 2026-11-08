@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aed065a662f3f144a9497e08d79ee2ee, type: 3}
+  m_Name: MapTerrainSettings
+  m_EditorClassIdentifier: 
+  m_ChunkWorldSize: 500
+  m_MapViewSize: 3
+  m_MaxTerrainHeight: 100
+  m_HeightmapResolution: 129
+  m_AlphamapResolution: 512
+  m_SeaLevel: 12
+  m_WalkableMaxHeight: 28

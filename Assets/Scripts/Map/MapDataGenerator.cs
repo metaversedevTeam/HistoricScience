@@ -7,6 +7,8 @@ namespace HistoricScience.Test
     // MapData는 무한 평면 전체를 담당하는 불변 객체라 청크마다 따로 만들 필요가 없다.
     public class MapDataGenerator : MonoBehaviour
     {
+        // 맵 좌표계와 청크 지형 크기·해상도·기준 높이 설정. 생성되는 MapData가 이 값을 복사해 들고 다닌다.
+        [SerializeField] private MapTerrainSettings m_TerrainSettings;
         // 각 정점에 랜덤으로 부여할 가중치의 최소/최대 범위
         [SerializeField] private Vector2 m_WeightRange = new Vector2(0.5f, 2f);
         // 바이옴 경계(원호)에 굴곡을 주는 노이즈의 스케일. 클수록 더 잘게, 자주 굴곡진다.
@@ -30,6 +32,8 @@ namespace HistoricScience.Test
         public MapData LastMapData => m_LastMapData;
         // 마지막으로 주입받은 랜덤 시드를 반환한다.
         public int Seed => seed;
+        // 이 제너레이터가 쓰는 지형 설정. 맵 데이터가 아직 없을 때도 좌표계를 알아야 하는 쪽(좌표 변환 등)이 사용한다.
+        public MapTerrainSettings TerrainSettings => m_TerrainSettings;
 
         // 주입받은 시드와 인스펙터 파라미터를 이용해 새로운 MapData를 생성하고 결과를 보관한다.
         public MapData GenerateMapData(int injectedSeed)
@@ -40,9 +44,15 @@ namespace HistoricScience.Test
                 return null;
             }
 
+            if (m_TerrainSettings == null)
+            {
+                Debug.LogError("MapDataGenerator: TerrainSettings가 지정되지 않았습니다.", this);
+                return null;
+            }
+
             seed = injectedSeed;
 
-            MapData mapData = new MapData(seed, m_Biomes, m_DefaultBiome, m_WeightRange.x, m_WeightRange.y, m_BoundaryNoiseScale, m_BoundaryNoiseStrength, m_MaxInfluenceDistance);
+            MapData mapData = new MapData(seed, m_Biomes, m_DefaultBiome, m_TerrainSettings.CreateConfig(), m_WeightRange.x, m_WeightRange.y, m_BoundaryNoiseScale, m_BoundaryNoiseStrength, m_MaxInfluenceDistance);
             m_LastMapData = mapData;
 
             return mapData;
