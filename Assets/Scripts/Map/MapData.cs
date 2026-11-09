@@ -59,6 +59,26 @@ public sealed class MapData
         m_Biomes = biomes != null ? (MapBiome[])biomes.Clone() : new MapBiome[0];
 
         m_RegionMap = new BiomeRegionMap(seed, minWeight, maxWeight, biomes, inlandConfig);
+
+        HandleWarnIfMountainExceedsMaxHeight();
+    }
+
+    // 산 분류 바이옴이 낼 수 있는 최대 높이가 터레인 최대 높이를 넘으면, 정상이 평평하게 잘린다는 경고를 남긴다.
+    private void HandleWarnIfMountainExceedsMaxHeight()
+    {
+        float maxInlandBonus = m_InlandConfig.MaxHeightCurveValue * m_InlandConfig.MountainHeightScale;
+        float maxTerrainHeight = m_TerrainConfig.MaxTerrainHeight;
+
+        for (int i = 0; i < m_Biomes.Length; i++)
+        {
+            MapBiome biome = m_Biomes[i];
+            if (biome == null || biome.Category != MapBiomeCategory.Mountain)
+                continue;
+
+            float peakHeight = biome.BaseHeight + biome.HeightNoiseAmplitude + maxInlandBonus;
+            if (peakHeight > maxTerrainHeight)
+                Debug.LogWarning($"MapData: 산 바이옴 '{biome.name}'의 최대 높이 {peakHeight:F1}m가 터레인 최대 높이 {maxTerrainHeight:F1}m를 {peakHeight - maxTerrainHeight:F1}m 넘어 정상이 평평하게 잘립니다. Mountain Inland Height나 바이옴의 기준 높이/굴곡 세기를 낮추세요.");
+        }
     }
 
     // 주어진 맵 좌표의 내륙 노이즈 값(대략 0~1)을 반환한다. 높을수록 산, 낮을수록 바다가 배치되기 쉽다.

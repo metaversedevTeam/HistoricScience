@@ -14,6 +14,11 @@ public readonly struct MapInlandConfig
     // 높이 커브를 0~1 구간에서 균등 간격으로 미리 샘플링한 값. AnimationCurve는 백그라운드 스레드에서 안전하게 읽을 수 없어 배열로 들고 다닌다.
     // 이 구조체 밖으로 내보내지 않고 읽기만 하므로 불변으로 취급한다. null이면 커브 없이 내륙 노이즈를 그대로 쓴다.
     private readonly float[] m_HeightCurveSamples;
+    // EvaluateHeightCurve가 0~1 입력에서 낼 수 있는 최댓값. 산 높이가 터레인 최대 높이를 넘는지 검사할 때 쓴다.
+    private readonly float m_MaxHeightCurveValue;
+
+    // EvaluateHeightCurve가 0~1 입력에서 낼 수 있는 최댓값을 반환한다.
+    public float MaxHeightCurveValue => m_MaxHeightCurveValue;
 
     // 내륙 노이즈 규칙 값과 미리 샘플링한 높이 커브로 설정을 만든다.
     public MapInlandConfig(float elevationBias, float mountainThreshold, float seaThreshold, float mountainHeightScale, float[] heightCurveSamples)
@@ -23,6 +28,20 @@ public readonly struct MapInlandConfig
         SeaThreshold = seaThreshold;
         MountainHeightScale = mountainHeightScale;
         m_HeightCurveSamples = heightCurveSamples;
+        m_MaxHeightCurveValue = HandleGetMaxSample(heightCurveSamples);
+    }
+
+    // 미리 샘플링한 커브 값 중 최댓값을 구한다. 커브가 없으면 입력을 그대로 쓰므로 1을 반환한다.
+    private static float HandleGetMaxSample(float[] samples)
+    {
+        if (samples == null || samples.Length < 2)
+            return 1f;
+
+        float max = samples[0];
+        for (int i = 1; i < samples.Length; i++)
+            max = Mathf.Max(max, samples[i]);
+
+        return max;
     }
 
     // 높이 커브를 sampleCount개 지점에서 샘플링해 MapInlandConfig에 넘길 배열을 만든다. 메인 스레드에서 호출해야 한다.
