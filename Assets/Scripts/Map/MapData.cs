@@ -213,6 +213,12 @@ public sealed class MapData
         return IsWalkable(position, SeaLevel, WalkableMaxHeight);
     }
 
+    // 미리 만들어 둔 정점 필드를 이용해 이 맵의 기준 높이로 걸을 수 있는지 판정하는 버전. 청크 영역을 한꺼번에 판정할 때 쓴다.
+    public bool IsWalkable(Vector2 position, ChunkRegionField field)
+    {
+        return HandleIsHeightWalkable(GetSurfaceHeight(position, field), SeaLevel, WalkableMaxHeight);
+    }
+
     // 주어진 맵 좌표가 걸을 수 있는 지형인지 판정한다. 지형 표면 높이(m)가 최소 높이 이상이면서 최대 높이 이하이면 걸을 수 있다. GetHeight만 사용하는 순수 계산이라 Unity 내비게이션/피직스 API에 의존하지 않고 백그라운드 스레드에서도 안전하다.
     public bool IsWalkable(Vector2 position, float minHeight, float maxHeight)
     {
