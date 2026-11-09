@@ -23,10 +23,6 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
     // 시민 모델의 애니메이터. 이동·채집 상태를 파라미터로 전달한다.
     [SerializeField] private Animator _animator;
 
-    // 우클릭 홀드로 이동 목표를 다시 잡을 최소 이동 거리(m). 홀드 갱신은 지점이 멈춰 있어도 계속 들어오는데,
-    // 같은 자리를 반복 명령하면 이동이 매번 다시 시작돼 이동 종료 판정이 계속 미뤄지므로 여기서 걸러낸다.
-    [SerializeField] private float _holdRefreshDistance = 0.5f;
-
     // 애니메이터 파라미터 이름. 매 프레임 문자열 비교를 피하기 위해 해시로 캐싱한다.
     private static readonly int k_IsMovingParam = Animator.StringToHash("IsMoving");
     private static readonly int k_IsGatheringParam = Animator.StringToHash("IsGathering");
@@ -46,9 +42,6 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
 
     // 이동 중인지 여부. IMover의 이동 시작·종료 이벤트로 갱신한다.
     private bool _isMoving;
-
-    // 마지막으로 우클릭 명령을 받은 지면 지점. 홀드 갱신이 충분히 움직였는지 판정하는 기준이다.
-    private Vector2 _lastRightClickPos;
 
     // 열려 있는 건물 선택 UI. 열려 있지 않으면 null이다.
     private BuildingSelectUI _openBuildingSelectUI;
@@ -88,11 +81,25 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
         UnsubscribeFromBuildingSelectUI();
     }
 
-    // 채집 대상이 지정되어 있으면 매 프레임 채집을 시도하고, 그 결과를 애니메이션에 반영
+    // 선택 여부와 관계없이 WASD로 걷고, 채집 대상이 지정되어 있으면 매 프레임 채집을 시도하며, 그 결과를 애니메이션에 반영
     private void Update()
     {
+        HandleMoveInput();
         HandleGathering();
         HandleAnimation();
+    }
+
+    // 선택 여부와 관계없이 플레이어의 WASD 입력 방향으로 직접 걷고, Shift를 누르고 있으면 달린다. 입력이 끊기면 이동 컴포넌트가 스스로 멈춘다.
+    // 걷기 시작하면 OnMoveOrdered를 거쳐 진행 중이던 채집이 취소되고, 대상 추적이나 일터로 가던 이동도 이 이동으로 대체된다.
+    private void HandleMoveInput()
+    {
+        PlayerManager player = PlayerManager.Instance;
+        if (player == null) return;
+
+        Vector2 direction = player.MoveDirection;
+        if (direction == Vector2.zero) return;
+
+        _mover.MoveInDirection(direction, player.IsRunning);
     }
 
     // 이 오브젝트가 제공하는 명령 목록을 반환한다.
@@ -108,7 +115,6 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
 
         _selectedBy = playerManager;
         _selectedBy.OnMouseRightClick += HandleRightClick;
-        _selectedBy.OnMouseRightHold += HandleRightHold;
         _selectedBy.OnDeselected += HandleDeselected;
     }
 
@@ -118,22 +124,15 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
         UnsubscribeFromPlayer();
     }
 
-    // 우클릭한 대상이 IGatherable이면 채집을 시작하고, 아니면 대상을 추적하거나 클릭한 위치로 이동하며 진행 중이던 채집과 채집 타겟 지정 대기, 건축 위치 지정을 취소
+    // 우클릭한 대상이 IGatherable이면 채집을 시작하고, 아니면 대상을 추적하며 진행 중이던 채집과 채집 타겟 지정 대기, 건축 위치 지정을 취소한다.
+    // 이동은 WASD로만 하므로 빈 지면을 우클릭한 것은 무시한다.
     private void HandleRightClick(Vector2 pos, ClickableObject clickable)
     {
-        // 대상을 클릭한 경우에도 커서 아래 지면 지점을 기준으로 남긴다. 그래야 그 자리에서 홀드로 살짝 흔들린 것과
-        // 지면으로 끌어내 이동을 명령한 것을 구분할 수 있다.
-        _lastRightClickPos = pos;
+        if (clickable == null) return;
 
         CancelGatherTargeting();
         CancelGathering();
         CancelBuildingPlacement();
-
-        if (clickable == null)
-        {
-            _mover.Move(pos);
-            return;
-        }
 
         var gatherable = clickable.GetComponent<IGatherable>();
         if (gatherable != null)
@@ -142,24 +141,12 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
             _mover.Move(clickable.transform);
     }
 
-    // 우클릭을 누르고 있는 동안 갱신된 지면 지점으로 이동 목표를 다시 잡는다. 대상 위를 가리키는 동안은 갱신하지 않는데,
-    // 추적·채집은 이미 대상을 계속 따라가므로 다시 명령할 필요가 없고, 매번 다시 시작하면 진행 중인 채집만 끊기기 때문이다.
-    // 갱신은 지점이 멈춰 있어도 계속 들어오므로, 직전에 명령한 지점에서 충분히 움직였을 때만 다시 명령한다.
-    private void HandleRightHold(Vector2 pos, ClickableObject clickable)
-    {
-        if (clickable != null) return;
-        if (Vector2.Distance(pos, _lastRightClickPos) < _holdRefreshDistance) return;
-
-        HandleRightClick(pos, null);
-    }
-
     // 구독 중인 PlayerManager 이벤트를 해제하고 참조를 비운다.
     private void UnsubscribeFromPlayer()
     {
         if (_selectedBy == null) return;
 
         _selectedBy.OnMouseRightClick -= HandleRightClick;
-        _selectedBy.OnMouseRightHold -= HandleRightHold;
         _selectedBy.OnDeselected -= HandleDeselected;
         _selectedBy = null;
     }

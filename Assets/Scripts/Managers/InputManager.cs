@@ -34,6 +34,12 @@ public class InputManager : MonoBehaviour
     // 다음 홀드 갱신을 발행할 시각
     private float _nextHoldFireTime;
 
+    // WASD 입력을 카메라 기준 월드 XZ 이동 방향(크기 0 또는 1)으로 바꾼 값. W가 카메라가 보는 쪽이다.
+    public Vector2 MoveDirection => HandleGetMoveDirection();
+
+    // 왼쪽이나 오른쪽 Shift를 누르고 있는지. 직접 걷는 유닛이 이 값으로 달리기 여부를 정한다.
+    public bool IsRunning => Keyboard.current != null && Keyboard.current.shiftKey.isPressed;
+
     // Ground 레이어가 미설정된 경우 자동으로 찾아 할당
     private void Awake()
     {
@@ -87,6 +93,44 @@ public class InputManager : MonoBehaviour
         _nextHoldFireTime = Time.time + _holdRepeatInterval;
 
         TryFireClick(OnMouseRightHold, _rightClickColor);
+    }
+
+    // 눌린 WASD 키를 모아 카메라가 보는 방향 기준의 월드 XZ 방향으로 바꾼다. 입력이 없으면 0을 반환한다.
+    private Vector2 HandleGetMoveDirection()
+    {
+        Keyboard keyboard = Keyboard.current;
+        if (keyboard == null) return Vector2.zero;
+
+        Vector2 input = Vector2.zero;
+        if (keyboard.wKey.isPressed) input.y += 1f;
+        if (keyboard.sKey.isPressed) input.y -= 1f;
+        if (keyboard.dKey.isPressed) input.x += 1f;
+        if (keyboard.aKey.isPressed) input.x -= 1f;
+
+        if (input == Vector2.zero) return Vector2.zero;
+
+        GetCameraGroundAxes(out Vector2 forward, out Vector2 right);
+        return (forward * input.y + right * input.x).normalized;
+    }
+
+    // 카메라의 앞·오른쪽 방향을 지면(XZ)에 눕혀 정규화한다. 카메라가 바로 아래를 내려다봐 앞 방향이 지면에 거의 안 남으면 화면 위쪽 방향을 앞으로 쓴다.
+    private void GetCameraGroundAxes(out Vector2 forward, out Vector2 right)
+    {
+        if (_cam == null)
+        {
+            forward = Vector2.up;
+            right   = Vector2.right;
+            return;
+        }
+
+        Transform camTransform = _cam.transform;
+        Vector3 flatForward = new Vector3(camTransform.forward.x, 0f, camTransform.forward.z);
+        if (flatForward.sqrMagnitude < 0.0001f)
+            flatForward = new Vector3(camTransform.up.x, 0f, camTransform.up.z);
+
+        flatForward.Normalize();
+        forward = new Vector2(flatForward.x, flatForward.z);
+        right   = new Vector2(forward.y, -forward.x);
     }
 
     // 포인터가 UI 위에 올라가 있는지 반환한다.

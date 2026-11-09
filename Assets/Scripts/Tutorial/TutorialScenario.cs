@@ -87,7 +87,7 @@ public static class TutorialScenario
             runner => new TutorialStepStatus(
                 runner.Context.SelectedCitizen == null
                     ? $"먼저 {Accent}시민{AccentEnd}을 다시 선택해 주세요."
-                    : $"시민을 선택한 채로 땅을 {Accent}오른쪽 클릭{AccentEnd}하면 그곳으로 걸어갑니다. 이동을 명령해 보세요.",
+                    : $"{Accent}W·A·S·D 키{AccentEnd}를 누르면 시민이 그 방향으로 걸어갑니다. 시민을 움직여 보세요.",
                 runner.Progress.MoveOrdered),
             runner => HighlightWorld(runner.Context.SelectedCitizen, 1.4f, dim: false)));
 
