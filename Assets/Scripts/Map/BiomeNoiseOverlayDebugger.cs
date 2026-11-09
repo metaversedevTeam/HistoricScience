@@ -2,6 +2,9 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 using HistoricScience.Test;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 // 소환된 청크마다 바이옴 판정용 고도/습도 노이즈를 흑백 텍스처로 구워, 지형 표면을 따라가는 반투명 메쉬로 겹쳐 보여주는 에디터 전용 디버그 툴.
 // 고도와 습도는 별도 레이어라 따로 켜고 끄고 색을 정할 수 있고, 레이어 색에 가까울수록 노이즈 값이 1에, 검을수록 0에 가깝다.
@@ -33,6 +36,10 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
     [SerializeField, Range(2, 128)] private int m_MeshResolution = 48;
     // 한 프레임에 새로 구울 최대 청크 수. 청크가 한꺼번에 소환될 때 프레임이 튀는 것을 막는다.
     [SerializeField, Min(1)] private int m_MaxBuildsPerFrame = 2;
+
+    [Header("Hover Info")]
+    // 씬 뷰에서 마우스 아래 오버레이 칸을 표시하고, 최종 지형 높이와 표시가 켜진 레이어(고도/습도/바이옴)의 값을 라벨로 보여줄지 여부
+    [SerializeField] private bool m_ShowHoverInfo = false;
 
 #if UNITY_EDITOR
     // URP 언릿 셰이더 경로
@@ -68,13 +75,40 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
     // 청크별로 만들어 둔 오버레이
     private readonly Dictionary<TerrainPainter, OverlayEntry> m_Overlays = new Dictionary<TerrainPainter, OverlayEntry>();
 
+    // 마우스 아래 칸을 찾을 광선의 최대 거리(월드 단위)
+    private const float k_HoverRayDistance = 100000f;
+    // 마우스 아래 칸 사각형의 채우기 색
+    private static readonly Color s_HoverFillColor = new Color(1f, 1f, 1f, 0.15f);
+    // 마우스 아래 칸의 네 모서리. 매 프레임 배열을 새로 만들지 않도록 재사용한다.
+    private readonly Vector3[] m_HoverCorners = new Vector3[4];
+    // 값 라벨을 마우스 위치보다 위로 띄울 화면 거리(GUI 포인트)
+    private const float k_HoverLabelOffset = 40f;
+    // 마우스 위치와 라벨을 잇는 선의 두께(GUI 포인트)
+    private const float k_HoverLineThickness = 2f;
+    // 마우스 아래 칸 값 라벨의 스타일. EditorStyles는 GUI 이벤트 안에서만 쓸 수 있어 처음 그릴 때 만든다.
+    private GUIStyle m_HoverLabelStyle;
+    // 값 라벨의 내용. 매 프레임 새로 만들지 않도록 재사용한다.
+    private readonly GUIContent m_HoverLabelContent = new GUIContent();
+
+    // 마우스 아래에서 찾은 오버레이 칸 하나의 정보를 묶어 두는 구조체
+    private struct HoverCell
+    {
+        public MapData MapData;
+        // 칸 중심의 맵 좌표. 오버레이 텍스처가 픽셀 중심을 샘플링하는 것과 같은 위치다.
+        public Vector2 MapPosition;
+        // 마우스가 가리키는 오버레이(레이어가 모두 꺼져 있으면 지형) 표면 위의 월드 좌표
+        public Vector3 MouseWorldPosition;
+    }
+
     private void OnEnable()
     {
         HandleSubscribe();
+        SceneView.duringSceneGui += HandleSceneGUI;
     }
 
     private void OnDisable()
     {
+        SceneView.duringSceneGui -= HandleSceneGUI;
         HandleUnsubscribe();
         HandleDestroyAllOverlays();
     }
@@ -446,6 +480,182 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
 
         if (layer.Material != null)
             layer.Material.SetColor(s_BaseColorId, color);
+    }
+
+    // 씬 뷰가 GUI를 그릴 때마다 마우스 아래 칸을 찾아 표시가 켜진 레이어의 값을 보여준다.
+    private void HandleSceneGUI(SceneView sceneView)
+    {
+        if (!m_ShowHoverInfo)
+            return;
+
+        Event current = Event.current;
+        // 씬 뷰는 마우스 이동만으로는 다시 그리지 않으므로, 움직일 때마다 다시 그리게 해 라벨이 마우스를 따라오게 한다.
+        if (current.type == EventType.MouseMove || current.type == EventType.MouseDrag)
+        {
+            sceneView.Repaint();
+            return;
+        }
+
+        if (current.type != EventType.Repaint)
+            return;
+
+        if (!HandleTryPickHoverCell(current.mousePosition, out HoverCell cell))
+            return;
+
+        HandleDrawHoverCell(cell, current.mousePosition);
+    }
+
+    // 마우스 위치에서 쏜 광선이 닿는 오버레이 칸을 찾는다. 칸 사각형의 네 모서리는 m_HoverCorners에 채운다. 닿은 청크가 없으면 false를 반환한다.
+    private bool HandleTryPickHoverCell(Vector2 guiPosition, out HoverCell cell)
+    {
+        cell = default;
+
+        // 오버레이는 지형에서 위로 떠 있으므로, 광선을 그만큼 내려 터레인과 교차시키면 화면에 보이는 오버레이 위의 지점과 같은 수평 위치를 얻는다.
+        float heightOffset = HandleGetTopVisibleLayerOffset();
+        Ray ray = HandleUtility.GUIPointToWorldRay(guiPosition);
+        Ray shiftedRay = new Ray(ray.origin - Vector3.up * heightOffset, ray.direction);
+
+        TerrainPainter hitPainter = null;
+        Vector3 hitPoint = Vector3.zero;
+        float nearestDistance = float.MaxValue;
+
+        foreach (TerrainPainter painter in m_TrackedPainters)
+        {
+            if (painter == null || painter.CurrentMapData == null)
+                continue;
+
+            TerrainCollider terrainCollider = painter.GetComponent<TerrainCollider>();
+            if (terrainCollider == null || !terrainCollider.Raycast(shiftedRay, out RaycastHit hit, k_HoverRayDistance))
+                continue;
+
+            if (hit.distance >= nearestDistance)
+                continue;
+
+            nearestDistance = hit.distance;
+            hitPainter = painter;
+            hitPoint = hit.point;
+        }
+
+        if (hitPainter == null)
+            return false;
+
+        Terrain terrain = hitPainter.GetComponent<Terrain>();
+        if (terrain == null || terrain.terrainData == null)
+            return false;
+
+        Vector3 terrainPosition = terrain.transform.position;
+        Vector3 terrainSize = terrain.terrainData.size;
+        int resolution = m_TextureResolution;
+
+        // 오버레이 텍스처와 같은 격자로 칸 번호를 구한다.
+        Vector3 local = hitPoint - terrainPosition;
+        int cellX = Mathf.Clamp(Mathf.FloorToInt(local.x / terrainSize.x * resolution), 0, resolution - 1);
+        int cellY = Mathf.Clamp(Mathf.FloorToInt(local.z / terrainSize.z * resolution), 0, resolution - 1);
+
+        Rect mapArea = HandleGetChunkMapArea(hitPainter, terrainPosition, terrainSize);
+        Vector2 mapPosition = new Vector2(
+            mapArea.xMin + (cellX + 0.5f) / resolution * mapArea.width,
+            mapArea.yMin + (cellY + 0.5f) / resolution * mapArea.height);
+
+        float cellWidth = terrainSize.x / resolution;
+        float cellDepth = terrainSize.z / resolution;
+        float cellHeight = hitPoint.y + heightOffset;
+        Vector3 cellMin = new Vector3(terrainPosition.x + cellX * cellWidth, cellHeight, terrainPosition.z + cellY * cellDepth);
+
+        m_HoverCorners[0] = cellMin;
+        m_HoverCorners[1] = cellMin + new Vector3(cellWidth, 0f, 0f);
+        m_HoverCorners[2] = cellMin + new Vector3(cellWidth, 0f, cellDepth);
+        m_HoverCorners[3] = cellMin + new Vector3(0f, 0f, cellDepth);
+
+        cell = new HoverCell
+        {
+            MapData = hitPainter.CurrentMapData,
+            MapPosition = mapPosition,
+            // 내린 광선이 터레인에 닿은 지점을 다시 띄우면 원래 광선이 오버레이에 닿는 지점이 된다.
+            MouseWorldPosition = hitPoint + Vector3.up * heightOffset,
+        };
+        return true;
+    }
+
+    // 표시가 켜진 레이어 중 가장 위에 쌓인 레이어가 지형에서 떠 있는 높이를 반환한다. 켜진 레이어가 없으면 지형 표면 그대로인 0을 반환한다.
+    private float HandleGetTopVisibleLayerOffset()
+    {
+        if (m_ShowBiome)
+            return m_HeightOffset + k_LayerGap * 2f;
+
+        if (m_ShowMoisture)
+            return m_HeightOffset + k_LayerGap;
+
+        if (m_ShowElevation)
+            return m_HeightOffset;
+
+        return 0f;
+    }
+
+    // 마우스 아래 칸의 사각형과, 마우스보다 조금 위에 띄운 값 라벨, 그리고 마우스 위치와 라벨을 잇는 선을 씬 뷰에 그린다.
+    private void HandleDrawHoverCell(HoverCell cell, Vector2 mouseGuiPosition)
+    {
+        Handles.DrawSolidRectangleWithOutline(m_HoverCorners, s_HoverFillColor, Color.white);
+
+        // GUI 좌표는 아래로 갈수록 y가 커지므로, y를 빼야 화면 위쪽이 된다.
+        Vector2 labelAnchor = mouseGuiPosition + new Vector2(0f, -k_HoverLabelOffset);
+
+        HandleDrawHoverLine(cell.MouseWorldPosition, mouseGuiPosition, labelAnchor);
+        HandleDrawHoverLabel(HandleBuildHoverText(cell), labelAnchor);
+    }
+
+    // 마우스가 가리키는 월드 지점에서 라벨 아래쪽 가운데까지 선을 그린다. 라벨 지점은 마우스 지점과 같은 깊이로 월드 좌표를 잡아 화면에서 곧은 선이 되게 한다.
+    private void HandleDrawHoverLine(Vector3 mouseWorldPosition, Vector2 mouseGuiPosition, Vector2 labelAnchor)
+    {
+        Ray mouseRay = HandleUtility.GUIPointToWorldRay(mouseGuiPosition);
+        float depth = Vector3.Distance(mouseRay.origin, mouseWorldPosition);
+        Vector3 anchorWorldPosition = HandleUtility.GUIPointToWorldRay(labelAnchor).GetPoint(depth);
+
+        Handles.color = Color.white;
+        Handles.DrawLine(mouseWorldPosition, anchorWorldPosition, k_HoverLineThickness);
+    }
+
+    // 라벨 아래쪽 가운데가 기준점에 오도록 값 라벨을 화면 좌표로 그린다.
+    private void HandleDrawHoverLabel(string text, Vector2 labelAnchor)
+    {
+        if (m_HoverLabelStyle == null)
+        {
+            m_HoverLabelStyle = new GUIStyle(EditorStyles.helpBox)
+            {
+                fontSize = 12,
+                alignment = TextAnchor.MiddleLeft,
+            };
+        }
+
+        m_HoverLabelContent.text = text;
+        Vector2 size = m_HoverLabelStyle.CalcSize(m_HoverLabelContent);
+        Rect labelRect = new Rect(labelAnchor.x - size.x * 0.5f, labelAnchor.y - size.y, size.x, size.y);
+
+        Handles.BeginGUI();
+        GUI.Label(labelRect, m_HoverLabelContent, m_HoverLabelStyle);
+        Handles.EndGUI();
+    }
+
+    // 최종 지형 높이는 항상, 레이어 값은 표시가 켜진 것만 한 줄씩 담은 라벨 문자열을 만든다.
+    private string HandleBuildHoverText(HoverCell cell)
+    {
+        List<string> lines = new List<string>(4);
+
+        lines.Add($"높이: {cell.MapData.GetSurfaceHeight(cell.MapPosition):F2}m");
+
+        if (m_ShowElevation)
+            lines.Add($"고도: {cell.MapData.EditorSampleElevationNoise(cell.MapPosition):F3}");
+
+        if (m_ShowMoisture)
+            lines.Add($"습도: {cell.MapData.EditorSampleMoistureNoise(cell.MapPosition):F3}");
+
+        if (m_ShowBiome)
+        {
+            MapBiome biome = cell.MapData.GetBiome(cell.MapPosition);
+            lines.Add($"바이옴: {(biome != null ? biome.Name : "없음")}");
+        }
+
+        return string.Join("\n", lines);
     }
 
     // 청크 하나의 오버레이를 이루는 오브젝트와 리소스를 모두 파괴한다.
