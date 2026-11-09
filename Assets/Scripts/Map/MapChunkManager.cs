@@ -195,6 +195,54 @@ public class MapChunkManager : MonoBehaviour
         m_ActiveChunks.Remove(chunkCoordinate);
     }
 
+    // 현재 소환된 모든 청크를 지우고, 지우기 전의 청크 좌표 목록을 반환한다.
+    public List<Vector2Int> EraseAllChunks()
+    {
+        // 지우는 동안 딕셔너리가 바뀌므로 좌표를 먼저 복사해 둔다.
+        List<Vector2Int> chunkCoordinates = new List<Vector2Int>(m_ActiveChunks.Keys);
+
+        foreach (Vector2Int chunkCoordinate in chunkCoordinates)
+            EraseChunk(chunkCoordinate);
+
+        return chunkCoordinates;
+    }
+
+    // 현재 소환된 모든 청크를 지운 뒤 같은 좌표에 다시 그린다. 맵 데이터를 바꾼 뒤 기존 청크에 반영할 때 사용한다.
+    [ContextMenu("Redraw All Chunks")]
+    public void RedrawAllChunks()
+    {
+        List<Vector2Int> chunkCoordinates = EraseAllChunks();
+
+        foreach (Vector2Int chunkCoordinate in chunkCoordinates)
+            DrawChunk(chunkCoordinate);
+    }
+
+    // RedrawAllChunks의 비동기 버전. 모든 청크의 지형 계산을 백그라운드에서 동시에 진행하고 전부 끝날 때까지 기다린다.
+    public async Task RedrawAllChunksAsync()
+    {
+        List<Vector2Int> chunkCoordinates = EraseAllChunks();
+
+        List<Task<GameObject>> drawTasks = new List<Task<GameObject>>(chunkCoordinates.Count);
+        foreach (Vector2Int chunkCoordinate in chunkCoordinates)
+            drawTasks.Add(DrawChunkAsync(chunkCoordinate));
+
+        await Task.WhenAll(drawTasks);
+    }
+
+    // 인스펙터 컨텍스트 메뉴에서 RedrawAllChunksAsync를 실행하고, 버려지는 Task의 예외가 묻히지 않도록 로그로 남긴다.
+    [ContextMenu("Redraw All Chunks (Async)")]
+    private async void RedrawAllChunksAsyncFromContextMenu()
+    {
+        try
+        {
+            await RedrawAllChunksAsync();
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception, this);
+        }
+    }
+
     // 굽기에 필요한 청크 오브젝트와 맵 데이터가 모두 준비되었는지 확인하고, 준비된 청크 오브젝트를 넘겨준다.
     private bool HandleCanPaint(Vector2Int chunkCoordinate, out GameObject chunkObject)
     {
