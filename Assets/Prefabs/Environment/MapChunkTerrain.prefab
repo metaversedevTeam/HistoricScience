@@ -114,8 +114,7 @@ MonoBehaviour:
   m_EditorPaintSeed: 0
   m_ShowBiomeGizmos: 0
   m_GizmoBaseRadius: 5
-  m_ShowOriginGizmo: 1
-  m_OriginGizmoColor: {r: 1, g: 0, b: 1, a: 1}
+  m_ShowOriginGizmo: 0
   m_OriginGizmoPoleHeight: 30
 --- !u!114 &4437218856120974311
 MonoBehaviour:
@@ -131,8 +130,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Terrain: {fileID: 5896736372485518151}
   m_ResourceSourceList: {fileID: 11400000, guid: 98125bd585844c2bb24b8a6ce0e729cb, type: 2}
-  m_MinSpawnHeight: 12
-  m_MaxAttemptsPerSpawn: 8
 --- !u!114 &-7966869899655571490
 MonoBehaviour:
   m_ObjectHideFlags: 0
