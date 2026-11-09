@@ -596,6 +596,9 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
     private float HandleGetTopVisibleLayerOffset()
     {
         if (m_ShowBiome)
+            return m_HeightOffset + k_LayerGap * 3f;
+
+        if (m_ShowInland)
             return m_HeightOffset + k_LayerGap * 2f;
 
         if (m_ShowMoisture)
@@ -654,7 +657,7 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
     // 최종 지형 높이는 항상, 레이어 값은 표시가 켜진 것만 한 줄씩 담은 라벨 문자열을 만든다.
     private string HandleBuildHoverText(HoverCell cell)
     {
-        List<string> lines = new List<string>(4);
+        List<string> lines = new List<string>(5);
 
         lines.Add($"높이: {cell.MapData.GetSurfaceHeight(cell.MapPosition):F2}m");
 
@@ -663,6 +666,9 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
 
         if (m_ShowMoisture)
             lines.Add($"습도: {cell.MapData.EditorSampleMoistureNoise(cell.MapPosition):F3}");
+
+        if (m_ShowInland)
+            lines.Add($"내륙: {cell.MapData.SampleInlandNoise(cell.MapPosition):F3}");
 
         if (m_ShowBiome)
         {
