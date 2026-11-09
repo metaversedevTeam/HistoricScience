@@ -360,8 +360,11 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
                 return mapData.EditorSampleElevationNoise(position);
             case BiomeNoiseOverlayMode.Moisture:
                 return mapData.EditorSampleMoistureNoise(position);
-            default:
+            case BiomeNoiseOverlayMode.Inland:
                 return mapData.SampleInlandNoise(position);
+            default:
+                // 픽셀마다 호출되므로 로그 대신 예외로 한 번에 드러낸다. 모드를 추가하면 이 switch에도 추가해야 한다.
+                throw new System.ArgumentOutOfRangeException(nameof(mode), mode, null);
         }
     }
 
