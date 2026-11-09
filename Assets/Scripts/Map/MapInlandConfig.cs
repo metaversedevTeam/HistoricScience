@@ -27,7 +27,8 @@ public readonly struct MapInlandConfig
         MountainThreshold = mountainThreshold;
         SeaThreshold = seaThreshold;
         MountainHeightScale = mountainHeightScale;
-        m_HeightCurveSamples = heightCurveSamples;
+        // 호출부가 넘긴 배열을 나중에 바꾸더라도 백그라운드 계산 중인 값이 변하지 않도록 방어적으로 복사해 둔다.
+        m_HeightCurveSamples = heightCurveSamples != null ? (float[])heightCurveSamples.Clone() : null;
         m_MaxHeightCurveValue = HandleGetMaxSample(heightCurveSamples);
     }
 
