@@ -77,7 +77,7 @@ public sealed class MapData
 
             float peakHeight = biome.BaseHeight + biome.HeightNoiseAmplitude + maxInlandBonus;
             if (peakHeight > maxTerrainHeight)
-                Debug.LogWarning($"MapData: 산 바이옴 '{biome.name}'의 최대 높이 {peakHeight:F1}m가 터레인 최대 높이 {maxTerrainHeight:F1}m를 {peakHeight - maxTerrainHeight:F1}m 넘어 정상이 평평하게 잘립니다. Mountain Inland Height나 바이옴의 기준 높이/굴곡 세기를 낮추세요.");
+                Debug.LogWarning($"MapData: 산 바이옴 '{biome.Name}'의 최대 높이 {peakHeight:F1}m가 터레인 최대 높이 {maxTerrainHeight:F1}m를 {peakHeight - maxTerrainHeight:F1}m 넘어 정상이 평평하게 잘립니다. Mountain Inland Height나 바이옴의 기준 높이/굴곡 세기를 낮추세요.");
         }
     }
 
