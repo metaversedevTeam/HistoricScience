@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
+using UnityEngine.InputSystem;
 
-// 따라갈 대상(리그 루트) 뒤쪽 일정 거리에 카메라를 두는 3인칭 카메라. 회전은 고정 각도를 쓰고 위치만 정하며,
+// 따라갈 대상(리그 루트) 뒤쪽 일정 거리에 카메라를 두는 3인칭 카메라. 커서를 화면 중앙에 잠그고 마우스 이동으로 방향을 돌리며(Alt를 누르면 커서 해제),
 // 벽이나 지형에 가리면 카메라를 앞으로 당긴다. 리그 루트의 스케일을 확대 배율로 보고 거리에 곱한다.
 [RequireComponent(typeof(Camera))]
 public class ThirdPersonCamera : MonoBehaviour
@@ -23,11 +24,20 @@ public class ThirdPersonCamera : MonoBehaviour
     [Tooltip("회전축 기준 카메라를 옆·위로 옮길 거리(m). x를 키우면 어깨 너머 시점이 된다")]
     [SerializeField] private Vector2 _shoulderOffset = new Vector2(0.5f, 0.3f);
 
-    [Tooltip("카메라가 내려다보는 각도(도). 0이면 수평이다")]
-    [SerializeField, Range(-30f, 89f)] private float _pitch = 20f;
+    [Header("시점")]
+    [Tooltip("시작할 때 카메라가 내려다보는 각도(도). 0이면 수평이다")]
+    [SerializeField] private float _pitch = 20f;
 
-    [Tooltip("카메라가 바라보는 월드 방위각(도). 0이면 +Z 방향을 본다")]
+    [Tooltip("시작할 때 카메라가 바라보는 월드 방위각(도). 0이면 +Z 방향을 본다")]
     [SerializeField] private float _yaw;
+
+    [Tooltip("마우스 이동 1픽셀당 회전 각도(도)")]
+    [SerializeField] private float _lookSensitivity = 0.1f;
+
+    [Tooltip("위아래로 돌릴 수 있는 최대 각도(도)")]
+    [SerializeField, Range(10f, 89f)] private float _maxPitch = 85f;
+
+    [Header("장애물")]
 
     [Tooltip("카메라를 가리는 장애물로 볼 레이어")]
     [SerializeField] private LayerMask _collisionLayers = ~(1 << 2);
@@ -47,6 +57,12 @@ public class ThirdPersonCamera : MonoBehaviour
     // 장애물 감지 결과를 담아 둘 재사용 버퍼
     private readonly RaycastHit[] _hits = new RaycastHit[k_MaxCollisionHits];
 
+    // 직전 프레임에 커서가 풀려 있었는지 여부. 커서가 다시 잠기는 프레임의 마우스 이동량은 튀므로 버린다.
+    private bool _wasCursorFree = true;
+
+    // 카메라가 바라보는 월드 방위각(도). 플레이어가 카메라와 같은 쪽을 보게 할 때 쓴다.
+    public float Yaw => _yaw;
+
     // 장애물 판정에서 제외할 대상. 따라가는 플레이어가 바뀔 때 CameraController가 갱신한다.
     public Transform IgnoreRoot
     {
@@ -60,14 +76,57 @@ public class ThirdPersonCamera : MonoBehaviour
             _target = transform.parent;
 
         _currentDistance = GetZoomedDistance();
+        _pitch = Mathf.Clamp(_pitch, -_maxPitch, _maxPitch);
+    }
+
+    // 컴포넌트가 꺼지면 커서를 원래대로 풀어 메뉴 화면 등에서 커서가 사라진 채 남지 않게 한다.
+    private void OnDisable()
+    {
+        ApplyCursorState(true);
     }
 
     private void LateUpdate()
     {
+        HandleLook();
         HandleFollowTarget();
     }
 
-    // 기준점 위치와 고정 각도로 장애물을 피한 카메라 위치를 구해 적용한다.
+    // Alt를 누르고 있지 않으면 커서를 잠그고, 잠긴 동안 마우스 이동량으로 좌우·위아래 방향을 돌린다.
+    private void HandleLook()
+    {
+        bool isCursorFree = IsAltPressed();
+        bool justLocked = _wasCursorFree && !isCursorFree;
+        _wasCursorFree = isCursorFree;
+
+        ApplyCursorState(isCursorFree);
+        if (isCursorFree || justLocked) return;
+
+        Mouse mouse = Mouse.current;
+        if (mouse == null) return;
+
+        Vector2 delta = mouse.delta.ReadValue() * _lookSensitivity;
+        _yaw += delta.x;
+        _pitch = Mathf.Clamp(_pitch - delta.y, -_maxPitch, _maxPitch);
+    }
+
+    // 왼쪽이나 오른쪽 Alt 키를 누르고 있는지 확인한다.
+    private bool IsAltPressed()
+    {
+        Keyboard keyboard = Keyboard.current;
+        return keyboard != null && (keyboard.leftAltKey.isPressed || keyboard.rightAltKey.isPressed);
+    }
+
+    // 커서를 풀면 보이게, 잠그면 화면 중앙에 고정하고 숨긴다.
+    private void ApplyCursorState(bool isFree)
+    {
+        CursorLockMode mode = isFree ? CursorLockMode.None : CursorLockMode.Locked;
+        if (Cursor.lockState != mode)
+            Cursor.lockState = mode;
+
+        Cursor.visible = isFree;
+    }
+
+    // 기준점 위치와 현재 방향으로 장애물을 피한 카메라 위치를 구해 적용한다.
     private void HandleFollowTarget()
     {
         if (_target == null) return;

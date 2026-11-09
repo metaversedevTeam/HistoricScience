@@ -1,5 +1,6 @@
 ﻿using System;
 using UnityEngine;
+using UnityEngine.AI;
 using UnityEngine.InputSystem;
 
 // 3인칭 카메라 리그의 루트. 플레이어 시민의 위치를 따라가고, 휠 확대 배율을 스케일로 들고 있으며, 카메라 위치를 저장한다.
@@ -32,6 +33,9 @@ public class CameraController : MonoBehaviour, ISavable
 
     // 지금 따라가는 플레이어 시민
     private Transform _followTarget;
+
+    // 따라가는 시민의 내브메시 에이전트. 경로를 따라 자동 이동 중인지 판단하는 데 쓰며, 없으면 null이다.
+    private NavMeshAgent _followTargetAgent;
 
     // 따라갈 시민을 다음에 다시 찾아볼 시각
     private float _nextTargetSearchTime;
@@ -86,6 +90,7 @@ public class CameraController : MonoBehaviour, ISavable
     {
         HandleZoom();
         HandleFollowPlayer();
+        HandleAlignPlayerRotation();
     }
 
     // 휠로 키울 수 있는 최대 크기. 런타임에 바꿀 수 있으며, 값을 바꾸면 현재 크기도 즉시 범위 안으로 맞춘다
@@ -129,6 +134,15 @@ public class CameraController : MonoBehaviour, ISavable
         transform.position = _followTarget.position;
     }
 
+    // 따라가는 시민이 카메라와 같은 방위각을 보게 한다. 경로를 따라 자동 이동 중일 때는 에이전트가 진행 방향으로 돌리므로 건드리지 않는다.
+    private void HandleAlignPlayerRotation()
+    {
+        if (_followTarget == null || _thirdPersonCamera == null) return;
+        if (_followTargetAgent != null && (_followTargetAgent.hasPath || _followTargetAgent.pathPending)) return;
+
+        _followTarget.rotation = Quaternion.Euler(0f, _thirdPersonCamera.Yaw, 0f);
+    }
+
     // 일정 간격으로 씬의 시민을 찾아 따라갈 대상으로 정한다. 저장된 시민은 청크가 로드된 뒤에 소환되므로 처음 몇 프레임은 없을 수 있다.
     private void TryFindFollowTarget()
     {
@@ -144,6 +158,7 @@ public class CameraController : MonoBehaviour, ISavable
     private void SetFollowTarget(Transform target)
     {
         _followTarget = target;
+        _followTargetAgent = target != null ? target.GetComponent<NavMeshAgent>() : null;
 
         if (_thirdPersonCamera != null)
             _thirdPersonCamera.IgnoreRoot = target;
