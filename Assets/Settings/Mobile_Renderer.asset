@@ -13,11 +13,9 @@ MonoBehaviour:
   m_Name: Mobile_Renderer
   m_EditorClassIdentifier: 
   debugShaders:
-    debugReplacementPS: {fileID: 4800000, guid: cf852408f2e174538bcd9b7fda1c5ae7,
-      type: 3}
+    debugReplacementPS: {fileID: 4800000, guid: cf852408f2e174538bcd9b7fda1c5ae7, type: 3}
     hdrDebugViewPS: {fileID: 4800000, guid: 573620ae32aec764abd4d728906d2587, type: 3}
-    probeVolumeSamplingDebugComputeShader: {fileID: 7200000, guid: 53626a513ea68ce47b59dc1299fe3959,
-      type: 3}
+    probeVolumeSamplingDebugComputeShader: {fileID: 7200000, guid: 53626a513ea68ce47b59dc1299fe3959, type: 3}
   probeVolumeResources:
     probeVolumeDebugShader: {fileID: 0}
     probeVolumeFragmentationDebugShader: {fileID: 0}
@@ -26,9 +24,12 @@ MonoBehaviour:
     probeSamplingDebugMesh: {fileID: 0}
     probeSamplingDebugTexture: {fileID: 0}
     probeVolumeBlendStatesCS: {fileID: 0}
-  m_RendererFeatures: []
-  m_RendererFeatureMap: 
+  m_RendererFeatures:
+  - {fileID: 76422065984560664}
+  - {fileID: 4386568474793681712}
+  m_RendererFeatureMap: 18de02d076810f013023016bc938e03c
   m_UseNativeRenderPass: 1
+  xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
   m_AssetVersion: 2
   m_OpaqueLayerMask:
@@ -48,5 +49,45 @@ MonoBehaviour:
   m_RenderingMode: 0
   m_DepthPrimingMode: 0
   m_CopyDepthMode: 0
+  m_DepthAttachmentFormat: 0
+  m_DepthTextureFormat: 0
   m_AccurateGbufferNormals: 0
   m_IntermediateTextureMode: 0
+--- !u!114 &76422065984560664
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7c1e4a9b3d5f4e62a8b0c6d2e9f13a57, type: 3}
+  m_Name: Monochrome
+  m_EditorClassIdentifier: 
+  m_Active: 1
+  injectionPoint: 550
+  fetchColorBuffer: 1
+  requirements: 0
+  passMaterial: {fileID: 2100000, guid: b20db32d2e985ea478cbb410ad97e7c2, type: 2}
+  passIndex: 0
+  bindDepthStencilAttachment: 1
+  m_Version: 1
+--- !u!114 &4386568474793681712
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: df5b0b074604d2845af2f662120d9d13, type: 3}
+  m_Name: KeepColorStencil
+  m_EditorClassIdentifier: 
+  m_Active: 1
+  _stencilMaterial: {fileID: 2100000, guid: c27ae275fdc5bcb42b05eb42741a4596, type: 2}
+  _renderingLayerName: KeepColor
+  _passEvent: 500
+  _occludeByTransparents: 1
+  _occluderAlphaThreshold: 0.5
