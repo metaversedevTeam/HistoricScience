@@ -11,6 +11,9 @@ public abstract class ManagedUIBase : MonoBehaviour, IManagedUI
 
     public UIState State { get; private set; } = UIState.Closed;
 
+    // Esc 입력으로 닫을 수 있는지 여부 — 로딩 화면처럼 사용자가 닫으면 안 되는 UI는 false로 덮어쓴다
+    public virtual bool ClosesOnEscape => true;
+
     // IManagedUI.Close 구현 — 상태별 재진입 규칙은 IManagedUI의 계약 주석 참고
     public void Close(bool immediate = false)
     {

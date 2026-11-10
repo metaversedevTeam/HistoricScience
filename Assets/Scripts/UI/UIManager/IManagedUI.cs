@@ -31,6 +31,9 @@ public interface IManagedUI
     // 현재 수명주기 상태
     public UIState State { get; }
 
+    // Esc 입력으로 닫을 수 있는 UI인지 여부. false면 UIManager의 Esc 닫기가 이 UI를 건너뛴다 (로딩 화면 등)
+    public bool ClosesOnEscape { get; }
+
     // 닫기 연출을 시작하고, 완료 시 OnFinishClose를 발행한다. immediate가 true면 연출 없이 즉시 닫는다 (씬 전환 등 일괄 정리용).
     // 재진입 규칙 — Closed: 무시 / Closing: immediate가 true일 때만 남은 연출을 건너뛰고 즉시 완료 / Opening: 열기 연출을 중단하고 닫기로 전환.
     public void Close(bool immediate = false);

@@ -91,8 +91,7 @@ public class IngameSceneManager : MonoBehaviour
             return;
         }
 
-        _loadingScreen = Instantiate(_loadingScreenUIPrefab, UIManager.Instance.UIRoot);
-        _loadingScreen.Show();
+        _loadingScreen = UIManager.Instance.OpenUI(_loadingScreenUIPrefab);
 
         // 청크가 하나씩 로딩될 때마다 등록된 청크 대비 비율을 받아 프로그래스 바에 반영한다.
         if (_chunkLoader != null)
@@ -109,7 +108,7 @@ public class IngameSceneManager : MonoBehaviour
         if (_chunkLoader != null)
             _chunkLoader.LoadProgressChanged -= HandleReportChunkLoadProgress;
 
-        _loadingScreen.Hide();
+        _loadingScreen.Close();
     }
 
     // 맵 파일을 읽어 온 몫만큼 로딩 진행도를 먼저 채운다.

@@ -57,13 +57,18 @@ public class UIManager : MonoBehaviour
         HandleEscapeClose();
     }
 
-    // Esc 입력 시 가장 마지막에 연 UI(큐의 맨 뒤)를 닫는다
+    // Esc 입력 시 가장 마지막에 연 UI(큐의 맨 뒤)를 닫는다. Esc로 닫을 수 없는 UI(로딩 화면 등)는 건너뛴다
     private void HandleEscapeClose()
     {
         if (Keyboard.current == null || !Keyboard.current.escapeKey.wasPressedThisFrame) return;
-        if (activeQueue.Count == 0) return;
 
-        activeQueue.Last.Value.Close();
+        for (LinkedListNode<IManagedUI> node = activeQueue.Last; node != null; node = node.Previous)
+        {
+            if (!node.Value.ClosesOnEscape) continue;
+
+            node.Value.Close();
+            return;
+        }
     }
 
     // 프리팹에 해당하는 UI를 풀에서 꺼내거나 생성해 연다 (페이로드 없는 UI용).
