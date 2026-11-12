@@ -2,8 +2,8 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// 시민 유닛을 나타내며 선택된 상태에서 우클릭한 대상이 IGatherable이면 채집하고, 아니면 대상 추적 또는 위치 이동을 명령하는 컴포넌트. 일터에 등록되어 일할 수도 있다.
-public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
+// 시민 유닛을 나타내며 선택된 상태에서 우클릭한 대상이 IGatherable이면 채집하고, 아니면 대상 추적 또는 위치 이동을 명령하는 컴포넌트
+public class Citizen : MonoBehaviour, ICommandable, ISavable
 {
     [SerializeField] private Sprite _gatherCommandIcon;
     [SerializeField] private Sprite _buildCommandIcon;
@@ -36,9 +36,6 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
     private PlayerManager _pendingGatherPlayer;
     private IGatherable _gatherTarget;
     private ResourceInventory _gatherInventory;
-
-    // 현재 소속된 일터. 등록되지 않았으면 null이다.
-    private WorkPlace _currentWorkPlace;
 
     // 이동 중인지 여부. IMover의 이동 시작·종료 이벤트로 갱신한다.
     private bool _isMoving;
@@ -90,7 +87,7 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
     }
 
     // 선택 여부와 관계없이 플레이어의 WASD 입력 방향으로 직접 걷고, Shift를 누르고 있으면 달린다. 입력이 끊기면 이동 컴포넌트가 스스로 멈춘다.
-    // 걷기 시작하면 OnMoveOrdered를 거쳐 진행 중이던 채집이 취소되고, 대상 추적이나 일터로 가던 이동도 이 이동으로 대체된다.
+    // 걷기 시작하면 OnMoveOrdered를 거쳐 진행 중이던 채집이 취소되고, 대상 추적 이동도 이 이동으로 대체된다.
     private void HandleMoveInput()
     {
         PlayerManager player = PlayerManager.Instance;
@@ -325,26 +322,6 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable, IWorker
         _openBuildingSelectUI.OnBuildingSelected -= HandleBuildingSelected;
         _openBuildingSelectUI.OnFinishClose -= HandleBuildingSelectUIClosed;
         _openBuildingSelectUI = null;
-    }
-
-    public WorkPlace CurrentWorkPlace => _currentWorkPlace;
-
-    // 일터에 등록되기 직전 호출. 진행 중인 이동·채집·건축 위치 지정과 플레이어 구독을 정리해, 곧바로 캡처될 상태에 남은 명령이 없게 한다.
-    public void OnEnterWorkPlace(WorkPlace workPlace)
-    {
-        _currentWorkPlace = workPlace;
-
-        CancelGatherTargeting();
-        CancelGathering();
-        CancelBuildingPlacement();
-        UnsubscribeFromPlayer();
-        _mover.Stop();
-    }
-
-    // 일터에서 해제되어 새 인스턴스로 복원된 직후 호출. 소속을 비워 다시 다른 일터에 등록될 수 있게 한다.
-    public void OnExitWorkPlace()
-    {
-        _currentWorkPlace = null;
     }
 
     public string PrefabId => _savable.PrefabId;
