@@ -2,8 +2,8 @@ using System;
 using UnityEngine;
 using UnityEngine.UI;
 
-// 메인 메뉴 화면(Figma의 main-menu-space). History·Science·Game 세 줄이 각각 PLAY·OPTION·EXIT 항목이 되며,
-// OPTION은 아직 기능이 없어 잠금 상태(비활성)로만 보여 준다.
+// 메인 메뉴 화면. 사각형 모션그래픽 배경 위에 시작·설정·나가기 버튼을 두며,
+// 설정은 아직 기능이 없어 잠금 상태(비활성)로만 보여 준다. 등장·강조 연출은 MainMenu 폴더의 모션 컴포넌트들이 맡는다.
 public class MainMenuUI : MonoBehaviour
 {
     [SerializeField] private Button _playButton;
