@@ -25,8 +25,15 @@ public class CreateNewMapDialogUI : MonoBehaviour
     // 이미 저장되어 있어 다시 쓸 수 없는 슬롯 이름들. Open을 부를 때마다 새로 채워진다.
     private readonly HashSet<string> _usedSlots = new(StringComparer.OrdinalIgnoreCase);
 
+    // 열고 닫을 때 재생할 등장·퇴장 연출(같은 오브젝트에 붙어 있다)
+    private MainMenuIntroSequence _motion;
+
+    // 퇴장 연출이 재생 중이라 곧 꺼질 상태인지 여부
+    private bool _isClosing;
+
     private void Awake()
     {
+        _motion = GetComponent<MainMenuIntroSequence>();
         _createButton.onClick.AddListener(HandleCreateClick);
         _cancelButton.onClick.AddListener(HandleCancelClick);
         _mapNameInput.onValueChanged.AddListener(HandleMapNameChanged);
@@ -50,7 +57,11 @@ public class CreateNewMapDialogUI : MonoBehaviour
         }
 
         // 입력 칸을 만지기 전에 켜 둬야 Awake에서 건 리스너가 첫 값 변경부터 반응한다.
+        bool wasActive = gameObject.activeSelf;
+        _isClosing = false;
         gameObject.SetActive(true);
+        if (wasActive && _motion != null)
+            _motion.Play();
         AudioManager.PlayPopupOpen();
 
         _mapNameInput.text = suggestedName;
@@ -63,6 +74,24 @@ public class CreateNewMapDialogUI : MonoBehaviour
     // 대화상자를 닫는다. 맵을 실제로 만들었든 취소했든 바깥에서 호출한다.
     public void Close()
     {
+        if (_motion == null || !gameObject.activeInHierarchy)
+        {
+            _isClosing = false;
+            gameObject.SetActive(false);
+            return;
+        }
+
+        if (_isClosing)
+            return;
+
+        _isClosing = true;
+        _motion.PlayReverse(HandleCloseFinished);
+    }
+
+    // 퇴장 연출이 끝나면 대화상자를 실제로 끈다.
+    private void HandleCloseFinished()
+    {
+        _isClosing = false;
         gameObject.SetActive(false);
     }
 
