@@ -1,8 +1,9 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
-// 메인 메뉴 배경 격자의 각 칸에 아이템 아이콘을 옅게 깔고, 일정 주기로 대각선 물결이 지나가며 아이콘을 투명하게 만드는 연출.
+// 메인 메뉴 배경 격자의 각 칸에 아이템 아이콘을 숨겨 두고, 일정 주기로 대각선 물결이 지나가며 아이콘을 옅게 드러내는 연출.
 // 게임 일시정지와 무관하게 돌도록 실제 경과 시간을 쓴다.
 public class MainMenuGridIconField : MonoBehaviour
 {
@@ -21,8 +22,9 @@ public class MainMenuGridIconField : MonoBehaviour
     // 아이콘의 기본 색(투명도는 _baseAlpha가 덮어쓴다)
     [SerializeField] private Color _iconColor = Color.white;
 
-    // 평소 아이콘 투명도
-    [SerializeField, Range(0f, 1f)] private float _baseAlpha = 0.06f;
+    // 물결 중심에서 아이콘이 가장 진하게 보일 때의 투명도(평소에는 0으로 숨는다)
+    [FormerlySerializedAs("_baseAlpha")]
+    [SerializeField, Range(0f, 1f)] private float _peakAlpha = 0.06f;
 
     // 물결이 왼쪽 위에서 오른쪽 아래까지 한 번 지나가는 데 걸리는 시간(초)
     [SerializeField, Min(0.01f)] private float _waveDuration = 2.5f;
@@ -149,17 +151,17 @@ public class MainMenuGridIconField : MonoBehaviour
         ApplyAlpha(front);
     }
 
-    // 물결 중심 위치를 기준으로 가까운 아이콘일수록 투명하게 만든다.
+    // 물결 중심 위치를 기준으로 가까운 아이콘일수록 진하게 드러낸다.
     private void ApplyAlpha(float waveCenter)
     {
         for (int i = 0; i < _icons.Count; i++)
         {
             float distance = Mathf.Abs(_diagonals[i] - waveCenter) / _waveWidth;
-            float fade = Mathf.Clamp01(1f - distance);
-            fade = fade * fade * (3f - 2f * fade);
+            float reveal = Mathf.Clamp01(1f - distance);
+            reveal = reveal * reveal * (3f - 2f * reveal);
 
             Color color = _iconColor;
-            color.a = _baseAlpha * (1f - fade);
+            color.a = _peakAlpha * reveal;
             _icons[i].color = color;
         }
     }
