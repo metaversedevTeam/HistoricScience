@@ -2,10 +2,10 @@ using System.Collections.Generic;
 using UnityEngine;
 using System;
 
-// 명령 목록을 제공하는 오브젝트가 구현하는 인터페이스
+// 시민(Citizen)이 상호작용할 수 있는 개체가 구현하는 인터페이스. 선택되면 제공하는 상호작용 명령 목록이 명령 패널에 표시된다.
 public interface ICommandable
 {
-    // 이 오브젝트가 제공하는 명령 목록을 반환한다.
+    // 이 개체가 제공하는 상호작용 명령 목록을 반환한다.
     IReadOnlyList<CommandData> GetCommands();
 }
 

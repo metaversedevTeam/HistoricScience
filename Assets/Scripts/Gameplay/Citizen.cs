@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 // 시민 유닛을 나타내며 선택된 상태에서 우클릭한 대상이 IGatherable이면 채집하고, 아니면 대상 추적 또는 위치 이동을 명령하는 컴포넌트
-public class Citizen : MonoBehaviour, ICommandable, ISavable
+public class Citizen : MonoBehaviour, ISavable
 {
     [SerializeField] private Sprite _gatherCommandIcon;
     [SerializeField] private Sprite _buildCommandIcon;
@@ -31,7 +31,6 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable
     private IMover _mover;
     private Gatherer _gatherer;
     private PlayerManager _selectedBy;
-    private IReadOnlyList<CommandData> _commands;
 
     private PlayerManager _pendingGatherPlayer;
     private IGatherable _gatherTarget;
@@ -46,17 +45,12 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable
     // 건물 선택 후 생성한 위치 지정 컨트롤러. 배치가 끝나면 스스로 파괴되므로 그 시점부터 null이 된다.
     private BuildingPlacementController _placementController;
 
-    // SelectableObject, IMover, Gatherer 컴포넌트를 캐싱하고 명령 목록을 생성
+    // SelectableObject, IMover, Gatherer 컴포넌트를 캐싱
     private void Awake()
     {
         _selectable = GetComponent<SelectableObject>();
         _mover = GetComponent<IMover>();
         _gatherer = GetComponent<Gatherer>();
-        _commands = new List<CommandData>
-        {
-            new CommandData("채집", _gatherCommandIcon, BeginGatherTargeting),
-            new CommandData("건물 짓기", _buildCommandIcon, OpenBuildingSelectUI),
-        };
     }
 
     // 자신의 선택 이벤트와 이동 시작·종료 이벤트를 구독
@@ -97,12 +91,6 @@ public class Citizen : MonoBehaviour, ICommandable, ISavable
         if (direction == Vector2.zero) return;
 
         _mover.MoveInDirection(direction, player.IsRunning);
-    }
-
-    // 이 오브젝트가 제공하는 명령 목록을 반환한다.
-    public IReadOnlyList<CommandData> GetCommands()
-    {
-        return _commands;
     }
 
     // 선택되었을 때 해당 PlayerManager의 우클릭/선택해제 이벤트를 구독

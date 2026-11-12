@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
-// 선택된 유닛의 ICommandable 명령 목록을 하단 패널에 버튼으로 표시하는, 씬에 상주하는 UI
+// 선택된 상호작용 개체(ICommandable)의 명령 목록을 하단 패널에 버튼으로 표시하는, 씬에 상주하는 UI
 public class TempCommandPanelUI : MonoBehaviour
 {
     [SerializeField] private Transform _buttonContainer;
