@@ -4,7 +4,7 @@ using UnityEngine.SceneManagement;
 // 튜토리얼의 유일한 진입점.
 // 바깥 코드가 알아야 하는 것은 "맵을 새로 만들었다"는 사실 하나뿐이며, 그 뒤의 모든 진행은 Tutorial 폴더 안에서만 일어난다.
 // 튜토리얼을 걷어낼 때는 Assets/Scripts/Tutorial 폴더를 통째로 지우고,
-// MapManagementUI에서 MarkNewMapCreated를 부르는 한 줄만 지우면 된다.
+// MapSelectUI에서 MarkNewMapCreated를 부르는 한 줄만 지우면 된다.
 public static class TutorialSession
 {
     // 에디터에서 맵 생성을 거치지 않고 튜토리얼을 시험해 보기 위한 세션 플래그 키

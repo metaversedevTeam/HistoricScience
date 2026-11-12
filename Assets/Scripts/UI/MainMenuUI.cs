@@ -10,7 +10,10 @@ public class MainMenuUI : MonoBehaviour
     [SerializeField] private Button _optionButton;
     [SerializeField] private Button _exitButton;
 
-    // PLAY를 눌러 맵 관리 화면으로 넘어가야 할 때 발생한다.
+    // 게임 제목과 버튼들을 묶은 메뉴 본문. 맵 선택 화면이 떠 있는 동안에는 꺼 두고 배경 모션그래픽만 남긴다.
+    [SerializeField] private GameObject _menuContent;
+
+    // 시작을 눌러 맵 선택 화면으로 넘어가야 할 때 발생한다.
     public event Action PlayRequested;
 
     private void Awake()
@@ -20,6 +23,12 @@ public class MainMenuUI : MonoBehaviour
 
         // OPTION은 구현 전이므로 어떤 입력도 받지 않는다. (버튼의 Disabled 색으로 잠금 상태가 보인다)
         _optionButton.interactable = false;
+    }
+
+    // 게임 제목과 버튼들(메뉴 본문)을 보이거나 숨긴다. 배경 모션그래픽은 그대로 둔다.
+    public void SetMenuVisible(bool visible)
+    {
+        _menuContent.SetActive(visible);
     }
 
     // PLAY 요청을 바깥(씬 매니저)에 알린다.

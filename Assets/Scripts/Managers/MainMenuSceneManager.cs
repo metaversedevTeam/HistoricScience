@@ -1,15 +1,25 @@
 using UnityEngine;
 
-// 메인 메뉴 씬의 진입점. 메인 메뉴 화면과 맵 관리 화면 중 하나만 켜 두며 둘 사이의 전환을 담당한다.
+// 메인 메뉴 씬의 진입점. 메인 메뉴 본문과 맵 선택 화면 중 하나만 보여 주며,
+// 둘 사이를 왼쪽에서 나오는 사각형 전환 연출(MenuWipeTransition)로 넘긴다. 배경 모션그래픽은 두 화면이 함께 쓴다.
 public class MainMenuSceneManager : MonoBehaviour
 {
     [SerializeField] private MainMenuUI _mainMenuUI;
-    [SerializeField] private MapManagementUI _mapManagementUI;
+    [SerializeField] private MapSelectUI _mapSelectUI;
+
+    // 화면을 바꿀 때 쓰는 사각형 전환 연출
+    [SerializeField] private MenuWipeTransition _transition;
+
+    // 맵 선택 화면으로 넘어갈 때 전환 사각형에 띄울 글자
+    [SerializeField] private string _mapSelectCaption = "SELECT MAP";
+
+    // 메인 메뉴로 돌아갈 때 전환 사각형에 띄울 글자
+    [SerializeField] private string _mainMenuCaption = "MAIN MENU";
 
     private void Awake()
     {
         _mainMenuUI.PlayRequested += HandlePlayRequested;
-        _mapManagementUI.BackRequested += HandleBackRequested;
+        _mapSelectUI.BackRequested += HandleBackRequested;
     }
 
     private void Start()
@@ -20,33 +30,34 @@ public class MainMenuSceneManager : MonoBehaviour
     private void OnDestroy()
     {
         _mainMenuUI.PlayRequested -= HandlePlayRequested;
-        _mapManagementUI.BackRequested -= HandleBackRequested;
+        _mapSelectUI.BackRequested -= HandleBackRequested;
     }
 
-    // PLAY를 누르면 맵 관리 화면으로 넘어간다.
+    // 시작을 누르면 사각형이 메뉴를 감싼 뒤 맵 선택 화면을 드러낸다.
     private void HandlePlayRequested()
     {
-        HandleShowMapManagement();
+        _transition.Play(_mapSelectCaption, HandleShowMapSelect);
     }
 
-    // 뒤로가기를 누르면 메인 메뉴로 돌아온다.
+    // 뒤로가기를 누르면 사각형이 맵 선택 화면을 감싼 뒤 메인 메뉴를 드러낸다.
     private void HandleBackRequested()
     {
-        HandleShowMainMenu();
+        _transition.Play(_mainMenuCaption, HandleShowMainMenu);
     }
 
-    // 메인 메뉴 화면만 켠다.
+    // 맵 선택 화면을 끄고 메인 메뉴 본문을 켠다.
     private void HandleShowMainMenu()
     {
-        _mapManagementUI.gameObject.SetActive(false);
+        _mapSelectUI.gameObject.SetActive(false);
         _mainMenuUI.gameObject.SetActive(true);
+        _mainMenuUI.SetMenuVisible(true);
     }
 
-    // 맵 관리 화면만 켜고 저장된 맵 목록을 다시 읽는다.
-    private void HandleShowMapManagement()
+    // 메인 메뉴 본문을 숨기고 맵 선택 화면을 켠 뒤 저장된 맵 목록을 다시 읽는다.
+    private void HandleShowMapSelect()
     {
-        _mainMenuUI.gameObject.SetActive(false);
-        _mapManagementUI.gameObject.SetActive(true);
-        _mapManagementUI.Refresh();
+        _mainMenuUI.SetMenuVisible(false);
+        _mapSelectUI.gameObject.SetActive(true);
+        _mapSelectUI.Refresh();
     }
 }

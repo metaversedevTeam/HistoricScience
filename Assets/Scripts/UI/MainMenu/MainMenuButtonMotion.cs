@@ -21,6 +21,9 @@ public class MainMenuButtonMotion : MonoBehaviour, IPointerEnterHandler, IPointe
     // 색이 바뀔 번호 글자
     [SerializeField] private TMP_Text _index;
 
+    // 강조될 때 함께 어두운 색으로 바뀔 추가 글자들(비워 두어도 된다)
+    [SerializeField] private TMP_Text[] _extraTexts = System.Array.Empty<TMP_Text>();
+
     // 강조될 때 앞으로 튀어나오며 도는 오른쪽 끝 사각형
     [SerializeField] private RectTransform _marker;
 
@@ -47,6 +50,9 @@ public class MainMenuButtonMotion : MonoBehaviour, IPointerEnterHandler, IPointe
 
     // 연결된 버튼
     private Button _button;
+
+    // 추가 글자들의 평소 색
+    private Color[] _extraBaseColors = System.Array.Empty<Color>();
 
     // 번호 글자의 평소 색(강조색)
     private Color _indexBaseColor;
@@ -87,6 +93,13 @@ public class MainMenuButtonMotion : MonoBehaviour, IPointerEnterHandler, IPointe
             _indexBaseColor = _index.color;
         if (_content != null)
             _contentBase = _content.anchoredPosition;
+
+        _extraBaseColors = new Color[_extraTexts.Length];
+        for (int i = 0; i < _extraTexts.Length; i++)
+        {
+            if (_extraTexts[i] != null)
+                _extraBaseColors[i] = _extraTexts[i].color;
+        }
         if (_marker != null)
         {
             _markerBase = _marker.anchoredPosition;
@@ -180,6 +193,12 @@ public class MainMenuButtonMotion : MonoBehaviour, IPointerEnterHandler, IPointe
 
         if (_index != null)
             _index.color = Color.Lerp(_indexBaseColor, _highlightTextColor, h);
+
+        for (int i = 0; i < _extraTexts.Length; i++)
+        {
+            if (_extraTexts[i] != null)
+                _extraTexts[i].color = Color.Lerp(_extraBaseColors[i], _highlightTextColor, h);
+        }
 
         if (_marker != null)
         {
