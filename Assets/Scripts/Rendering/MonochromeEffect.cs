@@ -1,6 +1,6 @@
 using UnityEngine;
 
-// 흑백 화면 효과의 전역 셰이더 값을 한곳에서 읽고 쓰는 도우미
+// 흑백 화면 효과(MonochromeGraph 셰이더 그래프)의 전역 셰이더 값을 한곳에서 읽고 쓰는 도우미
 public static class MonochromeEffect
 {
     private static readonly int IntensityId = Shader.PropertyToID("_MonochromeIntensity");
