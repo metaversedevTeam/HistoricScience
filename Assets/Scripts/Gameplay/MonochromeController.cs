@@ -1,6 +1,6 @@
 using UnityEngine;
 
-// 흑백 화면 셰이더의 전역 강도를 조절해 화면을 컬러/흑백으로 전환하는 컴포넌트
+// 흑백 화면 셰이더 그래프(MonochromeGraph)의 전역 강도를 조절해 화면을 컬러/흑백으로 전환하는 컴포넌트
 // 어디서든 MonochromeController.Instance로 접근한다. 씬에 배치하지 않았더라도 처음 접근할 때 하나 만들어 준다
 public class MonochromeController : MonoBehaviour
 {
