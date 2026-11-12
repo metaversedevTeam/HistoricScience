@@ -41,6 +41,21 @@ public class UIRectFloatMotion : MonoBehaviour
     // 투명도 변화의 기준이 되는 처음 투명도
     private float _baseAlpha;
 
+    // 정렬을 시작한 순간의 위치
+    private Vector2 _settleFromPosition;
+
+    // 정렬을 시작한 순간의 회전 각도(도)
+    private float _settleFromAngle;
+
+    // 정렬이 끝났을 때의 회전 각도(도). 시작 각도에서 가장 가까운 직각이다.
+    private float _settleToAngle;
+
+    // 정렬을 시작한 순간의 크기
+    private Vector3 _settleFromScale;
+
+    // 정렬을 시작한 순간의 투명도
+    private float _settleFromAlpha;
+
     // 떠다니는 중심이 되는 위치. 바꾸면 그 자리를 중심으로 계속 떠다닌다.
     public Vector2 BasePosition
     {
@@ -70,6 +85,33 @@ public class UIRectFloatMotion : MonoBehaviour
         HandleDrift(time);
         HandleRotate();
         HandlePulse(time);
+    }
+
+    // 움직임을 멈추고, 지금 자세에서 정렬된 자세(기준 위치·크기·투명도, 가장 가까운 직각 방향)로 돌아갈 준비를 한다.
+    public void BeginSettle()
+    {
+        enabled = false;
+
+        _settleFromPosition = _rect.anchoredPosition;
+        _settleFromAngle = _rect.localEulerAngles.z;
+        _settleToAngle = Mathf.Round(_settleFromAngle / 90f) * 90f;
+        _settleFromScale = _rect.localScale;
+        _settleFromAlpha = _graphic != null ? _graphic.color.a : 1f;
+    }
+
+    // BeginSettle 이후, 정렬된 자세로 돌아간 정도(0~1)를 적용한다.
+    public void ApplySettle(float progress)
+    {
+        _rect.anchoredPosition = Vector2.LerpUnclamped(_settleFromPosition, _basePosition, progress);
+        _rect.localRotation = Quaternion.Euler(0f, 0f, Mathf.LerpAngle(_settleFromAngle, _settleToAngle, progress));
+        _rect.localScale = Vector3.LerpUnclamped(_settleFromScale, _baseScale, progress);
+
+        if (_graphic != null)
+        {
+            Color c = _graphic.color;
+            c.a = Mathf.Lerp(_settleFromAlpha, _baseAlpha, progress);
+            _graphic.color = c;
+        }
     }
 
     // 처음 위치를 중심으로 x·y를 서로 다른 박자의 사인파로 흔든다.

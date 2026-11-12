@@ -6,7 +6,7 @@ using UnityEngine.SceneManagement;
 
 // 메인 메뉴에서 인게임 씬으로 넘어가는 로딩 연출. 씬을 비동기로 불러오는 동안 왼쪽의 조작 UI를 흐리며 왼쪽으로 밀어내고
 // 오른쪽 장식을 화면 가운데로 옮긴 뒤, 메뉴 캔버스를 씬 전환 너머로 넘겨 인게임 씬의 로딩 화면으로 그대로 이어 쓴다.
-// 인게임 씬이 로딩을 마치면(ISceneLoadingScreen.Finish) 서서히 사라지고 스스로 파괴된다.
+// 인게임 씬이 로딩을 마치면(ISceneLoadingScreen.Finish) 장식 사각형들을 정렬한 뒤 중심 사각형을 키우며 로딩 화면을 지워 나가고, 다 지우면 스스로 파괴된다.
 [RequireComponent(typeof(Canvas))]
 public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
 {
@@ -69,8 +69,24 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
     // 씬 전환 너머로 넘어간 뒤 인게임 UI보다 위에 그려지도록 바꿀 캔버스 정렬 순서
     [SerializeField] private int _handoffSortingOrder = 1000;
 
-    // 인게임 씬 로딩이 끝난 뒤 화면이 완전히 사라지기까지 걸리는 시간(초)
+    // 지우기 연출에 쓸 중심 사각형이 없을 때, 인게임 씬 로딩이 끝난 뒤 화면이 완전히 사라지기까지 걸리는 시간(초)
     [SerializeField, Min(0f)] private float _fadeOutDuration = 0.5f;
+
+    [Header("로딩 종료 연출")]
+    // 로딩이 끝나면 커지며 로딩 화면을 지워 나갈 중심 사각형. 비워 두면 화면 전체가 서서히 사라진다.
+    [SerializeField] private RectTransform _revealCore;
+
+    // 장식 사각형들의 방향·위치·크기가 정렬되기까지 걸리는 시간(초)
+    [SerializeField, Min(0.01f)] private float _settleDuration = 0.45f;
+
+    // 중심 사각형이 화면을 다 덮을 만큼 커지기까지 걸리는 시간(초)
+    [SerializeField, Min(0.01f)] private float _revealDuration = 0.9f;
+
+    // 커지는 중심 사각형에서 지워지지 않고 남는 테두리 두께(캔버스 단위)
+    [SerializeField, Min(0f)] private float _revealBorder = 12f;
+
+    // 커지기 시작하면서 중심 사각형(남는 테두리)이 올라갈 투명도. 테두리가 지워지는 경계로 또렷이 보이게 한다.
+    [SerializeField, Range(0f, 1f)] private float _revealCoreAlpha = 0.9f;
 
     // 이 연출이 붙은 메뉴 캔버스
     private Canvas _canvas;
@@ -105,7 +121,10 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
     // 지금 화면에 표시 중인 진행도(0~1)
     private float _displayedProgress;
 
-    // 지금 사라지는 중인지 여부
+    // 로딩 종료 연출이 이미 시작되었는지 여부
+    private bool _isFinishing;
+
+    // 지금 화면 전체가 서서히 사라지는 중인지 여부
     private bool _isFadingOut;
 
     // 사라지기 시작한 뒤 지난 시간(초)
@@ -146,21 +165,150 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
         HandleSetTargetProgress(_sceneLoadShare + Mathf.Clamp01(progress) * (1f - _sceneLoadShare));
     }
 
-    // 진행도를 끝까지 채운 상태로 서서히 사라지기 시작한다. 다 사라지면 스스로 파괴된다.
+    // 진행도를 끝까지 채우고 로딩 종료 연출을 시작한다. 연출이 끝나면 스스로 파괴된다.
     public void Finish()
     {
-        if (_isFadingOut)
+        if (_isFinishing)
             return;
 
+        _isFinishing = true;
         _targetProgress = 1f;
         _displayedProgress = 1f;
         HandleApplyProgress();
 
-        _isFadingOut = true;
-        _fadeElapsed = 0f;
-
         // 사라지는 동안에는 아래쪽 인게임 UI를 바로 조작할 수 있도록 입력 차단만 먼저 풀어 준다.
         _rootGroup.blocksRaycasts = false;
+
+        if (_revealCore != null)
+        {
+            StartCoroutine(HandleRevealRoutine());
+            return;
+        }
+
+        _isFadingOut = true;
+        _fadeElapsed = 0f;
+    }
+
+    // 장식 사각형들을 정렬한 뒤, 중심 사각형을 키우며 그 안쪽의 로딩 화면을 지워 나가고, 다 지우면 스스로 파괴된다.
+    private IEnumerator HandleRevealRoutine()
+    {
+        yield return HandleSettleRoutine();
+        yield return HandleExpandRoutine();
+        Destroy(gameObject);
+    }
+
+    // 장식 사각형들의 떠다니기를 멈추고 직각 방향·원래 위치·크기로 정렬하면서 진행도 표시를 감춘다.
+    private IEnumerator HandleSettleRoutine()
+    {
+        RectTransform settleRoot = _centerTarget != null ? _centerTarget : _revealCore;
+        UIRectFloatMotion[] floats = settleRoot.GetComponentsInChildren<UIRectFloatMotion>();
+        foreach (UIRectFloatMotion motion in floats)
+            motion.BeginSettle();
+
+        float progressAlpha = _progressGroup != null ? _progressGroup.alpha : 0f;
+
+        for (float elapsed = 0f; elapsed < _settleDuration; elapsed += Time.unscaledDeltaTime)
+        {
+            HandleApplySettle(floats, elapsed / _settleDuration, progressAlpha);
+            yield return null;
+        }
+
+        HandleApplySettle(floats, 1f, progressAlpha);
+    }
+
+    // 정렬 진행 정도(0~1)를 감속 곡선으로 모든 장식 사각형과 진행도 표시에 적용한다.
+    private void HandleApplySettle(UIRectFloatMotion[] floats, float t, float progressAlpha)
+    {
+        float eased = 1f - Mathf.Pow(1f - Mathf.Clamp01(t), 3f);
+        foreach (UIRectFloatMotion motion in floats)
+            motion.ApplySettle(eased);
+
+        if (_progressGroup != null)
+            _progressGroup.alpha = Mathf.Lerp(progressAlpha, 0f, eased);
+    }
+
+    // 중심 사각형을 화면을 다 덮을 때까지 가속하며 키우고, 테두리 안쪽에 구멍을 뚫어 로딩 화면을 지워 나간다.
+    private IEnumerator HandleExpandRoutine()
+    {
+        RectTransform canvasRect = (RectTransform)transform;
+        RectTransform hole = HandleCreateCutoutHole();
+
+        // 중심 사각형 한 단위가 캔버스에서 차지하는 크기. 크기 계산은 캔버스 단위로 하고 사각형에는 자기 단위로 적용한다.
+        float unitScale = _revealCore.lossyScale.x / canvasRect.lossyScale.x;
+        Vector2 center = canvasRect.InverseTransformPoint(_revealCore.position);
+        Rect canvasArea = canvasRect.rect;
+
+        float startSize = _revealCore.rect.width * unitScale;
+        float halfCover = Mathf.Max(Mathf.Abs(center.x) + canvasArea.width * 0.5f, Mathf.Abs(center.y) + canvasArea.height * 0.5f);
+        float coverSize = halfCover * 2f + _revealBorder * 2f + 4f;
+
+        hole.localPosition = center;
+        hole.localRotation = _revealCore.localRotation;
+
+        UnityEngine.UI.Graphic coreGraphic = _revealCore.GetComponent<UnityEngine.UI.Graphic>();
+        float coreStartAlpha = coreGraphic != null ? coreGraphic.color.a : 1f;
+
+        for (float elapsed = 0f; elapsed < _revealDuration; elapsed += Time.unscaledDeltaTime)
+        {
+            float t = elapsed / _revealDuration;
+            HandleApplyExpand(hole, unitScale, Mathf.Lerp(startSize, coverSize, HandleEaseExpand(t)));
+            HandleApplyCoreAlpha(coreGraphic, Mathf.Lerp(coreStartAlpha, _revealCoreAlpha, Mathf.Clamp01(t * 4f)));
+            yield return null;
+        }
+
+        HandleApplyExpand(hole, unitScale, coverSize);
+        yield return null;
+    }
+
+    // 중심 사각형의 투명도를 바꾼다.
+    private void HandleApplyCoreAlpha(UnityEngine.UI.Graphic coreGraphic, float alpha)
+    {
+        if (coreGraphic == null)
+            return;
+
+        Color color = coreGraphic.color;
+        color.a = alpha;
+        coreGraphic.color = color;
+    }
+
+    // 지우기 연출의 진행 정도(0~1)를 처음엔 천천히, 갈수록 빠르게 커지는 곡선으로 바꾼다.
+    private float HandleEaseExpand(float t)
+    {
+        t = Mathf.Clamp01(t);
+        return t * t * t;
+    }
+
+    // 중심 사각형과 구멍의 크기를 정한다. 구멍은 테두리 두께만큼 작아 사각형의 가장자리만 남는다.
+    private void HandleApplyExpand(RectTransform hole, float unitScale, float size)
+    {
+        float coreSize = size / unitScale;
+        _revealCore.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, coreSize);
+        _revealCore.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, coreSize);
+
+        float holeSize = Mathf.Max(0f, size - _revealBorder * 2f);
+        hole.sizeDelta = new Vector2(holeSize, holeSize);
+    }
+
+    // 캔버스 맨 앞에 스텐실 구멍을 만들고, 캔버스의 모든 그래픽이 그 구멍 안에서는 그려지지 않게 한다.
+    private RectTransform HandleCreateCutoutHole()
+    {
+        var holeObject = new GameObject("Reveal-Hole", typeof(RectTransform), typeof(CanvasRenderer), typeof(UnityEngine.UI.Image));
+        var hole = (RectTransform)holeObject.transform;
+        hole.SetParent(transform, false);
+        hole.SetAsFirstSibling();
+        hole.anchorMin = hole.anchorMax = new Vector2(0.5f, 0.5f);
+        hole.pivot = new Vector2(0.5f, 0.5f);
+        hole.sizeDelta = Vector2.zero;
+        holeObject.GetComponent<UnityEngine.UI.Image>().raycastTarget = false;
+
+        foreach (UnityEngine.UI.Graphic graphic in GetComponentsInChildren<UnityEngine.UI.Graphic>(true))
+        {
+            if (graphic.gameObject != holeObject)
+                graphic.gameObject.AddComponent<UIStencilCutout>();
+        }
+
+        holeObject.AddComponent<UIStencilCutout>().Setup(true);
+        return hole;
     }
 
     // 씬을 불러오면서 퇴장 연출을 재생하고, 둘 다 끝나면 캔버스를 다음 씬으로 넘긴 뒤 씬을 활성화한다.

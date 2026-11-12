@@ -9920,6 +9920,10 @@ MonoBehaviour:
   _sceneLoadShare: 0.3
   _handoffSortingOrder: 1000
   _fadeOutDuration: 0.5
+  _revealCore: {fileID: 1555357219}
+  _settleDuration: 0.45
+  _revealDuration: 0.9
+  _revealBorder: 12
 --- !u!1 &929417583
 GameObject:
   m_ObjectHideFlags: 0
