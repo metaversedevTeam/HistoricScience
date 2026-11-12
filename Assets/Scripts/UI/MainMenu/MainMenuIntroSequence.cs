@@ -72,6 +72,9 @@ public class MainMenuIntroSequence : MonoBehaviour
 
             return t >= 1f;
         }
+
+        // 이 칸이 원래 배치로 완전히 돌아오는 시각(연출 시작 기준, 초)
+        public float EndTime => _delay + _duration;
     }
 
     // 순서대로 재생할 등장 연출 목록
@@ -79,6 +82,9 @@ public class MainMenuIntroSequence : MonoBehaviour
 
     // 연출이 끝나기 전에는 버튼을 누를 수 없게 막을 캔버스 그룹(비워 두면 막지 않는다)
     [SerializeField] private CanvasGroup _inputBlocker;
+
+    // 퇴장(역재생) 연출을 등장보다 몇 배 빠르게 재생할지
+    [SerializeField, Min(0.1f)] private float _outroSpeed = 1.5f;
 
     // 원래 배치를 이미 기억해 두었는지 여부
     private bool _isCached;
@@ -89,9 +95,22 @@ public class MainMenuIntroSequence : MonoBehaviour
     // 연출이 시작된 뒤 지난 시간(초)
     private float _elapsed;
 
+    // 지금 재생 중인 연출이 퇴장(역재생)인지 여부
+    private bool _isReversing;
+
+    // 퇴장 연출이 끝났을 때 부를 콜백
+    private Action _onReverseComplete;
+
     private void OnEnable()
     {
         Play();
+    }
+
+    private void OnDisable()
+    {
+        _isPlaying = false;
+        _isReversing = false;
+        _onReverseComplete = null;
     }
 
     private void Update()
@@ -102,19 +121,54 @@ public class MainMenuIntroSequence : MonoBehaviour
     // 모든 요소를 처음 상태로 돌려놓고 등장 연출을 처음부터 재생한다.
     public void Play()
     {
-        if (!_isCached)
-        {
-            foreach (IntroStep step in _steps)
-                step.Cache();
-            _isCached = true;
-        }
+        HandleCacheOnce();
 
         _elapsed = 0f;
         _isPlaying = true;
+        _isReversing = false;
+        _onReverseComplete = null;
         HandleApplyAll();
 
         if (_inputBlocker != null)
+        {
             _inputBlocker.interactable = false;
+            _inputBlocker.alpha = 1f;
+        }
+    }
+
+    // 등장 연출을 거꾸로 재생해 요소들을 처음 상태로 되돌리고, 다 사라지면 콜백을 부른다.
+    public void PlayReverse(Action onComplete)
+    {
+        HandleCacheOnce();
+
+        float totalTime = HandleGetTotalTime();
+        _elapsed = _isPlaying && !_isReversing ? Mathf.Min(_elapsed, totalTime) : totalTime;
+        _isPlaying = true;
+        _isReversing = true;
+        _onReverseComplete = onComplete;
+
+        if (_inputBlocker != null)
+            _inputBlocker.interactable = false;
+    }
+
+    // 각 요소의 원래 배치를 처음 한 번만 기억해 둔다.
+    private void HandleCacheOnce()
+    {
+        if (_isCached)
+            return;
+
+        foreach (IntroStep step in _steps)
+            step.Cache();
+        _isCached = true;
+    }
+
+    // 모든 칸이 끝나기까지 걸리는 전체 시간을 구한다.
+    private float HandleGetTotalTime()
+    {
+        float totalTime = 0f;
+        foreach (IntroStep step in _steps)
+            totalTime = Mathf.Max(totalTime, step.EndTime);
+        return totalTime;
     }
 
     // 재생 중이면 시간을 흘려 모든 요소를 옮기고, 전부 제자리로 돌아오면 입력을 풀어 준다.
@@ -123,6 +177,12 @@ public class MainMenuIntroSequence : MonoBehaviour
         if (!_isPlaying)
             return;
 
+        if (_isReversing)
+        {
+            HandleAdvanceReverse();
+            return;
+        }
+
         _elapsed += Time.unscaledDeltaTime;
         if (!HandleApplyAll())
             return;
@@ -130,6 +190,27 @@ public class MainMenuIntroSequence : MonoBehaviour
         _isPlaying = false;
         if (_inputBlocker != null)
             _inputBlocker.interactable = true;
+    }
+
+    // 퇴장 연출의 시간을 거꾸로 흘리고, 뒤쪽 절반 동안 전체를 함께 흐리게 한 뒤 끝나면 콜백을 부른다.
+    private void HandleAdvanceReverse()
+    {
+        float totalTime = HandleGetTotalTime();
+        _elapsed = Mathf.Max(0f, _elapsed - Time.unscaledDeltaTime * _outroSpeed);
+        HandleApplyAll();
+
+        if (_inputBlocker != null && totalTime > 0f)
+            _inputBlocker.alpha = Mathf.Clamp01(_elapsed / totalTime * 2f);
+
+        if (_elapsed > 0f)
+            return;
+
+        _isPlaying = false;
+        _isReversing = false;
+
+        Action onComplete = _onReverseComplete;
+        _onReverseComplete = null;
+        onComplete?.Invoke();
     }
 
     // 지금 시간에 맞춰 모든 칸을 적용하고, 모든 칸이 끝났는지 돌려준다.
