@@ -62,6 +62,9 @@ public class MapSelectUI : MonoBehaviour
     // 맵이 정해졌을 때 넘어갈 인게임 씬 이름. 비워 두면 씬을 전환하지 않는다.
     [SerializeField] private string _ingameSceneName = "Ingame";
 
+    // 인게임 씬을 비동기로 불러오며 메뉴를 로딩 화면으로 바꿔 이어 주는 연출. 비워 두면 연출 없이 바로 비동기로 불러온다.
+    [SerializeField] private MainMenuLoadingSequence _loadingSequence;
+
     // 새로 만드는 맵 슬롯 이름의 앞부분. 뒤에 비어 있는 가장 작은 번호가 붙는다.
     [SerializeField] private string _newMapNamePrefix = "새 맵";
 
@@ -304,6 +307,10 @@ public class MapSelectUI : MonoBehaviour
             TutorialSession.MarkExistingMapLoaded();
 
         IngameSceneManager.NextMapSlot = slot;
-        SceneManager.LoadScene(_ingameSceneName);
+
+        if (_loadingSequence != null)
+            _loadingSequence.Begin(_ingameSceneName);
+        else
+            SceneManager.LoadSceneAsync(_ingameSceneName);
     }
 }

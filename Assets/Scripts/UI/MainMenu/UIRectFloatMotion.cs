@@ -41,6 +41,20 @@ public class UIRectFloatMotion : MonoBehaviour
     // 투명도 변화의 기준이 되는 처음 투명도
     private float _baseAlpha;
 
+    // 떠다니는 중심이 되는 위치. 바꾸면 그 자리를 중심으로 계속 떠다닌다.
+    public Vector2 BasePosition
+    {
+        get => _basePosition;
+        set
+        {
+            _basePosition = value;
+
+            // 떠다니지 않는 사각형은 Update가 위치를 건드리지 않으므로 바로 옮겨 둔다.
+            if (_driftAmplitude == Vector2.zero && _rect != null)
+                _rect.anchoredPosition = value;
+        }
+    }
+
     private void Awake()
     {
         _rect = (RectTransform)transform;

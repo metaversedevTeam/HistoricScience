@@ -40,6 +40,8 @@ public class IngameSceneManager : MonoBehaviour
     private List<SavableEntry> _pendingSavables;
     // 이번 씬 진입 동안 띄워 둔 로딩 화면 인스턴스
     private LoadingScreenUI _loadingScreen;
+    // 이전 씬(메인 메뉴)이 씬 전환 너머로 넘겨준 로딩 화면. 있으면 자기 로딩 화면 대신 이것을 쓴다.
+    private ISceneLoadingScreen _handedLoadingScreen;
 
     // 이번 씬의 맵 데이터를 반환한다. 씬 진입이 끝나기 전에는 null이다.
     public MapData MapData => _mapData;
@@ -85,6 +87,14 @@ public class IngameSceneManager : MonoBehaviour
     // 맵을 열기 전에 로딩 화면을 띄워, 청크가 다 구워질 때까지 아직 비어 있는 월드가 보이지 않게 가린다.
     private void HandleShowLoadingScreen()
     {
+        // 메인 메뉴가 로딩 화면을 이어서 띄워 둔 채 넘어왔으면, 새로 띄우지 않고 그 화면에 진행도를 알린다.
+        _handedLoadingScreen = SceneLoadingHandoff.Take();
+        if (_handedLoadingScreen != null)
+        {
+            HandleSubscribeChunkLoadProgress();
+            return;
+        }
+
         if (_loadingScreenUIPrefab == null)
         {
             Debug.LogWarning("IngameSceneManager: 로딩 화면 프리팹이 연결되지 않아 로딩 중 화면을 가리지 않습니다.", this);
@@ -92,8 +102,12 @@ public class IngameSceneManager : MonoBehaviour
         }
 
         _loadingScreen = UIManager.Instance.OpenUI(_loadingScreenUIPrefab);
+        HandleSubscribeChunkLoadProgress();
+    }
 
-        // 청크가 하나씩 로딩될 때마다 등록된 청크 대비 비율을 받아 프로그래스 바에 반영한다.
+    // 청크가 하나씩 로딩될 때마다 등록된 청크 대비 비율을 받아 로딩 화면의 진행도에 반영하도록 연결한다.
+    private void HandleSubscribeChunkLoadProgress()
+    {
         if (_chunkLoader != null)
             _chunkLoader.LoadProgressChanged += HandleReportChunkLoadProgress;
     }
@@ -101,32 +115,43 @@ public class IngameSceneManager : MonoBehaviour
     // 청크 초기 로딩이 끝난 뒤 로딩 화면을 걷는다.
     private void HandleHideLoadingScreen()
     {
-        if (_loadingScreen == null)
+        if (_loadingScreen == null && _handedLoadingScreen == null)
             return;
 
         // 로딩 화면이 사라진 뒤에도 추적 루프가 진행도를 계속 알리므로 여기서 연결을 끊는다.
         if (_chunkLoader != null)
             _chunkLoader.LoadProgressChanged -= HandleReportChunkLoadProgress;
 
-        _loadingScreen.Close();
+        if (_handedLoadingScreen != null)
+        {
+            _handedLoadingScreen.Finish();
+            _handedLoadingScreen = null;
+        }
+
+        if (_loadingScreen != null)
+            _loadingScreen.Close();
     }
 
     // 맵 파일을 읽어 온 몫만큼 로딩 진행도를 먼저 채운다.
     private void HandleReportFileLoadProgress()
     {
-        if (_loadingScreen == null)
-            return;
-
-        _loadingScreen.SetProgress(FileLoadProgress);
+        HandleSetLoadingProgress(FileLoadProgress);
     }
 
     // 청크 로딩 비율을 전체 로딩 진행도로 바꿔 로딩 화면에 알린다. 맵 파일 읽기가 앞의 몫을 차지하므로 남은 구간에 대응시킨다.
     private void HandleReportChunkLoadProgress(float chunkLoadProgress)
     {
-        if (_loadingScreen == null)
-            return;
+        HandleSetLoadingProgress(FileLoadProgress + chunkLoadProgress * (1f - FileLoadProgress));
+    }
 
-        _loadingScreen.SetProgress(FileLoadProgress + chunkLoadProgress * (1f - FileLoadProgress));
+    // 지금 띄워 둔 로딩 화면(메인 메뉴가 넘겨준 화면 또는 자기 로딩 화면)에 전체 로딩 진행도를 알린다.
+    private void HandleSetLoadingProgress(float progress)
+    {
+        if (_handedLoadingScreen != null)
+            _handedLoadingScreen.SetProgress(progress);
+
+        if (_loadingScreen != null)
+            _loadingScreen.SetProgress(progress);
     }
 
     // 현재 맵 상태(맵 데이터, 인벤토리, 씬의 모든 ISavable)를 지정한 슬롯에 저장한다. 성공하면 true를 반환한다.
