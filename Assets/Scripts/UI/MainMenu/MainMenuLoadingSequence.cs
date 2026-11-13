@@ -94,6 +94,19 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
     // 커지기 시작하면서 중심 사각형(남는 테두리)이 올라갈 투명도. 테두리가 지워지는 경계로 또렷이 보이게 한다.
     [SerializeField, Range(0f, 1f)] private float _revealCoreAlpha = 0.9f;
 
+    [Header("프레임 끊김 보정")]
+    // 한 프레임에 연출이 진행될 수 있는 가장 긴 시간(초). 씬 전환 직후처럼 한 프레임이 오래 걸려도 연출이 건너뛰지 않고 이어지게 한다.
+    [SerializeField, Min(0.001f)] private float _maxMotionDeltaTime = 1f / 30f;
+
+    // 돌아온 직후 역재생을 시작하기 전에, 이 시간(초)보다 짧은 프레임이 연달아 나와야 하는 횟수
+    [SerializeField, Min(0)] private int _returnStableFrameCount = 3;
+
+    // 프레임이 안정되었다고 볼 한 프레임의 최대 시간(초)
+    [SerializeField, Min(0.001f)] private float _returnStableFrameTime = 1f / 30f;
+
+    // 프레임이 끝내 안정되지 않아도 역재생을 시작할 때까지 기다리는 최대 시간(초)
+    [SerializeField, Min(0f)] private float _returnStableTimeout = 1f;
+
     [Header("인게임에서 돌아올 때")]
     // 돌아올 때는 로딩 연출을 거꾸로 재생하므로, 그 대신 건너뛸 메인 메뉴 등장 연출
     [SerializeField] private MainMenuIntroSequence _skippedIntroOnReturn;
@@ -370,7 +383,7 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
         // allowSceneActivation이 꺼져 있으면 진행도는 0.9에서 멈추므로, 0.9를 씬 불러오기 완료로 본다.
         while (elapsed < motionEnd || operation.progress < 0.9f)
         {
-            elapsed += Time.unscaledDeltaTime;
+            elapsed += HandleGetMotionDeltaTime();
             HandleApplyMotion(elapsed);
             HandleSetTargetProgress(Mathf.Clamp01(operation.progress / 0.9f) * _sceneLoadShare);
             yield return null;
@@ -419,8 +432,12 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
         _displayedProgress = 0f;
         HandleApplyProgress();
 
+        // 씬이 막 바뀐 직후에는 이전 씬 정리 등으로 프레임이 길어지므로, 로딩 끝 상태로 멈춰 둔 채 프레임이 안정되길 기다린다.
         float motionEnd = HandleGetMotionEndTime();
-        for (float elapsed = motionEnd; elapsed > 0f; elapsed -= Time.unscaledDeltaTime)
+        HandleApplyMotion(motionEnd);
+        yield return HandleWaitFrameStable();
+
+        for (float elapsed = motionEnd; elapsed > 0f; elapsed -= HandleGetMotionDeltaTime())
         {
             HandleApplyMotion(elapsed);
             yield return null;
@@ -429,6 +446,25 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
         HandleApplyMotion(0f);
         _rootGroup.interactable = true;
         _isRunning = false;
+    }
+
+    // 짧은 프레임이 정해 둔 횟수만큼 연달아 나오거나 최대 대기 시간이 지날 때까지 기다린다.
+    private IEnumerator HandleWaitFrameStable()
+    {
+        int stableFrames = 0;
+        float waited = 0f;
+        while (stableFrames < _returnStableFrameCount && waited < _returnStableTimeout)
+        {
+            yield return null;
+            waited += Time.unscaledDeltaTime;
+            stableFrames = Time.unscaledDeltaTime <= _returnStableFrameTime ? stableFrames + 1 : 0;
+        }
+    }
+
+    // 이번 프레임에 연출을 진행시킬 시간을 구한다. 프레임이 길어져도 정해 둔 최대 시간을 넘지 않게 해 연출이 건너뛰지 않게 한다.
+    private float HandleGetMotionDeltaTime()
+    {
+        return Mathf.Min(Time.unscaledDeltaTime, _maxMotionDeltaTime);
     }
 
     // 버튼 입력을 막고, 퇴장·이동 대상들의 원래 배치를 기억해 둔다.
