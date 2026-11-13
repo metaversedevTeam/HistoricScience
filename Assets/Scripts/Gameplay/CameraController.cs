@@ -110,6 +110,9 @@ public class CameraController : MonoBehaviour, ISavable
         Mouse mouse = Mouse.current;
         if (mouse == null) return;
 
+        // 상호작용 명령 목록이 떠 있는 동안은 휠을 명령 선택에 쓰므로 확대·축소하지 않는다
+        if (InteractionCommandListUI.IsWheelCaptured) return;
+
         float scroll = mouse.scroll.ReadValue().y;
         if (Mathf.Approximately(scroll, 0f)) return;
 

@@ -23,6 +23,24 @@ public class Citizen : MonoBehaviour, ISavable
     // 시민 모델의 애니메이터. 이동·채집 상태를 파라미터로 전달한다.
     [SerializeField] private Animator _animator;
 
+    [Header("앞쪽 상호작용 대상")]
+    // 앞의 상호작용 대상 오른쪽에 명령 목록을 띄울 UI 프리팹. 비워 두면 목록을 띄우지 않는다.
+    [SerializeField] private InteractionCommandListUI _interactionListUiPrefab;
+    // 시민 발밑에서 앞쪽으로 감지 구의 중심을 얼마나 내밀지(m)
+    [SerializeField] private float _interactForwardDistance = 1.2f;
+    // 감지 구의 중심 높이(m)
+    [SerializeField] private float _interactHeight = 0.8f;
+    // 감지 구의 반경(m)
+    [SerializeField, Min(0.01f)] private float _interactRadius = 0.9f;
+    // 상호작용 대상으로 볼 레이어
+    [SerializeField] private LayerMask _interactLayers = ~(1 << 2);
+
+    // 앞쪽 감지에 한 번에 받을 최대 충돌체 수
+    private const int k_MaxInteractHits = 16;
+
+    // IGatherable 대상에게 띄울 명령 이름
+    private const string k_GatherCommandName = "채집";
+
     // 애니메이터 파라미터 이름. 매 프레임 문자열 비교를 피하기 위해 해시로 캐싱한다.
     private static readonly int k_IsMovingParam = Animator.StringToHash("IsMoving");
     private static readonly int k_IsGatheringParam = Animator.StringToHash("IsGathering");
@@ -44,6 +62,15 @@ public class Citizen : MonoBehaviour, ISavable
 
     // 건물 선택 후 생성한 위치 지정 컨트롤러. 배치가 끝나면 스스로 파괴되므로 그 시점부터 null이 된다.
     private BuildingPlacementController _placementController;
+
+    // 앞쪽 감지 결과를 담아 둘 재사용 버퍼
+    private readonly Collider[] _interactHits = new Collider[k_MaxInteractHits];
+
+    // 명령 목록 UI에 넘길 명령 이름을 담아 둘 재사용 목록
+    private readonly List<string> _interactCommandNames = new();
+
+    // 이 시민이 만들어 둔 명령 목록 UI. 처음 대상을 만났을 때 만든다.
+    private InteractionCommandListUI _interactionListUI;
 
     // SelectableObject, IMover, Gatherer 컴포넌트를 캐싱
     private void Awake()
@@ -70,6 +97,16 @@ public class Citizen : MonoBehaviour, ISavable
         UnsubscribeFromPlayer();
         CancelGatherTargeting();
         UnsubscribeFromBuildingSelectUI();
+
+        if (_interactionListUI != null)
+            _interactionListUI.Hide();
+    }
+
+    // 시민이 사라지면 이 시민이 만든 명령 목록 UI도 함께 없앤다.
+    private void OnDestroy()
+    {
+        if (_interactionListUI != null)
+            Destroy(_interactionListUI.gameObject);
     }
 
     // 선택 여부와 관계없이 WASD로 걷고, 채집 대상이 지정되어 있으면 매 프레임 채집을 시도하며, 그 결과를 애니메이션에 반영
@@ -78,6 +115,138 @@ public class Citizen : MonoBehaviour, ISavable
         HandleMoveInput();
         HandleGathering();
         HandleAnimation();
+        HandleInteractionTarget();
+    }
+
+    // 앞에 IGatherable이나 ICommandable을 가진 대상이 있으면 그 오른쪽에 명령 목록을 띄우고, 없으면 감춘다.
+    private void HandleInteractionTarget()
+    {
+        if (_interactionListUiPrefab == null) return;
+
+        Collider target = FindFrontInteractionTarget();
+        if (target == null)
+        {
+            if (_interactionListUI != null)
+                _interactionListUI.Hide();
+            return;
+        }
+
+        CollectCommandNames(target);
+        EnsureInteractionListUI().Show(target, _interactCommandNames);
+
+        PlayerManager player = PlayerManager.Instance;
+        if (player != null && player.IsInteractPressed)
+            ExecuteInteractionCommand(target, _interactionListUI.SelectedIndex, player);
+    }
+
+    // 명령 목록에서 선택된 명령을 실행한다. 목록은 '채집'(IGatherable일 때)이 먼저, 그 뒤에 ICommandable 명령이 같은 순서로 놓인다.
+    private void ExecuteInteractionCommand(Collider target, int index, PlayerManager player)
+    {
+        if (index < 0) return;
+
+        var gatherable = target.GetComponentInParent<IGatherable>();
+        if (gatherable != null)
+        {
+            if (index == 0)
+            {
+                ExecuteGatherCommand(gatherable, player);
+                return;
+            }
+            index--;
+        }
+
+        var commandable = target.GetComponentInParent<ICommandable>();
+        if (commandable == null) return;
+
+        var commands = commandable.GetCommands();
+        if (index >= commands.Count) return;
+
+        SelectCommandable(commandable, player);
+        AudioManager.PlayButtonClick();
+        commands[index].OnExecute?.Invoke();
+    }
+
+    // 앞의 채집 대상을 채집하러 간다. 우클릭 채집처럼 진행 중이던 채집 타겟 지정·채집·건축 위치 지정을 먼저 정리한다.
+    private void ExecuteGatherCommand(IGatherable gatherable, PlayerManager player)
+    {
+        if (gatherable is not Component component) return;
+
+        CancelGatherTargeting();
+        CancelGathering();
+        CancelBuildingPlacement();
+        AudioManager.PlayButtonClick();
+        BeginGathering(gatherable, player.ResourceInventory, component.transform);
+    }
+
+    // 상호작용 개체의 명령은 플레이어가 그 개체를 선택한 상태를 전제로 동작하므로(창고 열기 등), 실행 직전에 그 개체를 선택 상태로 만든다.
+    private static void SelectCommandable(ICommandable commandable, PlayerManager player)
+    {
+        if (commandable is not Component component) return;
+        if (!component.TryGetComponent(out SelectableObject selectable)) return;
+
+        player.SelectExternally(selectable);
+    }
+
+    // 시민 앞쪽 감지 구 안에서 IGatherable이나 ICommandable을 가진, 구 중심에 가장 가까운 충돌체를 찾는다. 자기 자신은 제외한다.
+    private Collider FindFrontInteractionTarget()
+    {
+        Vector3 center = transform.position + Vector3.up * _interactHeight + transform.forward * _interactForwardDistance;
+        int count = Physics.OverlapSphereNonAlloc(center, _interactRadius, _interactHits, _interactLayers, QueryTriggerInteraction.Collide);
+
+        Collider best = null;
+        float bestSqrDistance = float.PositiveInfinity;
+        for (int i = 0; i < count; i++)
+        {
+            Collider hit = _interactHits[i];
+            if (hit.transform.IsChildOf(transform)) continue;
+            if (!IsInteractable(hit)) continue;
+
+            float sqrDistance = (hit.ClosestPoint(center) - center).sqrMagnitude;
+            if (sqrDistance >= bestSqrDistance) continue;
+
+            best = hit;
+            bestSqrDistance = sqrDistance;
+        }
+        return best;
+    }
+
+    // 충돌체나 그 부모에 IGatherable 또는 ICommandable이 있는지 확인한다.
+    private static bool IsInteractable(Collider hit)
+    {
+        return hit.GetComponentInParent<IGatherable>() != null || hit.GetComponentInParent<ICommandable>() != null;
+    }
+
+    // 대상이 IGatherable이면 '채집'을, ICommandable이면 그 명령 이름들을 차례로 모은다.
+    private void CollectCommandNames(Collider target)
+    {
+        _interactCommandNames.Clear();
+
+        if (target.GetComponentInParent<IGatherable>() != null)
+            _interactCommandNames.Add(k_GatherCommandName);
+
+        var commandable = target.GetComponentInParent<ICommandable>();
+        if (commandable == null) return;
+
+        foreach (var command in commandable.GetCommands())
+            _interactCommandNames.Add(command.Name);
+    }
+
+    // 명령 목록 UI가 아직 없으면 UI 루트 맨 뒤(창 형태 UI 아래)에 만들어 둔다.
+    private InteractionCommandListUI EnsureInteractionListUI()
+    {
+        if (_interactionListUI != null) return _interactionListUI;
+
+        _interactionListUI = Instantiate(_interactionListUiPrefab, UIManager.Instance.UIRoot);
+        _interactionListUI.transform.SetAsFirstSibling();
+        return _interactionListUI;
+    }
+
+    // 에디터에서 시민을 선택하면 앞쪽 상호작용 감지 범위를 보여 준다.
+    private void OnDrawGizmosSelected()
+    {
+        Gizmos.color = new Color(0.56f, 0.83f, 1f, 0.6f);
+        Vector3 center = transform.position + Vector3.up * _interactHeight + transform.forward * _interactForwardDistance;
+        Gizmos.DrawWireSphere(center, _interactRadius);
     }
 
     // 선택 여부와 관계없이 플레이어의 WASD 입력 방향으로 직접 걷고, Shift를 누르고 있으면 달린다. 입력이 끊기면 이동 컴포넌트가 스스로 멈춘다.

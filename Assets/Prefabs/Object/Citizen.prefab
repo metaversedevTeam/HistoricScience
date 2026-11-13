@@ -80,6 +80,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 0
   _moveSpeedBonus: {fileID: 11400000, guid: f68e999ac17f08dadba2f99bb86d65aa, type: 2}
+  _runSpeedMultiplier: 1.8
   _walkSfx: {fileID: 8300000, guid: 7a1da8275935858428d3af22a10ab810, type: 3}
   _walkSfxVolume: 1
   _walkSfxPitch: 0.5
@@ -160,7 +161,13 @@ MonoBehaviour:
   _savable:
     _prefabId: Citizen
   _animator: {fileID: 5618398481550547390}
-  _holdRefreshDistance: 0.5
+  _interactionListUiPrefab: {fileID: 367066562485735329, guid: c96666cf2d9eaff4e9a8d1a1325d7816, type: 3}
+  _interactForwardDistance: 1.2
+  _interactHeight: 0.8
+  _interactRadius: 0.9
+  _interactLayers:
+    serializedVersion: 2
+    m_Bits: 4294967291
 --- !u!114 &1079012590664367675
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -24,6 +24,9 @@ public class PlayerManager : MonoBehaviour
     // 플레이어가 달리기 키(Shift)를 누르고 있는지. 직접 걷는 동안 이 값이 true면 달린다.
     public bool IsRunning => _inputManager.IsRunning;
 
+    // 이번 프레임에 상호작용 키(F)를 눌렀는지. 시민이 앞 대상의 명령 목록에서 선택된 명령을 실행할 때 쓴다.
+    public bool IsInteractPressed => _inputManager.IsInteractPressed;
+
     [SerializeField] private InputManager _inputManager;
 
     [SerializeField] private ResourceInventory _resourceInventory;

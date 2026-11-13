@@ -40,6 +40,9 @@ public class InputManager : MonoBehaviour
     // 왼쪽이나 오른쪽 Shift를 누르고 있는지. 직접 걷는 유닛이 이 값으로 달리기 여부를 정한다.
     public bool IsRunning => Keyboard.current != null && Keyboard.current.shiftKey.isPressed;
 
+    // 이번 프레임에 상호작용 키(F)를 눌렀는지. 시민이 앞 대상의 선택된 명령을 실행할 때 쓴다.
+    public bool IsInteractPressed => Keyboard.current != null && Keyboard.current.fKey.wasPressedThisFrame;
+
     // Ground 레이어가 미설정된 경우 자동으로 찾아 할당
     private void Awake()
     {
