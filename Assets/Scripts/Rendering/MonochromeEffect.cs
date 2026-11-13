@@ -8,7 +8,7 @@ public static class MonochromeEffect
     // 흑백 강도가 0보다 커서 렌더 패스를 실행해야 하는지 여부
     public static bool IsActive => Shader.GetGlobalFloat(IntensityId) > 0f;
 
-    // 전역 흑백 강도(0 = 원래 색, 1 = 완전 흑백)를 설정한다
+    // 전역 흑백 강도(0 = 원래 색, 1 = 셰이더 그래프의 Saturation(_MonochromeSaturation)까지 채도를 낮춘 색)를 설정한다
     public static void SetIntensity(float intensity)
     {
         Shader.SetGlobalFloat(IntensityId, Mathf.Clamp01(intensity));
