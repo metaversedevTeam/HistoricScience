@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 // 시민 유닛을 나타내며 플레이어의 WASD 입력으로 걷고, 앞의 상호작용 대상(IGatherable·ICommandable)에게 할 수 있는 명령 목록을 띄워 F로 실행하는 컴포넌트
 public class Citizen : MonoBehaviour, ISavable
@@ -11,6 +12,8 @@ public class Citizen : MonoBehaviour, ISavable
     [SerializeField] private Texture2D _gatherTargetingCursor;
     // 곡괭이 커서에서 실제 클릭 지점으로 쓸 텍스처 안의 좌표(픽셀). 기본값은 32x32 커서의 중앙이다.
     [SerializeField] private Vector2 _gatherTargetingCursorHotspot = new Vector2(16f, 16f);
+    // 건물 선택 UI를 여는 키
+    [SerializeField] private Key _buildMenuKey = Key.B;
     // 건물 선택 UI 프리팹
     [SerializeField] private BuildingSelectUI _buildingSelectUiPrefab;
     // 건물 선택 UI에 나열할, IBuildable을 구현한 건물 프리팹 목록
@@ -61,6 +64,9 @@ public class Citizen : MonoBehaviour, ISavable
     // 건물 선택 후 생성한 위치 지정 컨트롤러. 배치가 끝나면 스스로 파괴되므로 그 시점부터 null이 된다.
     private BuildingPlacementController _placementController;
 
+    // 건물 배치 모드가 진행 중인지 여부. 배치 중에는 F키가 배치 확정으로 쓰이므로 앞 대상 명령 목록이 쉰다.
+    public bool IsPlacing => _placementController != null;
+
     // 앞쪽 감지 결과를 담아 둘 재사용 버퍼
     private readonly Collider[] _interactHits = new Collider[k_MaxInteractHits];
 
@@ -99,6 +105,7 @@ public class Citizen : MonoBehaviour, ISavable
         _mover.OnMoveOrdered -= HandleMoveOrdered;
         _mover.OnMoveEnd -= HandleMoveEnd;
         UnsubscribeFromBuildingSelectUI();
+        CancelBuildingPlacement();
 
         if (_interactionListUI != null)
             _interactionListUI.Hide();
@@ -118,15 +125,17 @@ public class Citizen : MonoBehaviour, ISavable
         HandleMoveInput();
         HandleGathering();
         HandleAnimation();
+        HandleBuildMenuInput();
         HandleInteractionTarget();
     }
 
     // 앞에 IGatherable이나 ICommandable을 가진 대상이 있으면 그 오른쪽에 명령 목록을 띄우고, 없으면 감춘다.
+    // 건물 배치 중에는 F키가 배치 확정으로 쓰이므로 목록을 감추고 쉰다.
     private void HandleInteractionTarget()
     {
         if (_interactionListUiPrefab == null) return;
 
-        Collider target = FindFrontInteractionTarget();
+        Collider target = IsPlacing ? null : FindFrontInteractionTarget();
         if (target == null)
         {
             if (_interactionListUI != null)
@@ -405,12 +414,21 @@ public class Citizen : MonoBehaviour, ISavable
         _animator.speed = _isMoving ? _mover.MoveSpeedRatio : 1f;
     }
 
-    // 건물 짓기 명령을 실행해 건물 선택 UI를 열고 선택·닫기 결과를 구독한다. 이미 건축 위치로 이동 중이면 열지 않는다.
+    // 건축 키(B)가 눌렸고 조작을 막는 UI나 진행 중인 배치가 없으면 건물 선택 UI를 연다.
+    private void HandleBuildMenuInput()
+    {
+        Keyboard keyboard = Keyboard.current;
+        if (keyboard == null || !keyboard[_buildMenuKey].wasPressedThisFrame) return;
+        if (UIManager.Instance.HasBlockingUI || IsPlacing || _openBuildingSelectUI != null) return;
+
+        OpenBuildingSelectUI();
+    }
+
+    // 건물 선택 UI를 열고 선택·닫기 결과를 구독한다.
     private void OpenBuildingSelectUI()
     {
         PlayerManager player = PlayerManager.Instance;
         if (player == null) return;
-        if (IsMovingToBuildSite()) return;
 
         UnsubscribeFromBuildingSelectUI();
 
@@ -441,22 +459,15 @@ public class Citizen : MonoBehaviour, ISavable
         _openBuildingSelectUI.Close();
 
         _placementController = Instantiate(_buildingPlacementControllerPrefab);
-        _placementController.BeginPlacement(buildable, (buildable as Component)?.gameObject, player, _mover, GetComponent<HitableObject>());
+        _placementController.BeginPlacement(buildable, (buildable as Component)?.gameObject, player, GetComponent<HitableObject>(), Camera.main);
     }
 
-    // 진행 중이던 건축 위치 지정을 취소해 홀로그램과 위치 지정 모드를 정리한다. 시민이 다른 곳으로 이동하면 그 자리에 짓기로 한 위치는 의미를 잃기 때문이다.
-    // 이미 건축 명령을 받아 배치 위치로 이동 중인 경우는 컨트롤러가 스스로 무시하므로, 진행 중인 건축은 여기서 취소되지 않는다.
+    // 진행 중이던 건축 위치 지정을 취소해 홀로그램과 위치 지정 모드를 정리한다.
     private void CancelBuildingPlacement()
     {
         if (_placementController == null) return;
 
         _placementController.CancelPlacement();
-    }
-
-    // 건축 명령을 받아 배치 위치로 이동하는 중인지 확인한다. 배치가 끝난 컨트롤러는 파괴되어 null로 판정된다.
-    private bool IsMovingToBuildSite()
-    {
-        return _placementController != null && _placementController.IsMovingToBuildSite;
     }
 
     // 건물 선택 UI가 닫히면 구독을 해제한다.

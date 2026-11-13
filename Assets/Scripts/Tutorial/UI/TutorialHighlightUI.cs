@@ -5,7 +5,7 @@ using UnityEngine.UI;
 // 강조 대상만 남기고 화면을 덮는 튜토리얼 강조 UI (피그마 spotlight-dim-mask · highlight-ring · glowing-arrow).
 // UIManager로 열리므로 그 시점에 열려 있는 다른 UI보다 뒤늦게 캔버스에 붙어 그 위에 그려지고, 매 프레임 대상을 다시 물어 위치를 따라간다.
 // 어떤 이미지도 레이캐스트를 받지 않아, 강조된 대상을 그대로 클릭할 수 있다.
-public class TutorialHighlightUI : OpenableUIBase<TutorialHighlightData>
+public class TutorialHighlightUI : OpenableUIBase<TutorialHighlightData>, IPassiveUI
 {
     // 화면 전체를 덮는 자기 자신의 RectTransform
     [SerializeField] private RectTransform _rootRect;

@@ -91,10 +91,10 @@ public class ThirdPersonCamera : MonoBehaviour
         HandleFollowTarget();
     }
 
-    // Alt를 누르고 있지 않으면 커서를 잠그고, 잠긴 동안 마우스 이동량으로 좌우·위아래 방향을 돌린다.
+    // Alt를 누르고 있지 않고 조작을 막는 UI(창고·건물 선택 등)도 열려 있지 않으면 커서를 잠그고, 잠긴 동안 마우스 이동량으로 좌우·위아래 방향을 돌린다.
     private void HandleLook()
     {
-        bool isCursorFree = IsAltPressed();
+        bool isCursorFree = IsAltPressed() || UIManager.Instance.HasBlockingUI;
         bool justLocked = _wasCursorFree && !isCursorFree;
         _wasCursorFree = isCursorFree;
 
