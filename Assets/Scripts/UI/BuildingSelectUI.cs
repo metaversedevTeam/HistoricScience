@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 // 건축할 건물 선택 UI — 메인 메뉴와 같은 사각형 모션그래픽 디자인으로 건물 목록을 가로 띠 카드로 나열하고,
-// 카드를 고르면 오른쪽 상세 패널에 설명·건설 비용을 보여준다. 건축 시작 버튼(또는 카드 두 번 누르기)으로 선택이 확정되며,
+// 카드를 고르면 오른쪽 상세 패널에 설명·건설 비용을 보여준다. 건축 시작 버튼으로 선택이 확정되며,
 // 건물 선택·닫기를 콜백으로 알린다. 열고 닫을 때의 등장·퇴장 연출은 MainMenuIntroSequence가 맡는다.
 public class BuildingSelectUI : OpenableUIBase<BuildingSelectData>
 {
@@ -154,13 +154,6 @@ public class BuildingSelectUI : OpenableUIBase<BuildingSelectData>
         SelectBuildable(card.Buildable);
     }
 
-    // 건물 카드를 두 번 눌렀을 때 그 건물로 선택을 바꾸고 바로 확정을 시도한다.
-    private void HandleCardSubmit(BuildingCardUI card)
-    {
-        SelectBuildable(card.Buildable);
-        ConfirmSelection();
-    }
-
     // 고른 건물이 있고 건축 시작이 가능하면 선택을 확정하고 선택 콜백을 발행한다.
     private void ConfirmSelection()
     {
@@ -180,7 +173,7 @@ public class BuildingSelectUI : OpenableUIBase<BuildingSelectData>
         for (int i = 0; i < buildables.Count; i++)
         {
             BuildingCardUI card = Instantiate(_buildingCardPrefab, _content);
-            card.Setup(i, buildables[i], _inventory, _cardIntroDelay + _cardIntroStagger * i, HandleCardSelect, HandleCardSubmit);
+            card.Setup(i, buildables[i], _inventory, _cardIntroDelay + _cardIntroStagger * i, HandleCardSelect);
             _cards.Add(card);
         }
     }

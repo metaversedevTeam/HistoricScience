@@ -2,13 +2,12 @@ using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 // 건물 선택 UI 목록에 놓이는 가로 띠 모양의 건물 카드 한 장. 순번·썸네일·이름·필요 자원을 보여 주고,
-// 누르면 선택(깜빡이는 테두리), 두 번 누르면 바로 건축 시작을 요청한다. 목록에 놓일 때 왼쪽에서 미끄러져 들어온다.
+// 누르면 선택(깜빡이는 테두리)을 알린다. 목록에 놓일 때 왼쪽에서 미끄러져 들어온다.
 // 호버 연출은 본체에 붙은 MainMenuButtonMotion이 맡는다.
-public class BuildingCardUI : MonoBehaviour, IPointerClickHandler
+public class BuildingCardUI : MonoBehaviour
 {
     [Header("카드")]
     // 카드 본체 버튼
@@ -46,9 +45,6 @@ public class BuildingCardUI : MonoBehaviour, IPointerClickHandler
     // 눌러서 선택했을 때 부를 콜백
     private Action<BuildingCardUI> _onSelect;
 
-    // 두 번 눌러 바로 건축을 시작하려 할 때 부를 콜백
-    private Action<BuildingCardUI> _onSubmit;
-
     // 카드 본체의 원래 위치
     private Vector2 _bodyBase;
 
@@ -75,11 +71,10 @@ public class BuildingCardUI : MonoBehaviour, IPointerClickHandler
     }
 
     // 건물 데이터와 콜백을 카드에 반영하고, introDelay초 뒤에 등장 연출을 시작한다. inventory는 필요 자원의 부족 여부를 판정하는 데 쓴다.
-    public void Setup(int order, IBuildable buildable, ResourceInventory inventory, float introDelay, Action<BuildingCardUI> onSelect, Action<BuildingCardUI> onSubmit)
+    public void Setup(int order, IBuildable buildable, ResourceInventory inventory, float introDelay, Action<BuildingCardUI> onSelect)
     {
         Buildable = buildable;
         _onSelect = onSelect;
-        _onSubmit = onSubmit;
 
         _indexText.text = (order + 1).ToString("00");
         _thumbnail.sprite = buildable.Icon;
@@ -99,15 +94,6 @@ public class BuildingCardUI : MonoBehaviour, IPointerClickHandler
     public void SetSelected(bool selected)
     {
         _selectionFrame.SetActive(selected);
-    }
-
-    // 두 번 누르면 바로 건축 시작을 요청한다. (첫 번째 누름은 버튼의 onClick이 선택으로 처리한다)
-    public void OnPointerClick(PointerEventData eventData)
-    {
-        if (eventData.button != PointerEventData.InputButton.Left || eventData.clickCount != 2)
-            return;
-
-        _onSubmit?.Invoke(this);
     }
 
     // 카드를 눌러 선택했음을 알린다.
