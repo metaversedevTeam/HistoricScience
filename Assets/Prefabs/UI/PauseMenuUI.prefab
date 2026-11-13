@@ -67,6 +67,7 @@ MonoBehaviour:
   _emblemFill: {fileID: 5088054804695349526}
   _emblemMorphDuration: 0.28
   _introSequence: {fileID: 2056913773064752505}
+  _exitSequencePrefab: {fileID: 6051690014031304384, guid: 13257899d2377864b9b9bd751ab6910b, type: 3}
 --- !u!225 &1308483241076930256
 CanvasGroup:
   m_ObjectHideFlags: 0

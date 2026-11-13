@@ -88,6 +88,13 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
     // 커지기 시작하면서 중심 사각형(남는 테두리)이 올라갈 투명도. 테두리가 지워지는 경계로 또렷이 보이게 한다.
     [SerializeField, Range(0f, 1f)] private float _revealCoreAlpha = 0.9f;
 
+    [Header("인게임에서 돌아올 때")]
+    // 돌아올 때는 로딩 연출을 거꾸로 재생하므로, 그 대신 건너뛸 메인 메뉴 등장 연출
+    [SerializeField] private MainMenuIntroSequence _skippedIntroOnReturn;
+
+    // 인게임 씬이 메인 메뉴로 돌아가며 로딩 연출을 거꾸로 재생해 달라고 요청했는지 여부. 메인 메뉴 씬이 시작될 때 한 번 소비된다.
+    private static bool _isReturnRequested;
+
     // 이 연출이 붙은 메뉴 캔버스
     private Canvas _canvas;
 
@@ -143,10 +150,21 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
         HandleApplyProgress();
     }
 
+    private void Start()
+    {
+        HandleBeginReturnIfRequested();
+    }
+
     private void Update()
     {
         HandleFillProgress();
         HandleFadeOut();
+    }
+
+    // 다음에 메인 메뉴 씬이 시작될 때 로딩 연출을 거꾸로 재생하도록 요청한다. (인게임에서 메인 메뉴로 돌아갈 때 쓴다)
+    public static void RequestReturnSequence()
+    {
+        _isReturnRequested = true;
     }
 
     // 지정한 씬을 비동기로 불러오며 로딩 연출을 시작한다. 이미 시작했으면 무시한다.
@@ -351,6 +369,42 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
         yield return null;
         if (SceneLoadingHandoff.TryRevoke(this))
             Finish();
+    }
+
+    // 돌아오기 요청이 있으면 요청을 소비하고 로딩 연출의 역재생을 시작한다.
+    private void HandleBeginReturnIfRequested()
+    {
+        if (!_isReturnRequested)
+            return;
+
+        _isReturnRequested = false;
+        _isRunning = true;
+        StartCoroutine(HandleReturnRoutine());
+    }
+
+    // 장식이 가운데에 모이고 조작 UI가 사라진 로딩 끝 상태에서 시작해, 시간을 거꾸로 흘려 메인 메뉴 배치로 되돌린다.
+    // 인게임 쪽 연출이 진행도를 0%까지 비운 채 넘어오므로 진행도도 0%에서 시작해 함께 사라진다.
+    private IEnumerator HandleReturnRoutine()
+    {
+        HandlePrepare();
+
+        if (_skippedIntroOnReturn != null)
+            _skippedIntroOnReturn.Skip();
+
+        _targetProgress = 0f;
+        _displayedProgress = 0f;
+        HandleApplyProgress();
+
+        float motionEnd = HandleGetMotionEndTime();
+        for (float elapsed = motionEnd; elapsed > 0f; elapsed -= Time.unscaledDeltaTime)
+        {
+            HandleApplyMotion(elapsed);
+            yield return null;
+        }
+
+        HandleApplyMotion(0f);
+        _rootGroup.interactable = true;
+        _isRunning = false;
     }
 
     // 버튼 입력을 막고, 퇴장·이동 대상들의 원래 배치를 기억해 둔다.

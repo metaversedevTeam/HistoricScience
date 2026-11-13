@@ -30,7 +30,16 @@ public class PauseMenuUI : OpenableUIBase
     // 열릴 때 요소들을 차례로 들여오고, 닫힐 때 거꾸로 내보내는 연출
     [SerializeField] private MainMenuIntroSequence _introSequence;
 
+    // 메인 메뉴로 나갈 때 띄울 전환 연출(로딩 연출의 역재생). 비워 두면 연출 없이 바로 넘어간다.
+    [SerializeField] private IngameExitSequence _exitSequencePrefab;
+
     private IngameSceneManager _sceneManager;
+
+    // 메인 메뉴로 나가는 전환 연출이 시작되었는지 여부. 그 뒤로는 ESC로 닫히지 않는다.
+    private bool _isExiting;
+
+    // 메인 메뉴로 나가는 중에는 ESC로 닫혀 게임이 다시 흐르지 않도록 막는다.
+    public override bool ClosesOnEscape => !_isExiting;
 
     // 표식을 눌러 재생 기호로 바뀌는 중인지 여부
     private bool _isEmblemMorphing;
@@ -80,6 +89,7 @@ public class PauseMenuUI : OpenableUIBase
     {
         Time.timeScale = 1f;
 
+        _isExiting = false;
         _isEmblemMorphing = false;
         HandleApplyEmblem(0f);
     }
@@ -124,6 +134,9 @@ public class PauseMenuUI : OpenableUIBase
     // 현재 맵을 저장한 뒤 메인 메뉴로 나간다.
     private void HandleSaveAndExitClick()
     {
+        if (_isExiting)
+            return;
+
         AudioManager.PlayConfirm();
 
         if (_sceneManager != null)
@@ -135,14 +148,27 @@ public class PauseMenuUI : OpenableUIBase
     // 저장하지 않고 메인 메뉴로 나간다.
     private void HandleQuitToMenuClick()
     {
+        if (_isExiting)
+            return;
+
         AudioManager.PlayCancel();
         LoadMainMenuScene();
     }
 
-    // 시간 배속을 되돌리고 메인 메뉴 씬으로 넘어간다.
+    // 로딩 연출을 거꾸로 재생하며 메인 메뉴 씬으로 넘어간다. 시간 배속은 씬이 넘어가는 순간 전환 연출이 되돌린다.
     private void LoadMainMenuScene()
     {
-        Time.timeScale = 1f;
-        SceneManager.LoadScene(_mainMenuSceneName);
+        if (_isExiting)
+            return;
+
+        if (_exitSequencePrefab == null)
+        {
+            Time.timeScale = 1f;
+            SceneManager.LoadScene(_mainMenuSceneName);
+            return;
+        }
+
+        _isExiting = true;
+        Instantiate(_exitSequencePrefab).Play(_mainMenuSceneName);
     }
 }

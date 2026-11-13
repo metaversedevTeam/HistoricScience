@@ -56,6 +56,16 @@ public class UIRectFloatMotion : MonoBehaviour
     // 정렬을 시작한 순간의 투명도
     private float _settleFromAlpha;
 
+    // 움직임의 세기(0~1). 0이면 기준 자세에 멈춰 있고, 1이면 설정한 만큼 온전히 움직인다.
+    private float _weight = 1f;
+
+    // 움직임의 세기(0~1). 정렬된 자세에서 서서히 다시 움직이기 시작하게 할 때 0에서 1로 올린다.
+    public float MotionWeight
+    {
+        get => _weight;
+        set => _weight = Mathf.Clamp01(value);
+    }
+
     // 떠다니는 중심이 되는 위치. 바꾸면 그 자리를 중심으로 계속 떠다닌다.
     public Vector2 BasePosition
     {
@@ -99,6 +109,16 @@ public class UIRectFloatMotion : MonoBehaviour
         _settleFromAlpha = _graphic != null ? _graphic.color.a : 1f;
     }
 
+    // BeginSettle의 반대. 가장 가까운 직각 방향의 정렬된 자세에서 움직임 세기 0으로 다시 움직이기 시작한다.
+    // 이후 MotionWeight를 1까지 올리면 원래 움직임으로 서서히 돌아온다.
+    public void BeginUnsettle()
+    {
+        float angle = _rect.localEulerAngles.z;
+        _rect.localRotation = Quaternion.Euler(0f, 0f, Mathf.Round(angle / 90f) * 90f);
+        _weight = 0f;
+        enabled = true;
+    }
+
     // BeginSettle 이후, 정렬된 자세로 돌아간 정도(0~1)를 적용한다.
     public void ApplySettle(float progress)
     {
@@ -122,7 +142,7 @@ public class UIRectFloatMotion : MonoBehaviour
 
         float angle = (time / _driftPeriod + _phase) * Mathf.PI * 2f;
         Vector2 offset = new Vector2(Mathf.Sin(angle) * _driftAmplitude.x, Mathf.Sin(angle * 2f) * _driftAmplitude.y);
-        _rect.anchoredPosition = _basePosition + offset;
+        _rect.anchoredPosition = _basePosition + offset * _weight;
     }
 
     // 화면 축 기준으로 일정한 속도로 돌린다.
@@ -131,7 +151,7 @@ public class UIRectFloatMotion : MonoBehaviour
         if (Mathf.Approximately(_rotationSpeed, 0f))
             return;
 
-        _rect.Rotate(0f, 0f, _rotationSpeed * Time.unscaledDeltaTime);
+        _rect.Rotate(0f, 0f, _rotationSpeed * _weight * Time.unscaledDeltaTime);
     }
 
     // 크기와 투명도를 같은 박자로 키웠다 줄였다 한다.
@@ -143,12 +163,12 @@ public class UIRectFloatMotion : MonoBehaviour
         float wave = 0.5f + 0.5f * Mathf.Sin((time / _pulsePeriod + _phase) * Mathf.PI * 2f);
 
         if (_scalePulse > 0f)
-            _rect.localScale = _baseScale * (1f + _scalePulse * (wave - 0.5f));
+            _rect.localScale = _baseScale * (1f + _scalePulse * _weight * (wave - 0.5f));
 
         if (_alphaPulse > 0f && _graphic != null)
         {
             Color c = _graphic.color;
-            c.a = _baseAlpha * (1f - _alphaPulse * (1f - wave));
+            c.a = _baseAlpha * (1f - _alphaPulse * _weight * (1f - wave));
             _graphic.color = c;
         }
     }
