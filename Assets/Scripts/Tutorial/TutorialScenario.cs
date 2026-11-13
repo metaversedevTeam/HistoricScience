@@ -78,18 +78,9 @@ public static class TutorialScenario
         steps.Add(new TutorialTaskStep(
             new[] { "이 땅에는 당신을 도울 시민이 있습니다." },
             runner => new TutorialStepStatus(
-                $"개체를 {Accent}왼쪽 클릭{AccentEnd}하면 선택됩니다. 시민을 클릭해 선택해 보세요.",
-                runner.Context.SelectedCitizen != null),
-            runner => HighlightWorld(runner.Context.NearestCitizen, 1.4f)));
-
-        steps.Add(new TutorialTaskStep(
-            null,
-            runner => new TutorialStepStatus(
-                runner.Context.SelectedCitizen == null
-                    ? $"먼저 {Accent}시민{AccentEnd}을 다시 선택해 주세요."
-                    : $"{Accent}W·A·S·D 키{AccentEnd}를 누르면 시민이 그 방향으로 걸어갑니다. 시민을 움직여 보세요.",
+                $"{Accent}W·A·S·D 키{AccentEnd}를 누르면 시민이 그 방향으로 걸어갑니다. 시민을 움직여 보세요.",
                 runner.Progress.MoveOrdered),
-            runner => HighlightWorld(runner.Context.SelectedCitizen, 1.4f, dim: false)));
+            runner => HighlightWorld(runner.Context.FollowedCitizen, 1.4f, dim: false)));
 
         steps.Add(new TutorialTaskStep(
             new[] { "시민이 화면 밖으로 나가도 금방 찾을 수 있습니다." },

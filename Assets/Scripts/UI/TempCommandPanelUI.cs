@@ -1,8 +1,11 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
-// 선택된 상호작용 개체(ICommandable)의 명령 목록을 하단 패널에 버튼으로 표시하는, 씬에 상주하는 UI
+// 선택된 상호작용 개체(ICommandable)의 명령 목록을 하단 패널에 버튼으로 표시하던, 씬에 상주하는 UI.
+// PlayerManager의 선택 기능이 없어져 더 이상 선택 이벤트를 받지 않으며, 버튼도 만들지 않는다.
+[Obsolete("PlayerManager의 선택 기능이 없어져 더 이상 쓰지 않는다. 명령은 Citizen 앞 대상의 상호작용 명령 목록(InteractionCommandListUI)에 표시된다.")]
 public class TempCommandPanelUI : MonoBehaviour
 {
     [SerializeField] private Transform _buttonContainer;
@@ -13,41 +16,8 @@ public class TempCommandPanelUI : MonoBehaviour
 
     private readonly List<GameObject> _activeButtons = new();
 
-    // 씬 상주 오브젝트이므로 로드 시점에 바로 PlayerManager의 선택 이벤트를 구독한다.
-    private void Awake()
-    {
-        if (_playerManager == null)
-        {
-            Debug.LogWarning("[TempCommandPanelUI] PlayerManager가 Inspector에 할당되지 않았습니다.", this);
-            return;
-        }
-
-        _playerManager.OnSelected   += HandleSelected;
-        _playerManager.OnDeselected += HandleDeselected;
-    }
-
-    // 파괴 시 이벤트 구독을 해제한다.
+    // 파괴 시 남아 있는 버튼을 정리한다.
     private void OnDestroy()
-    {
-        if (_playerManager == null) return;
-
-        _playerManager.OnSelected   -= HandleSelected;
-        _playerManager.OnDeselected -= HandleDeselected;
-    }
-
-    // 선택된 오브젝트의 ICommandable 명령 목록을 읽어 버튼을 생성한다.
-    private void HandleSelected(SelectableObject selected)
-    {
-        ClearButtons();
-        var commandable = selected.GetComponent<ICommandable>();
-        if (commandable == null) return;
-
-        foreach (var cmd in commandable.GetCommands())
-            CreateButton(cmd);
-    }
-
-    // 패널을 비우고 모든 버튼을 제거한다.
-    private void HandleDeselected()
     {
         ClearButtons();
     }

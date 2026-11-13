@@ -10,7 +10,6 @@ public class CameraController : MonoBehaviour, ISavable
     // 따라갈 시민이 없을 때 다시 찾아볼 간격(초)
     private const float k_TargetSearchInterval = 0.5f;
 
-    [SerializeField] private PlayerManager _playerManager;
 
     [Tooltip("자식 카메라의 3인칭 배치 컴포넌트. 따라가는 플레이어를 장애물 판정에서 빼도록 알려 준다. 비워 두면 자식에서 찾는다")]
     [SerializeField] private ThirdPersonCamera _thirdPersonCamera;
@@ -34,6 +33,9 @@ public class CameraController : MonoBehaviour, ISavable
     // 지금 따라가는 플레이어 시민
     private Transform _followTarget;
 
+    // 지금 따라가는 플레이어 시민. 아직 찾지 못했으면 null이다. 튜토리얼·경계벽 효과가 플레이어 시민을 알아낼 때 쓴다.
+    public Transform FollowTarget => _followTarget;
+
     // 따라가는 시민의 내브메시 에이전트. 경로를 따라 자동 이동 중인지 판단하는 데 쓰며, 없으면 null이다.
     private NavMeshAgent _followTargetAgent;
 
@@ -51,15 +53,11 @@ public class CameraController : MonoBehaviour, ISavable
 
     private void OnEnable()
     {
-        _playerManager.OnSelected += OnUnitSelected;
-
         HandleSubscribeMaxZoomBonus();
     }
 
     private void OnDisable()
     {
-        _playerManager.OnSelected -= OnUnitSelected;
-
         HandleUnsubscribeMaxZoomBonus();
     }
 
@@ -165,14 +163,6 @@ public class CameraController : MonoBehaviour, ISavable
 
         if (_thirdPersonCamera != null)
             _thirdPersonCamera.IgnoreRoot = target;
-    }
-
-    // 시민을 선택하면 그 시민을 따라갈 대상으로 바꾼다. 시민이 아닌 오브젝트를 선택하면 지금 대상을 그대로 따라간다.
-    private void OnUnitSelected(SelectableObject selected)
-    {
-        if (selected == null || selected.GetComponent<Citizen>() == null) return;
-
-        SetFollowTarget(selected.transform);
     }
 
     // 지정한 XZ 좌표로 리그를 즉시 옮긴다. 따라갈 시민이 아직 없을 때 시작 위치를 잡는 데 쓴다

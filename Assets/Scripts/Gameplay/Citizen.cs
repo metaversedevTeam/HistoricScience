@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// 시민 유닛을 나타내며 선택된 상태에서 우클릭한 대상이 IGatherable이면 채집하고, 아니면 대상 추적 또는 위치 이동을 명령하는 컴포넌트
+// 시민 유닛을 나타내며 플레이어의 WASD 입력으로 걷고, 앞의 상호작용 대상(IGatherable·ICommandable)에게 할 수 있는 명령 목록을 띄워 F로 실행하는 컴포넌트
 public class Citizen : MonoBehaviour, ISavable
 {
     [SerializeField] private Sprite _gatherCommandIcon;
@@ -45,10 +45,8 @@ public class Citizen : MonoBehaviour, ISavable
     private static readonly int k_IsMovingParam = Animator.StringToHash("IsMoving");
     private static readonly int k_IsGatheringParam = Animator.StringToHash("IsGathering");
 
-    private SelectableObject _selectable;
     private IMover _mover;
     private Gatherer _gatherer;
-    private PlayerManager _selectedBy;
 
     private PlayerManager _pendingGatherPlayer;
     private IGatherable _gatherTarget;
@@ -72,30 +70,25 @@ public class Citizen : MonoBehaviour, ISavable
     // 이 시민이 만들어 둔 명령 목록 UI. 처음 대상을 만났을 때 만든다.
     private InteractionCommandListUI _interactionListUI;
 
-    // SelectableObject, IMover, Gatherer 컴포넌트를 캐싱
+    // IMover, Gatherer 컴포넌트를 캐싱
     private void Awake()
     {
-        _selectable = GetComponent<SelectableObject>();
         _mover = GetComponent<IMover>();
         _gatherer = GetComponent<Gatherer>();
     }
 
-    // 자신의 선택 이벤트와 이동 시작·종료 이벤트를 구독
+    // 이동 시작·종료 이벤트를 구독
     private void OnEnable()
     {
-        _selectable.OnSelect += HandleSelect;
         _mover.OnMoveOrdered += HandleMoveOrdered;
         _mover.OnMoveEnd += HandleMoveEnd;
     }
 
-    // 자신의 선택 이벤트와 이동 이벤트, PlayerManager 구독을 해제하고 채집 타겟 지정 대기와 건물 선택 UI 구독을 취소
+    // 이동 이벤트와 건물 선택 UI 구독을 해제하고 명령 목록을 감춘다
     private void OnDisable()
     {
-        _selectable.OnSelect -= HandleSelect;
         _mover.OnMoveOrdered -= HandleMoveOrdered;
         _mover.OnMoveEnd -= HandleMoveEnd;
-        UnsubscribeFromPlayer();
-        CancelGatherTargeting();
         UnsubscribeFromBuildingSelectUI();
 
         if (_interactionListUI != null)
@@ -161,30 +154,19 @@ public class Citizen : MonoBehaviour, ISavable
         var commands = commandable.GetCommands();
         if (index >= commands.Count) return;
 
-        SelectCommandable(commandable, player);
         AudioManager.PlayButtonClick();
-        commands[index].OnExecute?.Invoke();
+        commands[index].OnExecute?.Invoke(player);
     }
 
-    // 앞의 채집 대상을 채집하러 간다. 우클릭 채집처럼 진행 중이던 채집 타겟 지정·채집·건축 위치 지정을 먼저 정리한다.
+    // 앞의 채집 대상을 채집하러 간다. 진행 중이던 채집과 건축 위치 지정을 먼저 정리한다.
     private void ExecuteGatherCommand(IGatherable gatherable, PlayerManager player)
     {
         if (gatherable is not Component component) return;
 
-        CancelGatherTargeting();
         CancelGathering();
         CancelBuildingPlacement();
         AudioManager.PlayButtonClick();
         BeginGathering(gatherable, player.ResourceInventory, component.transform);
-    }
-
-    // 상호작용 개체의 명령은 플레이어가 그 개체를 선택한 상태를 전제로 동작하므로(창고 열기 등), 실행 직전에 그 개체를 선택 상태로 만든다.
-    private static void SelectCommandable(ICommandable commandable, PlayerManager player)
-    {
-        if (commandable is not Component component) return;
-        if (!component.TryGetComponent(out SelectableObject selectable)) return;
-
-        player.SelectExternally(selectable);
     }
 
     // 시민 앞쪽 감지 구 안에서 IGatherable이나 ICommandable을 가진, 구 중심에 가장 가까운 충돌체를 찾는다. 자기 자신은 제외한다.
@@ -262,24 +244,9 @@ public class Citizen : MonoBehaviour, ISavable
         _mover.MoveInDirection(direction, player.IsRunning);
     }
 
-    // 선택되었을 때 해당 PlayerManager의 우클릭/선택해제 이벤트를 구독
-    private void HandleSelect(PlayerManager playerManager)
-    {
-        UnsubscribeFromPlayer();
-
-        _selectedBy = playerManager;
-        _selectedBy.OnMouseRightClick += HandleRightClick;
-        _selectedBy.OnDeselected += HandleDeselected;
-    }
-
-    // 선택 해제 시 PlayerManager 구독을 해제
-    private void HandleDeselected()
-    {
-        UnsubscribeFromPlayer();
-    }
-
     // 우클릭한 대상이 IGatherable이면 채집을 시작하고, 아니면 대상을 추적하며 진행 중이던 채집과 채집 타겟 지정 대기, 건축 위치 지정을 취소한다.
     // 이동은 WASD로만 하므로 빈 지면을 우클릭한 것은 무시한다.
+    [System.Obsolete("PlayerManager의 선택 기능이 없어져 더 이상 쓰지 않는다. 상호작용은 앞 대상의 명령 목록(휠로 고르고 F로 실행)으로 한다.")]
     private void HandleRightClick(Vector2 pos, ClickableObject clickable)
     {
         if (clickable == null) return;
@@ -290,34 +257,26 @@ public class Citizen : MonoBehaviour, ISavable
 
         var gatherable = clickable.GetComponent<IGatherable>();
         if (gatherable != null)
-            BeginGathering(gatherable, _selectedBy.ResourceInventory, clickable.transform);
+            BeginGathering(gatherable, PlayerManager.Instance.ResourceInventory, clickable.transform);
         else
             _mover.Move(clickable.transform);
     }
 
-    // 구독 중인 PlayerManager 이벤트를 해제하고 참조를 비운다.
-    private void UnsubscribeFromPlayer()
-    {
-        if (_selectedBy == null) return;
-
-        _selectedBy.OnMouseRightClick -= HandleRightClick;
-        _selectedBy.OnDeselected -= HandleDeselected;
-        _selectedBy = null;
-    }
-
     // 채집 명령을 실행해 다음 좌클릭 대상을 채집 대상으로 지정하는 모드로 진입한다.
+    [System.Obsolete("PlayerManager의 선택 기능이 없어져 더 이상 쓰지 않는다. 상호작용은 앞 대상의 명령 목록(휠로 고르고 F로 실행)으로 한다.")]
     private void BeginGatherTargeting()
     {
-        if (_selectedBy == null) return;
+        if (PlayerManager.Instance == null) return;
 
         CancelGatherTargeting();
 
-        _pendingGatherPlayer = _selectedBy;
+        _pendingGatherPlayer = PlayerManager.Instance;
         _pendingGatherPlayer.OnMouseLeftClick += HandleGatherTargetClick;
         ApplyGatherTargetingCursor(true);
     }
 
     // 대기 중이던 채집 타겟 지정 모드에서 좌클릭 결과를 받아 대상이 유효하면 채집을 시작한다.
+    [System.Obsolete("PlayerManager의 선택 기능이 없어져 더 이상 쓰지 않는다. 상호작용은 앞 대상의 명령 목록(휠로 고르고 F로 실행)으로 한다.")]
     private void HandleGatherTargetClick(Vector2 pos, ClickableObject clickable)
     {
         var chosenPlayer = _pendingGatherPlayer;
@@ -343,6 +302,7 @@ public class Citizen : MonoBehaviour, ISavable
     }
 
     // 채집 타겟 지정 대기 상태를 취소하고 구독을 해제한다.
+    [System.Obsolete("PlayerManager의 선택 기능이 없어져 더 이상 쓰지 않는다. 상호작용은 앞 대상의 명령 목록(휠로 고르고 F로 실행)으로 한다.")]
     private void CancelGatherTargeting()
     {
         if (_pendingGatherPlayer == null) return;
@@ -353,6 +313,7 @@ public class Citizen : MonoBehaviour, ISavable
     }
 
     // 채집 대상 선택 모드에 진입하면 곡괭이 커서를, 빠져나오면 시스템 기본 커서를 표시한다.
+    [System.Obsolete("PlayerManager의 선택 기능이 없어져 더 이상 쓰지 않는다. 상호작용은 앞 대상의 명령 목록(휠로 고르고 F로 실행)으로 한다.")]
     private void ApplyGatherTargetingCursor(bool isTargeting)
     {
         if (_gatherTargetingCursor == null) return;
@@ -416,12 +377,13 @@ public class Citizen : MonoBehaviour, ISavable
     // 건물 짓기 명령을 실행해 건물 선택 UI를 열고 선택·닫기 결과를 구독한다. 이미 건축 위치로 이동 중이면 열지 않는다.
     private void OpenBuildingSelectUI()
     {
-        if (_selectedBy == null) return;
+        PlayerManager player = PlayerManager.Instance;
+        if (player == null) return;
         if (IsMovingToBuildSite()) return;
 
         UnsubscribeFromBuildingSelectUI();
 
-        var selectData = new BuildingSelectData(CollectBuildables(), _selectedBy.ResourceInventory);
+        var selectData = new BuildingSelectData(CollectBuildables(), player.ResourceInventory);
         _openBuildingSelectUI = UIManager.Instance.OpenUI(_buildingSelectUiPrefab, selectData);
         _openBuildingSelectUI.OnBuildingSelected += HandleBuildingSelected;
         _openBuildingSelectUI.OnFinishClose += HandleBuildingSelectUIClosed;
@@ -442,12 +404,13 @@ public class Citizen : MonoBehaviour, ISavable
     // 건물 선택 UI에서 건물이 선택되면 선택 UI를 닫고 위치 지정 모드를 시작한다.
     private void HandleBuildingSelected(IBuildable buildable)
     {
-        if (_selectedBy == null) return;
+        PlayerManager player = PlayerManager.Instance;
+        if (player == null) return;
 
         _openBuildingSelectUI.Close();
 
         _placementController = Instantiate(_buildingPlacementControllerPrefab);
-        _placementController.BeginPlacement(buildable, (buildable as Component)?.gameObject, _selectedBy, _mover, GetComponent<HitableObject>());
+        _placementController.BeginPlacement(buildable, (buildable as Component)?.gameObject, player, _mover, GetComponent<HitableObject>());
     }
 
     // 진행 중이던 건축 위치 지정을 취소해 홀로그램과 위치 지정 모드를 정리한다. 시민이 다른 곳으로 이동하면 그 자리에 짓기로 한 위치는 의미를 잃기 때문이다.

@@ -1,14 +1,11 @@
 using System;
 using UnityEngine;
 
-// 플레이어의 오브젝트 선택 및 이동 명령을 처리하는 매니저
+// 플레이어의 마우스 클릭·이동 입력과 자원 인벤토리를 다른 컴포넌트에 전달하는 매니저
 public class PlayerManager : MonoBehaviour
 {
     // 씬에 하나만 두는 인스턴스. 런타임에 소환되는 시민은 씬 참조를 직렬화해 둘 수 없어, 선택되지 않은 상태에서도 이동 입력을 읽으려면 전역 접근 경로가 필요하다.
     public static PlayerManager Instance { get; private set; }
-
-    public event Action<SelectableObject> OnSelected;
-    public event Action OnDeselected;
 
     public event Action<Vector2, ClickableObject> OnMouseLeftClick;
     public event Action<Vector2, ClickableObject> OnMouseRightClick;
@@ -30,8 +27,6 @@ public class PlayerManager : MonoBehaviour
     [SerializeField] private InputManager _inputManager;
 
     [SerializeField] private ResourceInventory _resourceInventory;
-
-    private SelectableObject _currentSelection;
 
     // 전역 접근 경로로 자신을 등록한다
     private void Awake()
@@ -66,22 +61,11 @@ public class PlayerManager : MonoBehaviour
         _inputManager.OnMouseRightHold  -= OnRightHold;
     }
 
-    // 좌클릭 시 오브젝트 클릭 처리 및 선택 가능 여부에 따라 선택/해제
+    // 좌클릭한 오브젝트에 클릭을 알리고 좌클릭 이벤트를 재발행
     private void OnLeftClick(Vector2 pos, ClickableObject clickable)
     {
-        if (clickable == null)
-        {
-            Deselect();
-        }
-        else
-        {
+        if (clickable != null)
             clickable.HandleClick(this);
-            var selectable = clickable.GetComponent<SelectableObject>();
-            if (selectable != null)
-                Select(selectable);
-            else
-                Deselect();
-        }
 
         OnMouseLeftClick?.Invoke(pos, clickable);
     }
@@ -97,30 +81,4 @@ public class PlayerManager : MonoBehaviour
     {
         OnMouseRightHold?.Invoke(pos, clickable);
     }
-
-    // 대상을 현재 선택으로 설정하고 OnSelected 이벤트 발행
-    private void Select(SelectableObject target)
-    {
-        if (_currentSelection == target) return;
-
-        Deselect();
-        _currentSelection = target;
-        _currentSelection.HandleSelect(this);
-        OnSelected?.Invoke(_currentSelection);
-    }
-
-    // 현재 선택을 해제하고 OnDeselected 이벤트 발행
-    private void Deselect()
-    {
-        if (_currentSelection == null) return;
-
-        _currentSelection = null;
-        OnDeselected?.Invoke();
-    }
-
-    // 클릭이 아닌 코드 경로(건축 위치 지정 모드 등)에서 대상을 선택 상태로 전환한다.
-    public void SelectExternally(SelectableObject target) => Select(target);
-
-    // 클릭이 아닌 코드 경로(건축 위치 지정 모드 등)에서 현재 선택을 해제한다.
-    public void DeselectExternally() => Deselect();
 }

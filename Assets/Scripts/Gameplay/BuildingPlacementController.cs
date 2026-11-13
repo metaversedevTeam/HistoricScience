@@ -4,10 +4,11 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
-// 건축할 건물의 배치 위치를 지정하는 위치 지정 모드를 담당하는 컨트롤러. 마우스로 홀로그램 위치를 옮기다 좌클릭으로 확정하면 선택 상태로 전환되어 건축/취소 명령을 제공한다.
-public class BuildingPlacementController : SelectableObject, ICommandable
+// 건축할 건물의 배치 위치를 지정하는 위치 지정 모드를 담당하는 컨트롤러. 마우스로 홀로그램 위치를 옮기다 좌클릭으로 확정하면
+// 그 자리에 상호작용 범위를 만들어, 시민이 앞에 서면 명령 목록에 건축/취소가 뜨고 F로 실행할 수 있게 한다.
+public class BuildingPlacementController : MonoBehaviour, ICommandable
 {
-    // Positioning: 마우스로 자리를 고르는 중, Confirmed: 자리를 확정해 스스로가 선택된 상태, Building: 건축 명령 후 시민이 이동 중이라 선택이 이미 풀린 상태
+    // Positioning: 마우스로 자리를 고르는 중, Confirmed: 자리를 확정해 건축/취소 명령을 기다리는 상태, Building: 건축 명령 후 시민이 배치 위치로 이동 중인 상태
     private enum PlacementState { Positioning, Confirmed, Building }
 
     // 겹침 판정 후보를 한 번에 담아 둘 버퍼 크기. 매 프레임 조회라 배열을 재사용하기 위해 필요하다.
@@ -45,21 +46,23 @@ public class BuildingPlacementController : SelectableObject, ICommandable
     private Vector3 _hologramWorldPosition;
     private IReadOnlyList<CommandData> _commands;
 
+    // 자리를 확정한 뒤 시민이 앞에 서면 명령 목록이 뜨도록 배치 위치에 두는 트리거. 건축이 시작되면 꺼서 목록이 더 뜨지 않게 한다.
+    private SphereCollider _interactTrigger;
+
     // 카메라를 캐싱하고 건축/취소 명령 목록을 생성
     private void Awake()
     {
         _camera = Camera.main;
         _commands = new List<CommandData>
         {
-            new CommandData("건축", _buildCommandIcon, ExecuteBuild),
-            new CommandData("취소", _cancelCommandIcon, ExecuteCancel),
+            new CommandData("건축", _buildCommandIcon, _ => ExecuteBuild()),
+            new CommandData("취소", _cancelCommandIcon, _ => ExecuteCancel()),
         };
     }
 
-    // 파괴 전 PlayerManager와 시민 이동 컴포넌트 구독을 해제
+    // 파괴 전 시민 이동 컴포넌트 구독을 해제
     private void OnDisable()
     {
-        UnsubscribeFromPlayer();
         UnsubscribeFromMover();
     }
 
@@ -211,23 +214,26 @@ public class BuildingPlacementController : SelectableObject, ICommandable
         return Mathf.Max(bounds.extents.x, bounds.extents.z);
     }
 
-    // 현재 홀로그램 위치를 확정해 선택 상태로 전환하고, 카메라가 그 위치를 중심으로 이동하도록 만들며, 건설 비용 UI를 연다.
+    // 현재 홀로그램 위치를 확정하고, 그 자리에 시민이 상호작용할 범위를 만든 뒤 건설 비용 UI를 연다.
     private void ConfirmPlacement()
     {
         _state = PlacementState.Confirmed;
-        _playerManager.OnDeselected += HandleDeselected;
 
         transform.position = _hologramWorldPosition;
-        _playerManager.SelectExternally(this);
+        CreateInteractTrigger();
 
         var costData = new BuildCostData(_buildable.BuildCost, _playerManager.ResourceInventory);
         _openBuildCostUI = UIManager.Instance.OpenUI(_buildCostUiPrefab, costData);
     }
 
-    // 확정 후 다른 대상을 선택하는 등으로 선택이 풀리면 배치를 취소한다.
-    private void HandleDeselected()
+    // 확정한 배치 위치에 건물 크기만 한 트리거를 만들어, 시민이 그 앞에 서면 건축/취소 명령 목록이 뜨게 한다.
+    private void CreateInteractTrigger()
     {
-        CancelPlacement();
+        float radius = Mathf.Max(_footprintRadius, 0.5f);
+        _interactTrigger = gameObject.AddComponent<SphereCollider>();
+        _interactTrigger.isTrigger = true;
+        _interactTrigger.radius = radius;
+        _interactTrigger.center = Vector3.up * radius * 0.5f;
     }
 
     // 건축 명령 실행 — 즉시 짓지 않고 시민을 배치 위치 근처까지 걸어가게 하며, 도착하면 HandleArrivedAtBuildSite가 실제 건축을 수행한다.
@@ -267,20 +273,19 @@ public class BuildingPlacementController : SelectableObject, ICommandable
 
     // 이동이 시작되면 건축 UI(명령 버튼·비용 패널)를 숨긴다. 홀로그램은 실제로 건축이 완료될 때(FinishPlacement)까지 배치 위치 표시로 남겨둔다.
     // 도착 판정은 계속 대기해야 하므로 컨트롤러 자신은 파괴하지 않는다.
-    // 스스로 선택을 해제하는 것이므로, 해제 시 배치를 취소해버리는 HandleDeselected 구독은 먼저 해제해 둔다.
-    // 이후 플레이어가 다른 대상을 선택할 수 있으므로, 정리 시 그 선택까지 풀어버리지 않도록 상태를 Building으로 옮긴다.
+    // 이동 중에는 건축/취소 명령 목록이 다시 뜨지 않도록 상호작용 트리거를 끄고 상태를 Building으로 옮긴다.
     private void HidePlacementUI()
     {
-        _playerManager.OnDeselected -= HandleDeselected;
         _state = PlacementState.Building;
+
+        if (_interactTrigger != null)
+            _interactTrigger.enabled = false;
 
         if (_openBuildCostUI != null)
         {
             _openBuildCostUI.Close();
             _openBuildCostUI = null;
         }
-
-        _playerManager.DeselectExternally();
     }
 
     // 시민이 배치 위치에 실제로 도착했을 때 호출 — 자원을 확인해 소모하고 건물을 소환한다.
@@ -311,7 +316,7 @@ public class BuildingPlacementController : SelectableObject, ICommandable
         constructionAnimator.Play(_buildable.BuildTime);
     }
 
-    // 이동이 도착 없이 끝난 경우(길이 막혀 멈춤 등) 경고를 남기고 배치를 정리한다. 이 시점에는 이미 선택이 풀려 컨트롤러를 다시 조작할 수 없으므로,
+    // 이동이 도착 없이 끝난 경우(길이 막혀 멈춤 등) 경고를 남기고 배치를 정리한다. 이 시점에는 상호작용 트리거가 꺼져 컨트롤러를 다시 조작할 수 없으므로,
     // 소환해 둔 홀로그램을 남겨두지 않고 컨트롤러와 함께 파괴한다.
     // 도착에 성공한 경우에는 HandleArrivedAtBuildSite가 먼저 실행되며 플래그를 이미 내려두므로 여기서는 무시한다.
     private void HandleMoveEndAtBuildSite()
@@ -365,11 +370,9 @@ public class BuildingPlacementController : SelectableObject, ICommandable
         FinishPlacement();
     }
 
-    // 홀로그램과 열려 있는 건설 비용 UI를 정리하고, 확정 단계(스스로가 선택 상태)였다면 선택도 해제한 뒤 컨트롤러 자신도 파괴한다.
-    // 확정 전(ESC 취소)에는 원래 선택돼 있던 시민 등을 건드리지 않도록 선택 해제를 건너뛴다.
+    // 홀로그램과 열려 있는 건설 비용 UI를 정리한 뒤 컨트롤러 자신도 파괴한다.
     private void FinishPlacement()
     {
-        UnsubscribeFromPlayer();
         UnsubscribeFromMover();
 
         if (_isMovingToBuildSite)
@@ -387,17 +390,7 @@ public class BuildingPlacementController : SelectableObject, ICommandable
             _openBuildCostUI = null;
         }
 
-        if (_state == PlacementState.Confirmed)
-            _playerManager.DeselectExternally();
-
         Destroy(gameObject);
-    }
-
-    // 구독 중인 PlayerManager 이벤트를 해제한다.
-    private void UnsubscribeFromPlayer()
-    {
-        if (_playerManager == null) return;
-        _playerManager.OnDeselected -= HandleDeselected;
     }
 
     // 구독 중인 시민 이동 컴포넌트의 이벤트를 해제한다.
