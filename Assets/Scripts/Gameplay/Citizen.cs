@@ -70,6 +70,15 @@ public class Citizen : MonoBehaviour, ISavable
     // 이 시민이 만들어 둔 명령 목록 UI. 처음 대상을 만났을 때 만든다.
     private InteractionCommandListUI _interactionListUI;
 
+    // 지금 명령 목록을 띄우고 있는 상호작용 대상(IGatherable·ICommandable을 가진 오브젝트). 없으면 null이다.
+    private GameObject _interactionTarget;
+
+    // 명령 목록을 띄우는 상호작용 대상이 바뀔 때 새 대상을 알린다. 목록이 사라지면 null을 넘긴다.
+    public event System.Action<GameObject> OnInteractionTargetChanged;
+
+    // 지금 명령 목록을 띄우고 있는 상호작용 대상. 없으면 null이다.
+    public GameObject InteractionTarget => _interactionTarget;
+
     // IMover, Gatherer 컴포넌트를 캐싱
     private void Awake()
     {
@@ -93,6 +102,7 @@ public class Citizen : MonoBehaviour, ISavable
 
         if (_interactionListUI != null)
             _interactionListUI.Hide();
+        SetInteractionTarget(null);
     }
 
     // 시민이 사라지면 이 시민이 만든 명령 목록 UI도 함께 없앤다.
@@ -121,9 +131,11 @@ public class Citizen : MonoBehaviour, ISavable
         {
             if (_interactionListUI != null)
                 _interactionListUI.Hide();
+            SetInteractionTarget(null);
             return;
         }
 
+        SetInteractionTarget(GetInteractableOwner(target));
         CollectCommandNames(target);
         EnsureInteractionListUI().Show(target, _interactCommandNames);
 
@@ -190,6 +202,25 @@ public class Citizen : MonoBehaviour, ISavable
             bestSqrDistance = sqrDistance;
         }
         return best;
+    }
+
+    // 명령 목록을 띄우는 대상이 바뀌었을 때만 기억해 두고 OnInteractionTargetChanged로 알린다.
+    // 대상이 파괴되어도 null로 바뀐 것을 알릴 수 있도록, 유니티의 null 비교 대신 참조로 비교한다.
+    private void SetInteractionTarget(GameObject target)
+    {
+        if (ReferenceEquals(_interactionTarget, target)) return;
+
+        _interactionTarget = target;
+        OnInteractionTargetChanged?.Invoke(target);
+    }
+
+    // 충돌체에서 위로 올라가며 IGatherable이나 ICommandable을 가진 오브젝트를 찾는다. 둘 다 있으면 IGatherable 쪽을 쓴다.
+    private static GameObject GetInteractableOwner(Collider hit)
+    {
+        if (hit.GetComponentInParent<IGatherable>() is Component gatherable)
+            return gatherable.gameObject;
+
+        return hit.GetComponentInParent<ICommandable>() is Component commandable ? commandable.gameObject : null;
     }
 
     // 충돌체나 그 부모에 IGatherable 또는 ICommandable이 있는지 확인한다.
