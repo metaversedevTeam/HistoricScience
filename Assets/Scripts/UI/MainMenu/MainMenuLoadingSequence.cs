@@ -141,6 +141,9 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
     // 로딩 연출이 이미 시작되었는지 여부
     private bool _isRunning;
 
+    // 인게임에서 돌아오며 연출을 거꾸로 재생하는 중인지 여부. 이때는 장식 조각의 출발 순서를 뒤집어 중심 조각부터 움직이게 한다.
+    private bool _isReturning;
+
     // 목표 진행도(0~1)
     private float _targetProgress;
 
@@ -424,6 +427,7 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
     private IEnumerator HandleReturnRoutine()
     {
         HandlePrepare();
+        _isReturning = true;
 
         if (_skippedIntroOnReturn != null)
             _skippedIntroOnReturn.Skip();
@@ -445,6 +449,7 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
 
         HandleApplyMotion(0f);
         _rootGroup.interactable = true;
+        _isReturning = false;
         _isRunning = false;
     }
 
@@ -553,14 +558,17 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
     }
 
     // 장식 조각들을 중심 조각부터 차례로 출발시켜 가운데로 부드럽게 옮긴다.
+    // 거꾸로 재생할 때는 늦게 출발한 조각부터 되돌아가므로, 출발 순서를 뒤집어 그때도 중심 조각부터 움직이게 한다.
     private void HandleApplyCenter(float elapsed)
     {
+        int lastIndex = _movingParts.Length - 1;
         for (int i = 0; i < _movingParts.Length; i++)
         {
             if (_movingParts[i] == null)
                 continue;
 
-            float t = Mathf.Clamp01((elapsed - _centerDelay - _centerStagger * i) / _centerDuration);
+            int order = _isReturning ? lastIndex - i : i;
+            float t = Mathf.Clamp01((elapsed - _centerDelay - _centerStagger * order) / _centerDuration);
             float eased = t < 0.5f ? 4f * t * t * t : 1f - Mathf.Pow(-2f * t + 2f, 3f) * 0.5f;
             Vector2 position = _movingStartPositions[i] + _centerDelta * eased;
 
