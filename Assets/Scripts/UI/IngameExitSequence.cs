@@ -42,6 +42,9 @@ public class IngameExitSequence : MonoBehaviour
     // 진행도 막대가 100%에서 0%까지 비워지는 데 걸리는 가장 짧은 시간(초). 씬 불러오기가 더 오래 걸리면 그에 맞춰 늦춰진다.
     [SerializeField, Min(0.01f)] private float _drainDuration = 0.6f;
 
+    // 진행도가 0%까지 비워지고 씬도 다 불러온 뒤, 메인 메뉴 씬을 활성화하기 전에 잠시 머무는 시간(초)
+    [SerializeField, Min(0f)] private float _holdBeforeActivation = 0.3f;
+
     // 캔버스 전체의 입력을 다룰 그룹
     private CanvasGroup _rootGroup;
 
@@ -168,6 +171,10 @@ public class IngameExitSequence : MonoBehaviour
         }
 
         HandleApplyProgress(0f);
+
+        // 이미 다 불러왔더라도 0%에서 잠시 머문 뒤 넘어가, 메인 메뉴의 역재생 연출과 자연스럽게 이어지게 한다.
+        yield return new WaitForSecondsRealtime(_holdBeforeActivation);
+
         MainMenuLoadingSequence.RequestReturnSequence();
         Time.timeScale = 1f;
         operation.allowSceneActivation = true;

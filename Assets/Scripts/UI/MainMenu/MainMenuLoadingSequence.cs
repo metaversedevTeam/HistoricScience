@@ -69,10 +69,16 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
     // 씬 전환 너머로 넘어간 뒤 인게임 UI보다 위에 그려지도록 바꿀 캔버스 정렬 순서
     [SerializeField] private int _handoffSortingOrder = 1000;
 
+    // 연출과 씬 불러오기가 모두 끝나고 진행도 표시가 따라잡은 뒤, 씬을 활성화하기 전에 잠시 머무는 시간(초)
+    [SerializeField, Min(0f)] private float _holdBeforeActivation = 0.3f;
+
     // 지우기 연출에 쓸 중심 사각형이 없을 때, 인게임 씬 로딩이 끝난 뒤 화면이 완전히 사라지기까지 걸리는 시간(초)
     [SerializeField, Min(0f)] private float _fadeOutDuration = 0.5f;
 
     [Header("로딩 종료 연출")]
+    // 인게임 로딩이 끝나 진행도가 100%까지 차오른 뒤, 지우기 연출을 시작하기 전에 잠시 머무는 시간(초)
+    [SerializeField, Min(0f)] private float _holdBeforeReveal = 0.35f;
+
     // 로딩이 끝나면 커지며 로딩 화면을 지워 나갈 중심 사각형. 비워 두면 화면 전체가 서서히 사라진다.
     [SerializeField] private RectTransform _revealCore;
 
@@ -183,28 +189,41 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
         HandleSetTargetProgress(_sceneLoadShare + Mathf.Clamp01(progress) * (1f - _sceneLoadShare));
     }
 
-    // 진행도를 끝까지 채우고 로딩 종료 연출을 시작한다. 연출이 끝나면 스스로 파괴된다.
+    // 진행도를 끝까지 채우고 잠시 머문 뒤 로딩 종료 연출을 시작한다. 연출이 끝나면 스스로 파괴된다.
     public void Finish()
     {
         if (_isFinishing)
             return;
 
         _isFinishing = true;
-        _targetProgress = 1f;
-        _displayedProgress = 1f;
-        HandleApplyProgress();
+        HandleSetTargetProgress(1f);
+        StartCoroutine(HandleFinishRoutine());
+    }
+
+    // 진행도 표시가 100%에 닿고 정해 둔 시간만큼 머물 때까지 기다린 뒤, 지우기 연출(또는 서서히 사라지기)을 시작한다.
+    private IEnumerator HandleFinishRoutine()
+    {
+        yield return HandleWaitProgressCatchUp();
+        yield return new WaitForSecondsRealtime(_holdBeforeReveal);
 
         // 사라지는 동안에는 아래쪽 인게임 UI를 바로 조작할 수 있도록 입력 차단만 먼저 풀어 준다.
         _rootGroup.blocksRaycasts = false;
 
         if (_revealCore != null)
         {
-            StartCoroutine(HandleRevealRoutine());
-            return;
+            yield return HandleRevealRoutine();
+            yield break;
         }
 
         _isFadingOut = true;
         _fadeElapsed = 0f;
+    }
+
+    // 화면에 표시 중인 진행도가 목표 진행도를 다 따라잡을 때까지 기다린다.
+    private IEnumerator HandleWaitProgressCatchUp()
+    {
+        while (!Mathf.Approximately(_displayedProgress, _targetProgress))
+            yield return null;
     }
 
     // 장식 사각형들을 정렬한 뒤, 중심 사각형을 키우며 그 안쪽의 로딩 화면을 지워 나가고, 다 지우면 스스로 파괴된다.
@@ -358,6 +377,11 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
         }
 
         HandleApplyMotion(motionEnd);
+
+        // 이미 다 불러왔더라도 진행도가 씬 불러오기 몫까지 차오르고 잠시 머문 뒤 넘어가, 연출이 끊기지 않고 이어지게 한다.
+        yield return HandleWaitProgressCatchUp();
+        yield return new WaitForSecondsRealtime(_holdBeforeActivation);
+
         HandleHandOff();
         operation.allowSceneActivation = true;
 
