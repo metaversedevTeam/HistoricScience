@@ -4,8 +4,9 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-// 건축할 건물 선택 UI — 건물 목록을 카드 격자로 나열하고, 카드를 고르면 오른쪽 상세 패널에 설명·건설 비용을 보여준다.
-// 상세 패널의 건축 시작 버튼을 눌러야 실제 선택이 확정되며, 건물 선택·닫기를 콜백으로 알린다.
+// 건축할 건물 선택 UI — 메인 메뉴와 같은 사각형 모션그래픽 디자인으로 건물 목록을 가로 띠 카드로 나열하고,
+// 카드를 고르면 오른쪽 상세 패널에 설명·건설 비용을 보여준다. 건축 시작 버튼(또는 카드 두 번 누르기)으로 선택이 확정되며,
+// 건물 선택·닫기를 콜백으로 알린다. 열고 닫을 때의 등장·퇴장 연출은 MainMenuIntroSequence가 맡는다.
 public class BuildingSelectUI : OpenableUIBase<BuildingSelectData>
 {
     // 건축 시작 버튼을 눌러 건물 선택이 확정됐을 때 선택된 건물을 알리는 콜백
@@ -20,26 +21,48 @@ public class BuildingSelectUI : OpenableUIBase<BuildingSelectData>
     [SerializeField] private ScrollRect _scrollRect;
     [SerializeField] private TextMeshProUGUI _countText;
 
+    // UI가 열린 뒤 첫 카드가 등장하기까지의 지연(초)
+    [SerializeField, Min(0f)] private float _cardIntroDelay = 0.25f;
+
+    // 카드끼리 등장 시점의 간격(초)
+    [SerializeField, Min(0f)] private float _cardIntroStagger = 0.05f;
+
     [Header("상세 패널")]
     // 건물을 고르기 전에 대신 보여줄 안내 오브젝트
     [SerializeField] private GameObject _detailPlaceholder;
     // 건물을 고른 뒤에만 켜지는 상세 내용 묶음
     [SerializeField] private GameObject _detailBody;
+    // 선택이 바뀔 때마다 옆에서 미끄러져 들어올 상세 내용 위치
+    [SerializeField] private RectTransform _detailBodyRect;
+    // 상세 내용이 미끄러져 들어올 때 투명도를 다룰 캔버스 그룹
+    [SerializeField] private CanvasGroup _detailBodyGroup;
+    // 패널 왼쪽 위 "SELECTED · 01" 꼬리표 글자
+    [SerializeField] private TextMeshProUGUI _detailTagText;
     [SerializeField] private Image _detailThumbnail;
     [SerializeField] private TextMeshProUGUI _detailNameText;
     [SerializeField] private TextMeshProUGUI _detailDescriptionText;
-    [SerializeField] private BuildCostChipUI _costChipPrefab;
-    [SerializeField] private RectTransform _detailCostChipParent;
+    [SerializeField] private BuildCostCellUI _costCellPrefab;
+    [SerializeField] private RectTransform _detailCostCellParent;
     [SerializeField] private Button _buildStartButton;
+
+    // 상세 내용이 미끄러져 들어오는 데 걸리는 시간(초)
+    [SerializeField, Min(0.01f)] private float _detailSlideDuration = 0.38f;
+
+    // 상세 내용이 미끄러져 들어오기 시작하는 거리
+    [SerializeField] private float _detailSlideOffset = 36f;
 
     [Header("닫기")]
     [SerializeField] private Button _closeButton;
 
+    [Header("연출")]
+    // 열릴 때 요소들을 차례로 들여오고, 닫힐 때 거꾸로 내보내는 연출
+    [SerializeField] private MainMenuIntroSequence _introSequence;
+
     // 생성해 둔 건물 카드들. 다시 채우거나 정리할 때 쓴다.
     private readonly List<BuildingCardUI> _cards = new();
 
-    // 상세 패널에 생성해 둔 비용 칩들. 선택이 바뀔 때마다 지우고 다시 만든다.
-    private readonly List<BuildCostChipUI> _detailCostChips = new();
+    // 상세 패널에 생성해 둔 비용 칸들. 선택이 바뀔 때마다 지우고 다시 만든다.
+    private readonly List<BuildCostCellUI> _detailCostCells = new();
 
     // 상세 패널에 표시 중인 건물. 아직 아무것도 고르지 않았으면 null이다.
     private IBuildable _selectedBuildable;
@@ -50,13 +73,25 @@ public class BuildingSelectUI : OpenableUIBase<BuildingSelectData>
     // 이번 열림 동안 건축 시작으로 건물을 확정했는지 여부
     private bool _hasConfirmedBuilding;
 
+    // 상세 내용의 원래 위치
+    private Vector2 _detailBodyBase;
+
+    // 상세 내용 미끄러짐 연출이 시작된 뒤 지난 시간(초). 연출 시간을 넘기면 멈춘 상태다.
+    private float _detailSlideElapsed = float.MaxValue;
+
     private void Awake()
     {
         _closeButton.onClick.AddListener(HandleCloseButtonClick);
         _buildStartButton.onClick.AddListener(HandleBuildStartButtonClick);
+        _detailBodyBase = _detailBodyRect.anchoredPosition;
     }
 
-    // 전달받은 건물 목록으로 카드 격자를 채우고 상세 패널을 선택 전 상태로 되돌린다.
+    private void Update()
+    {
+        HandleDetailSlide();
+    }
+
+    // 전달받은 건물 목록으로 카드 목록을 채우고 상세 패널을 선택 전 상태로 되돌린다.
     protected override void ApplyData(BuildingSelectData data)
     {
         _hasConfirmedBuilding = false;
@@ -65,11 +100,29 @@ public class BuildingSelectUI : OpenableUIBase<BuildingSelectData>
         SelectBuildable(null);
     }
 
+    // 등장 연출은 활성화될 때 MainMenuIntroSequence가 스스로 재생하므로 바로 열림 상태로 넘어간다.
+    protected override void PlayOpenTransition()
+    {
+        FinishOpen();
+    }
+
+    // 등장 연출을 거꾸로 재생해 요소들을 내보낸 뒤 닫기를 마무리한다.
+    protected override void PlayCloseTransition()
+    {
+        if (_introSequence == null || !_introSequence.isActiveAndEnabled)
+        {
+            FinishClose();
+            return;
+        }
+
+        _introSequence.PlayReverse(FinishClose);
+    }
+
     // 풀 반납 전 생성된 카드와 스크롤 위치를 정리하고, 건물을 확정하지 않고 닫힌 경우 콜백을 발행한다.
     protected override void OnReturnToPool()
     {
         ClearCards();
-        ClearDetailCostChips();
+        ClearDetailCostCells();
         _selectedBuildable = null;
         _inventory = null;
 
@@ -83,21 +136,32 @@ public class BuildingSelectUI : OpenableUIBase<BuildingSelectData>
     // 닫기 버튼 클릭 시 UI를 닫는다.
     private void HandleCloseButtonClick() => Close();
 
-    // 건축 시작 버튼 클릭 시 선택을 확정하고 선택 콜백을 발행한다.
-    private void HandleBuildStartButtonClick()
+    // 건축 시작 버튼 클릭 시 선택을 확정한다.
+    private void HandleBuildStartButtonClick() => ConfirmSelection();
+
+    // 건물 카드를 눌렀을 때 효과음을 내고 상세 패널의 대상을 그 건물로 바꾼다.
+    private void HandleCardSelect(BuildingCardUI card)
     {
-        if (_selectedBuildable == null) return;
+        AudioManager.PlayButtonClick();
+        SelectBuildable(card.Buildable);
+    }
+
+    // 건물 카드를 두 번 눌렀을 때 그 건물로 선택을 바꾸고 바로 확정을 시도한다.
+    private void HandleCardSubmit(BuildingCardUI card)
+    {
+        SelectBuildable(card.Buildable);
+        ConfirmSelection();
+    }
+
+    // 고른 건물이 있고 건축 시작이 가능하면 선택을 확정하고 선택 콜백을 발행한다.
+    private void ConfirmSelection()
+    {
+        if (_selectedBuildable == null || !_buildStartButton.interactable) return;
+        if (_hasConfirmedBuilding) return;
 
         AudioManager.PlayConfirm();
         _hasConfirmedBuilding = true;
         OnBuildingSelected?.Invoke(_selectedBuildable);
-    }
-
-    // 건물 카드를 눌렀을 때 효과음을 내고 상세 패널의 대상을 그 건물로 바꾼다.
-    private void HandleCardClick(IBuildable buildable)
-    {
-        AudioManager.PlayButtonClick();
-        SelectBuildable(buildable);
     }
 
     // 기존 카드를 제거하고 건물 목록마다 카드를 새로 생성하며, 목록 개수 표시도 갱신한다.
@@ -105,15 +169,14 @@ public class BuildingSelectUI : OpenableUIBase<BuildingSelectData>
     {
         ClearCards();
 
-        foreach (var buildable in buildables)
+        for (int i = 0; i < buildables.Count; i++)
         {
             BuildingCardUI card = Instantiate(_buildingCardPrefab, _content);
-            card.Setup(buildable, _inventory);
-            card.Button.onClick.AddListener(() => HandleCardClick(buildable));
+            card.Setup(i, buildables[i], _inventory, _cardIntroDelay + _cardIntroStagger * i, HandleCardSelect, HandleCardSubmit);
             _cards.Add(card);
         }
 
-        _countText.text = $"{buildables.Count} 건물";
+        _countText.text = buildables.Count.ToString("00");
     }
 
     // 생성해 둔 건물 카드를 모두 제거한다.
@@ -132,8 +195,13 @@ public class BuildingSelectUI : OpenableUIBase<BuildingSelectData>
     {
         _selectedBuildable = buildable;
 
-        foreach (BuildingCardUI card in _cards)
-            card.SetSelected(card.Buildable == buildable);
+        for (int i = 0; i < _cards.Count; i++)
+        {
+            bool selected = _cards[i].Buildable == buildable;
+            _cards[i].SetSelected(selected);
+            if (selected)
+                _detailTagText.text = $"SELECTED  ·  {i + 1:00}";
+        }
 
         RefreshDetail();
     }
@@ -145,11 +213,11 @@ public class BuildingSelectUI : OpenableUIBase<BuildingSelectData>
 
         _detailPlaceholder.SetActive(!hasSelection);
         _detailBody.SetActive(hasSelection);
-        _buildStartButton.interactable = hasSelection;
 
         if (!hasSelection)
         {
-            ClearDetailCostChips();
+            _buildStartButton.interactable = false;
+            ClearDetailCostCells();
             return;
         }
 
@@ -158,31 +226,53 @@ public class BuildingSelectUI : OpenableUIBase<BuildingSelectData>
         _detailNameText.text = _selectedBuildable.BuildingName;
         _detailDescriptionText.text = _selectedBuildable.Description;
 
-        PopulateDetailCostChips(_selectedBuildable.BuildCost);
+        PopulateDetailCostCells(_selectedBuildable.BuildCost);
+        _buildStartButton.interactable = true;
+
+        _detailSlideElapsed = 0f;
+        HandleApplyDetailSlide(0f);
     }
 
-    // 상세 패널의 기존 비용 칩을 지우고 자원별로 보유/필요 수량 칩을 새로 만든다.
-    private void PopulateDetailCostChips(IReadOnlyDictionary<ResourceData, int> buildCost)
+    // 상세 패널의 기존 비용 칸을 지우고 자원별로 보유/필요 수량 칸을 새로 만든다.
+    private void PopulateDetailCostCells(IReadOnlyDictionary<ResourceData, int> buildCost)
     {
-        ClearDetailCostChips();
+        ClearDetailCostCells();
 
         foreach (var cost in buildCost)
         {
-            BuildCostChipUI chip = Instantiate(_costChipPrefab, _detailCostChipParent);
-            chip.SetupWithOwned(cost.Key, cost.Value, _inventory != null ? _inventory.Get(cost.Key) : 0);
-            _detailCostChips.Add(chip);
+            BuildCostCellUI cell = Instantiate(_costCellPrefab, _detailCostCellParent);
+            cell.Setup(cost.Key, cost.Value, _inventory != null ? _inventory.Get(cost.Key) : 0);
+            _detailCostCells.Add(cell);
         }
     }
 
-    // 상세 패널에 생성해 둔 비용 칩을 모두 제거한다.
-    private void ClearDetailCostChips()
+    // 상세 패널에 생성해 둔 비용 칸을 모두 제거한다.
+    private void ClearDetailCostCells()
     {
-        foreach (BuildCostChipUI chip in _detailCostChips)
+        foreach (BuildCostCellUI cell in _detailCostCells)
         {
-            if (chip != null)
-                Destroy(chip.gameObject);
+            if (cell != null)
+                Destroy(cell.gameObject);
         }
-        _detailCostChips.Clear();
+        _detailCostCells.Clear();
+    }
+
+    // 선택이 바뀐 직후 상세 내용을 옆에서 미끄러져 들어오게 한다.
+    private void HandleDetailSlide()
+    {
+        if (_detailSlideElapsed >= _detailSlideDuration)
+            return;
+
+        _detailSlideElapsed += Time.unscaledDeltaTime;
+        HandleApplyDetailSlide(Mathf.Clamp01(_detailSlideElapsed / _detailSlideDuration));
+    }
+
+    // 미끄러짐 진행도(0~1)를 상세 내용의 위치와 투명도에 반영한다.
+    private void HandleApplyDetailSlide(float t)
+    {
+        float eased = 1f - Mathf.Pow(1f - t, 4f);
+        _detailBodyRect.anchoredPosition = _detailBodyBase + new Vector2(_detailSlideOffset * (1f - eased), 0f);
+        _detailBodyGroup.alpha = Mathf.Clamp01(t * 1.6f);
     }
 }
 
