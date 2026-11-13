@@ -73,11 +73,16 @@ public class IngameExitSequence : MonoBehaviour
         StartCoroutine(HandleExitRoutine(sceneName));
     }
 
-    // 화면 덮기 → 장식 다시 움직이기 → 진행도 비우며 씬 불러오기 순서로 진행하고, 메인 메뉴에 역재생을 맡긴 뒤 씬을 넘긴다.
+    // 메인 메뉴 씬을 미리 비동기로 불러오기 시작한 채 화면 덮기 → 장식 다시 움직이기 → 진행도 비우기 순서로 진행하고,
+    // 메인 메뉴에 역재생을 맡긴 뒤 씬을 넘긴다.
     private IEnumerator HandleExitRoutine(string sceneName)
     {
         _rootGroup.blocksRaycasts = true;
         _rootGroup.interactable = false;
+
+        AsyncOperation operation = HandleBeginSceneLoad(sceneName);
+        if (operation == null)
+            yield break;
 
         UIRectFloatMotion[] floats = _settleRoot.GetComponentsInChildren<UIRectFloatMotion>();
         foreach (UIRectFloatMotion motion in floats)
@@ -85,7 +90,23 @@ public class IngameExitSequence : MonoBehaviour
 
         yield return HandleCloseRoutine();
         yield return HandleUnsettleRoutine(floats);
-        yield return HandleLoadRoutine(sceneName);
+        yield return HandleLoadRoutine(operation);
+    }
+
+    // 씬을 활성화하지 않은 채 비동기로 불러오기 시작한다. 시작하지 못하면 오류를 남기고 시간 배속을 되돌린 뒤 null을 반환한다.
+    private AsyncOperation HandleBeginSceneLoad(string sceneName)
+    {
+        AsyncOperation operation = SceneManager.LoadSceneAsync(sceneName);
+        if (operation == null)
+        {
+            Debug.LogError($"IngameExitSequence: '{sceneName}' 씬을 불러오지 못했습니다. 빌드 설정에 등록되어 있는지 확인하세요.", this);
+            Time.timeScale = 1f;
+            Destroy(gameObject);
+            return null;
+        }
+
+        operation.allowSceneActivation = false;
+        return operation;
     }
 
     // 중심 사각형을 화면을 다 덮는 크기에서 원래 크기까지 감속하며 줄이고, 테두리 바깥의 로딩 화면이 게임을 덮어 나가게 한다.
@@ -146,20 +167,9 @@ public class IngameExitSequence : MonoBehaviour
             _progressGroup.alpha = eased;
     }
 
-    // 메인 메뉴 씬을 불러오는 동안 진행도를 100%에서 0%로 비우고, 둘 다 끝나면 메인 메뉴에 역재생을 맡기고 씬을 넘긴다.
-    private IEnumerator HandleLoadRoutine(string sceneName)
+    // 메인 메뉴 씬 불러오기를 기다리는 동안 진행도를 100%에서 0%로 비우고, 둘 다 끝나면 메인 메뉴에 역재생을 맡기고 씬을 넘긴다.
+    private IEnumerator HandleLoadRoutine(AsyncOperation operation)
     {
-        AsyncOperation operation = SceneManager.LoadSceneAsync(sceneName);
-        if (operation == null)
-        {
-            Debug.LogError($"IngameExitSequence: '{sceneName}' 씬을 불러오지 못했습니다. 빌드 설정에 등록되어 있는지 확인하세요.", this);
-            Time.timeScale = 1f;
-            SceneManager.LoadScene(sceneName);
-            yield break;
-        }
-
-        operation.allowSceneActivation = false;
-
         float displayed = 1f;
         while (displayed > 0f || operation.progress < 0.9f)
         {

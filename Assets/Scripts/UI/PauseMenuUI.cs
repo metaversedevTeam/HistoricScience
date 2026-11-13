@@ -163,8 +163,9 @@ public class PauseMenuUI : OpenableUIBase
 
         if (_exitSequencePrefab == null)
         {
+            _isExiting = true;
             Time.timeScale = 1f;
-            SceneManager.LoadScene(_mainMenuSceneName);
+            SceneManager.LoadSceneAsync(_mainMenuSceneName);
             return;
         }
 
