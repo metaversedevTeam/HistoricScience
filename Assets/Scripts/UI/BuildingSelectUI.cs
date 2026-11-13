@@ -70,6 +70,9 @@ public class BuildingSelectUI : OpenableUIBase<BuildingSelectData>
     // 건설 비용의 보유량을 조회할 인벤토리. 이번 열림 동안 전달받은 것을 들고 있는다.
     private ResourceInventory _inventory;
 
+    // 이번 열림 동안 나열한 건물 목록. 지금 지을 수 있는 건물 수를 다시 셀 때 쓴다.
+    private IReadOnlyList<IBuildable> _buildables;
+
     // 이번 열림 동안 건축 시작으로 건물을 확정했는지 여부
     private bool _hasConfirmedBuilding;
 
@@ -96,7 +99,10 @@ public class BuildingSelectUI : OpenableUIBase<BuildingSelectData>
     {
         _hasConfirmedBuilding = false;
         _inventory = data.Inventory;
+        _buildables = data.Buildables;
+        SubscribeToInventory();
         PopulateCards(data.Buildables);
+        RefreshAvailableCount();
         SelectBuildable(null);
     }
 
@@ -123,8 +129,10 @@ public class BuildingSelectUI : OpenableUIBase<BuildingSelectData>
     {
         ClearCards();
         ClearDetailCostCells();
+        UnsubscribeFromInventory();
         _selectedBuildable = null;
         _inventory = null;
+        _buildables = null;
 
         if (_scrollRect != null)
             _scrollRect.verticalNormalizedPosition = 1f;
@@ -175,8 +183,79 @@ public class BuildingSelectUI : OpenableUIBase<BuildingSelectData>
             card.Setup(i, buildables[i], _inventory, _cardIntroDelay + _cardIntroStagger * i, HandleCardSelect, HandleCardSubmit);
             _cards.Add(card);
         }
+    }
 
-        _countText.text = buildables.Count.ToString("00");
+    // 지금 가진 자원으로 바로 지을 수 있는 건물 수를 세어 AVAILABLE 숫자에 표시한다.
+    private void RefreshAvailableCount()
+    {
+        int count = 0;
+        if (_buildables != null)
+        {
+            foreach (IBuildable buildable in _buildables)
+            {
+                if (CanAfford(buildable))
+                    count++;
+            }
+        }
+
+        _countText.text = count.ToString("00");
+    }
+
+    // 지정한 건물의 건설 비용을 인벤토리가 모두 감당할 수 있는지 확인한다.
+    private bool CanAfford(IBuildable buildable)
+    {
+        if (_inventory == null) return false;
+
+        foreach (var cost in buildable.BuildCost)
+        {
+            if (!_inventory.Has(cost.Key, cost.Value))
+                return false;
+        }
+        return true;
+    }
+
+    // 열려 있는 동안 자원이 늘거나 줄면 AVAILABLE 숫자를 다시 세도록 인벤토리 변화를 구독한다.
+    private void SubscribeToInventory()
+    {
+        if (_inventory == null) return;
+
+        _inventory.OnAddItem += HandleInventoryChanged;
+        _inventory.OnRemoveItem += HandleInventoryChanged;
+    }
+
+    // 인벤토리 변화 구독을 해제한다.
+    private void UnsubscribeFromInventory()
+    {
+        if (_inventory == null) return;
+
+        _inventory.OnAddItem -= HandleInventoryChanged;
+        _inventory.OnRemoveItem -= HandleInventoryChanged;
+    }
+
+    // 자원이 바뀌면 지을 수 있는 건물 수를 다시 세고, 카드의 비용 칩과 상세 패널의 비용 칸을 지금 보유량으로 다시 칠한다.
+    private void HandleInventoryChanged(ItemData item, int amount)
+    {
+        RefreshAvailableCount();
+
+        foreach (BuildingCardUI card in _cards)
+            card.RefreshCostChips(_inventory);
+
+        RefreshDetailCostCells();
+    }
+
+    // 상세 패널의 비용 칸을 지금 보유량으로 다시 칠한다. 막대는 연출 없이 바로 새 길이로 맞춘다.
+    private void RefreshDetailCostCells()
+    {
+        if (_selectedBuildable == null) return;
+
+        int index = 0;
+        foreach (var cost in _selectedBuildable.BuildCost)
+        {
+            if (index >= _detailCostCells.Count) break;
+
+            _detailCostCells[index].Setup(cost.Key, cost.Value, _inventory != null ? _inventory.Get(cost.Key) : 0, false);
+            index++;
+        }
     }
 
     // 생성해 둔 건물 카드를 모두 제거한다.

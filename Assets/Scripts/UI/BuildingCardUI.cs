@@ -151,6 +151,21 @@ public class BuildingCardUI : MonoBehaviour, IPointerClickHandler
         }
     }
 
+    // 만들어 둔 비용 칩의 부족 여부 색을 지금 인벤토리 기준으로 다시 칠한다. 칩은 건설 비용과 같은 순서로 만들어져 있다.
+    public void RefreshCostChips(ResourceInventory inventory)
+    {
+        if (Buildable == null) return;
+
+        int index = 0;
+        foreach (var cost in Buildable.BuildCost)
+        {
+            if (index >= _costChips.Count) break;
+
+            _costChips[index].SetupRequiredOnly(cost.Key, cost.Value, inventory != null ? inventory.Get(cost.Key) : 0);
+            index++;
+        }
+    }
+
     // 생성해 둔 비용 칩을 모두 제거한다.
     private void ClearCostChips()
     {

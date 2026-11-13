@@ -37,8 +37,8 @@ public class BuildCostCellUI : MonoBehaviour
         HandleBarGrow();
     }
 
-    // 자원과 보유/필요 수량을 칸에 반영하고 막대 연출을 처음부터 시작한다.
-    public void Setup(ResourceData resource, int needed, int owned)
+    // 자원과 보유/필요 수량을 칸에 반영한다. animateBar가 true면 막대 연출을 처음부터 시작하고, false면 막대를 바로 목표 길이로 맞춘다.
+    public void Setup(ResourceData resource, int needed, int owned, bool animateBar = true)
     {
         bool sufficient = owned >= needed;
 
@@ -53,8 +53,8 @@ public class BuildCostCellUI : MonoBehaviour
         _border.color = sufficient ? _normalBorderColor : _insufficientBorderColor;
 
         _barTarget = needed > 0 ? Mathf.Clamp01((float)owned / needed) : 1f;
-        _barElapsed = 0f;
-        HandleApplyBar(0f);
+        _barElapsed = animateBar ? 0f : _barDuration;
+        HandleApplyBar(animateBar ? 0f : 1f);
     }
 
     // 막대를 목표 길이까지 감속하며 늘린다.
