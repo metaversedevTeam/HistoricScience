@@ -114,6 +114,12 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
     // 인게임 씬이 메인 메뉴로 돌아가며 로딩 연출을 거꾸로 재생해 달라고 요청했는지 여부. 메인 메뉴 씬이 시작될 때 한 번 소비된다.
     private static bool _isReturnRequested;
 
+    // 인게임 씬이 넘겨준 장식 사각형들의 회전 각도(계층 순서). 돌아올 때 이 각도에서 이어 돌게 한다. 없으면 null
+    private static float[] _returnAngles;
+
+    // 회전 각도를 넘겨받은 순간의 실제 시간(초). 씬이 바뀌는 동안 흐른 시간만큼 더 돌려 놓는 데 쓴다.
+    private static float _returnAnglesTime;
+
     // 이 연출이 붙은 메뉴 캔버스
     private Canvas _canvas;
 
@@ -184,9 +190,12 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
     }
 
     // 다음에 메인 메뉴 씬이 시작될 때 로딩 연출을 거꾸로 재생하도록 요청한다. (인게임에서 메인 메뉴로 돌아갈 때 쓴다)
-    public static void RequestReturnSequence()
+    // floats에는 인게임 쪽 장식 사각형들을 메인 메뉴와 같은 계층 순서로 넘기면, 그 회전 각도에서 이어 돌게 한다.
+    public static void RequestReturnSequence(UIRectFloatMotion[] floats)
     {
         _isReturnRequested = true;
+        _returnAngles = floats != null ? Array.ConvertAll(floats, motion => motion.Angle) : null;
+        _returnAnglesTime = Time.unscaledTime;
     }
 
     // 지정한 씬을 비동기로 불러오며 로딩 연출을 시작한다. 이미 시작했으면 무시한다.
@@ -427,6 +436,7 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
     private IEnumerator HandleReturnRoutine()
     {
         HandlePrepare();
+        HandleContinueReturnAngles();
         _isReturning = true;
 
         if (_skippedIntroOnReturn != null)
@@ -451,6 +461,30 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
         _rootGroup.interactable = true;
         _isReturning = false;
         _isRunning = false;
+    }
+
+    // 인게임 씬이 넘겨준 회전 각도를 소비해, 장식 사각형들이 씬이 바뀌기 전 방향에서 끊기지 않고 이어 돌게 한다.
+    private void HandleContinueReturnAngles()
+    {
+        float[] angles = _returnAngles;
+        _returnAngles = null;
+        if (angles == null)
+            return;
+
+        RectTransform settleRoot = _centerTarget != null ? _centerTarget : _revealCore;
+        if (settleRoot == null)
+            return;
+
+        UIRectFloatMotion[] floats = settleRoot.GetComponentsInChildren<UIRectFloatMotion>();
+        if (floats.Length != angles.Length)
+        {
+            Debug.LogWarning($"MainMenuLoadingSequence: 인게임에서 넘어온 장식 각도 수({angles.Length})가 메인 메뉴 장식 수({floats.Length})와 달라 회전을 이어 가지 않습니다.", this);
+            return;
+        }
+
+        float elapsed = Time.unscaledTime - _returnAnglesTime;
+        for (int i = 0; i < floats.Length; i++)
+            floats[i].ContinueRotation(angles[i], elapsed);
     }
 
     // 짧은 프레임이 정해 둔 횟수만큼 연달아 나오거나 최대 대기 시간이 지날 때까지 기다린다.

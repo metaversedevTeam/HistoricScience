@@ -90,7 +90,7 @@ public class IngameExitSequence : MonoBehaviour
 
         yield return HandleCloseRoutine();
         yield return HandleUnsettleRoutine(floats);
-        yield return HandleLoadRoutine(operation);
+        yield return HandleLoadRoutine(operation, floats);
     }
 
     // 씬을 활성화하지 않은 채 비동기로 불러오기 시작한다. 시작하지 못하면 오류를 남기고 시간 배속을 되돌린 뒤 null을 반환한다.
@@ -167,8 +167,8 @@ public class IngameExitSequence : MonoBehaviour
             _progressGroup.alpha = eased;
     }
 
-    // 메인 메뉴 씬 불러오기를 기다리는 동안 진행도를 100%에서 0%로 비우고, 둘 다 끝나면 메인 메뉴에 역재생을 맡기고 씬을 넘긴다.
-    private IEnumerator HandleLoadRoutine(AsyncOperation operation)
+    // 메인 메뉴 씬 불러오기를 기다리는 동안 진행도를 100%에서 0%로 비우고, 둘 다 끝나면 메인 메뉴에 역재생과 장식 회전 각도를 맡기고 씬을 넘긴다.
+    private IEnumerator HandleLoadRoutine(AsyncOperation operation, UIRectFloatMotion[] floats)
     {
         float displayed = 1f;
         while (displayed > 0f || operation.progress < 0.9f)
@@ -185,7 +185,7 @@ public class IngameExitSequence : MonoBehaviour
         // 이미 다 불러왔더라도 0%에서 잠시 머문 뒤 넘어가, 메인 메뉴의 역재생 연출과 자연스럽게 이어지게 한다.
         yield return new WaitForSecondsRealtime(_holdBeforeActivation);
 
-        MainMenuLoadingSequence.RequestReturnSequence();
+        MainMenuLoadingSequence.RequestReturnSequence(floats);
         Time.timeScale = 1f;
         operation.allowSceneActivation = true;
     }

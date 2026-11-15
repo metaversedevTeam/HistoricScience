@@ -66,6 +66,9 @@ public class UIRectFloatMotion : MonoBehaviour
         set => _weight = Mathf.Clamp01(value);
     }
 
+    // 지금 화면 축 기준 회전 각도(도)
+    public float Angle => _rect.localEulerAngles.z;
+
     // 떠다니는 중심이 되는 위치. 바꾸면 그 자리를 중심으로 계속 떠다닌다.
     public Vector2 BasePosition
     {
@@ -117,6 +120,12 @@ public class UIRectFloatMotion : MonoBehaviour
         _rect.localRotation = Quaternion.Euler(0f, 0f, Mathf.Round(angle / 90f) * 90f);
         _weight = 0f;
         enabled = true;
+    }
+
+    // 다른 사각형에서 이어받은 각도에서 출발해, 그 뒤 흐른 시간(초)만큼 돌았을 각도로 회전을 맞춘다. (씬 전환 너머로 회전을 이어 갈 때 쓴다)
+    public void ContinueRotation(float angle, float elapsed)
+    {
+        _rect.localRotation = Quaternion.Euler(0f, 0f, angle + _rotationSpeed * _weight * elapsed);
     }
 
     // BeginSettle 이후, 정렬된 자세로 돌아간 정도(0~1)를 적용한다.
