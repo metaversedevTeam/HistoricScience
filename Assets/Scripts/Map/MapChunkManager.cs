@@ -23,6 +23,9 @@ public class MapChunkManager : MonoBehaviour
     // 청크 하나가 월드에서 차지하는 XZ 크기 캐시. 맵 데이터의 지형 설정에서 한 번만 계산해 두고, 맵 데이터가 바뀌면 다시 계산한다.
     private Vector2? m_ChunkWorldSize;
 
+    // 마지막으로 청크를 Terrain에 그린 프레임 번호. 한 프레임에 청크를 하나만 그리도록, 같은 프레임에 그리려는 청크는 다음 프레임으로 미룬다.
+    private int m_LastDrawnFrame = -1;
+
     // 청크가 새로 소환되었을 때 그 청크의 터레인 페인터를 알린다. 아직 지형이 구워지기 전 시점이다.
     public event Action<TerrainPainter> ChunkSpawned;
 
@@ -139,6 +142,7 @@ public class MapChunkManager : MonoBehaviour
         TerrainPainter painter = chunkObject.GetComponent<TerrainPainter>();
         painter.SetChunkCoordinate(chunkCoordinate);
         painter.PaintVoronoiTerrain(m_MapData);
+        m_LastDrawnFrame = Time.frameCount;
 
         HandlePositionChunk(chunkObject, chunkCoordinate);
         HandleSpawnSavables(chunkObject);
@@ -158,6 +162,7 @@ public class MapChunkManager : MonoBehaviour
     }
 
     // PaintChunk의 비동기 버전. 알파맵/높이맵 계산만 Task.Run으로 백그라운드 스레드에 맡기고, Terrain에 적용하는 부분은 메인 스레드로 돌아와 처리한다.
+    // 계산은 여러 청크가 동시에 진행할 수 있지만, Terrain에 적용하는 무거운 작업은 한 프레임에 한 청크만 하도록 차례를 기다린다.
     public async Task PaintChunkAsync(Vector2Int chunkCoordinate)
     {
         if (!HandleCanPaint(chunkCoordinate, out GameObject chunkObject))
@@ -172,11 +177,14 @@ public class MapChunkManager : MonoBehaviour
 
         var result = await Task.Run(() => painter.ComputePaint(context.Value));
 
-        // 백그라운드 계산 중에 이 청크가 해제되었을 수 있으므로, 이미 파괴된 터레인을 건드리지 않도록 다시 확인한다.
+        await HandleWaitForDrawFrameAsync();
+
+        // 백그라운드 계산이나 차례를 기다리는 중에 이 청크가 해제되었을 수 있으므로, 이미 파괴된 터레인을 건드리지 않도록 다시 확인한다.
         if (chunkObject == null || !m_ActiveChunks.TryGetValue(chunkCoordinate, out GameObject currentChunk) || currentChunk != chunkObject)
             return;
 
         painter.ApplyPaint(result);
+        m_LastDrawnFrame = Time.frameCount;
 
         HandlePositionChunk(chunkObject, chunkCoordinate);
         HandleSpawnSavables(chunkObject);
@@ -241,6 +249,14 @@ public class MapChunkManager : MonoBehaviour
         {
             Debug.LogException(exception, this);
         }
+    }
+
+    // 이번 프레임에 이미 다른 청크를 그렸다면 아직 아무 청크도 그리지 않은 프레임이 올 때까지 기다린다.
+    // 같은 프레임에 깨어난 대기자들 중 먼저 그린 하나만 통과하고, 나머지는 다시 다음 프레임을 기다린다.
+    private async Awaitable HandleWaitForDrawFrameAsync()
+    {
+        while (Time.frameCount == m_LastDrawnFrame)
+            await Awaitable.NextFrameAsync();
     }
 
     // 굽기에 필요한 청크 오브젝트와 맵 데이터가 모두 준비되었는지 확인하고, 준비된 청크 오브젝트를 넘겨준다.
