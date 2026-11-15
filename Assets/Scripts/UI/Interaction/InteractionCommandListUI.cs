@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 // 시민 앞의 상호작용 대상 오른쪽에 그 대상과 할 수 있는 명령 이름을 사각형 줄로 띄우는 캔버스 UI.
-// 대상 화면 테두리에서 연결선이 뻗어 나오고, 테두리가 위아래로 펼쳐진 뒤 줄들이 차례로 지층 와이프 연출로 나타난다.
+// 대상 메시 중심에서 연결선이 뻗어 나오고, 테두리가 위아래로 펼쳐진 뒤 줄들이 차례로 지층 와이프 연출로 나타난다.
 // 떠 있는 동안 마우스 휠을 올리면 이전 명령, 내리면 다음 명령을 선택한다.
 public class InteractionCommandListUI : MonoBehaviour
 {
@@ -73,8 +73,15 @@ public class InteractionCommandListUI : MonoBehaviour
     // 화면 좌표를 캔버스 로컬 좌표로 바꿀 카메라. 오버레이 캔버스에서는 null이어야 한다.
     private Camera _canvasCamera;
 
-    // 목록을 붙일 대상의 충돌체. 화면에 비친 범위의 오른쪽 끝을 기준으로 삼는다.
+    // 목록을 붙일 대상의 충돌체. 대상 메시를 찾는 출발점이자, 메시가 없을 때 범위를 대신한다.
     private Collider _target;
+
+    // 대상의 메시 렌더러들(건물 바닥 제외). 이들을 합친 범위의 중심을 기준으로 목록 위치를 잡는다.
+    private readonly List<Renderer> _targetRenderers = new();
+
+    // 대상 렌더러를 모을 때 재사용하는 임시 목록
+    private static readonly List<Renderer> s_rendererBuffer = new();
+    private static readonly List<BottomMaterialController> s_bottomBuffer = new();
 
     // 표시 중인지 여부
     private bool _isVisible;
@@ -128,6 +135,8 @@ public class InteractionCommandListUI : MonoBehaviour
     public void Show(Collider target, IReadOnlyList<string> commandNames)
     {
         bool isSame = _isVisible && target == _target && IsSameNames(commandNames);
+        if (target != _target)
+            CollectTargetRenderers(target);
         _target = target;
         SetVisible(true);
         if (isSame) return;
@@ -225,12 +234,12 @@ public class InteractionCommandListUI : MonoBehaviour
         _canvasCamera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
     }
 
-    // 대상 충돌체가 화면에 비친 범위의 오른쪽 끝·세로 가운데에서 연결선 길이만큼 띄운 자리에 목록을 둔다.
+    // 대상 메시 범위의 중심이 화면에 비친 점에서 연결선 길이만큼 오른쪽으로 띄운 자리에 목록을 둔다.
     private void HandleFollowTarget()
     {
         if (_target == null || _worldCamera == null || _parentRect == null) return;
 
-        if (!TryGetScreenAnchor(_target.bounds, out Vector2 screenAnchor))
+        if (!TryGetScreenAnchor(GetTargetBounds(), out Vector2 screenAnchor))
         {
             _isBehindCamera = true;
             return;
@@ -244,30 +253,64 @@ public class InteractionCommandListUI : MonoBehaviour
         _rect.anchoredPosition = localPoint;
     }
 
-    // 범위 상자의 여덟 꼭짓점을 화면에 비춰, 오른쪽 끝 x와 세로 가운데 y를 구한다. 꼭짓점이 카메라 뒤로 넘어가면 실패로 본다.
+    // 대상의 상호작용 주인(IGatherable/ICommandable) 아래 메시 렌더러를 모은다. 건물 바닥 렌더러는 뺀다.
+    private void CollectTargetRenderers(Collider target)
+    {
+        _targetRenderers.Clear();
+        if (target == null) return;
+
+        Transform root = GetInteractableRoot(target);
+        root.GetComponentsInChildren(true, s_rendererBuffer);
+        foreach (Renderer renderer in s_rendererBuffer)
+        {
+            if (renderer is MeshRenderer || renderer is SkinnedMeshRenderer)
+                _targetRenderers.Add(renderer);
+        }
+        s_rendererBuffer.Clear();
+
+        root.GetComponentsInChildren(true, s_bottomBuffer);
+        foreach (BottomMaterialController bottom in s_bottomBuffer)
+        {
+            if (bottom.BottomRenderer != null)
+                _targetRenderers.Remove(bottom.BottomRenderer);
+        }
+        s_bottomBuffer.Clear();
+    }
+
+    // 충돌체 위쪽에서 IGatherable이나 ICommandable을 가진 오브젝트를 찾고, 없으면 충돌체 자신을 돌려준다.
+    private static Transform GetInteractableRoot(Collider target)
+    {
+        if (target.GetComponentInParent<IGatherable>() is Component gatherable)
+            return gatherable.transform;
+        if (target.GetComponentInParent<ICommandable>() is Component commandable)
+            return commandable.transform;
+        return target.transform;
+    }
+
+    // 켜져 있는 대상 메시들을 합친 범위를 구한다. 그런 메시가 없으면 충돌체 범위를 쓴다.
+    private Bounds GetTargetBounds()
+    {
+        bool hasBounds = false;
+        Bounds bounds = default;
+        foreach (Renderer renderer in _targetRenderers)
+        {
+            if (renderer == null || !renderer.enabled || !renderer.gameObject.activeInHierarchy) continue;
+
+            if (hasBounds)
+                bounds.Encapsulate(renderer.bounds);
+            else
+                bounds = renderer.bounds;
+            hasBounds = true;
+        }
+        return hasBounds ? bounds : _target.bounds;
+    }
+
+    // 범위 상자의 중심을 화면에 비춘 점을 구한다. 중심이 카메라 뒤로 넘어가면 실패로 본다.
     private bool TryGetScreenAnchor(Bounds bounds, out Vector2 screenAnchor)
     {
-        screenAnchor = Vector2.zero;
-        Vector3 min = bounds.min;
-        Vector3 max = bounds.max;
-
-        float maxX = float.NegativeInfinity;
-        float minY = float.PositiveInfinity;
-        float maxY = float.NegativeInfinity;
-
-        for (int i = 0; i < 8; i++)
-        {
-            Vector3 corner = new Vector3((i & 1) == 0 ? min.x : max.x, (i & 2) == 0 ? min.y : max.y, (i & 4) == 0 ? min.z : max.z);
-            Vector3 screen = _worldCamera.WorldToScreenPoint(corner);
-            if (screen.z < 0f) return false;
-
-            maxX = Mathf.Max(maxX, screen.x);
-            minY = Mathf.Min(minY, screen.y);
-            maxY = Mathf.Max(maxY, screen.y);
-        }
-
-        screenAnchor = new Vector2(maxX, (minY + maxY) * 0.5f);
-        return true;
+        Vector3 screen = _worldCamera.WorldToScreenPoint(bounds.center);
+        screenAnchor = screen;
+        return screen.z >= 0f;
     }
 
     // 등장 연출 시간을 흘려 연결선·테두리·머리글·줄에 반영한다.
