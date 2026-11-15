@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-// 일시정지 화면. 메인 메뉴와 같은 사각형 모션그래픽 디자인으로 이어하기·저장 후 나가기·설정·메인 메뉴로 버튼을 보여 준다.
+// 일시정지 화면. 메인 메뉴와 같은 사각형 모션그래픽 디자인으로 이어하기·저장 후 나가기·설정·메뉴로 나가기 버튼을 보여 준다.
 // UIManager로 여닫는 관리형 UI이며, 열려 있는 동안 Time.timeScale을 0으로 고정해 게임을 멈춘다.
 // 열고 닫을 때의 등장·퇴장 연출은 MainMenuIntroSequence가 맡는다. (모든 모션은 실제 경과 시간으로 돌아 일시정지 중에도 움직인다)
 public class PauseMenuUI : OpenableUIBase
