@@ -22,11 +22,13 @@ public class GrassType : ScriptableObject
     [Header("분포")]
     // 출력할 지형 표면 높이 범위(월드 Y, x=최소, y=최대). 기본값은 해수면 위 전체다.
     [SerializeField] private Vector2 m_SpawnHeightRange = new Vector2(12f, 100f);
-    // 군락 하나의 대략적인 크기(m). 클수록 풀이 넓은 덩어리로 뭉쳐 난다.
+    // 군락을 만드는 방식. 펄린은 구불구불한 덩어리, 보로노이는 흩어진 다각형 무리를 만든다.
+    [SerializeField] private GrassDistributionMode m_DistributionMode = GrassDistributionMode.PerlinClump;
+    // 군락 하나의 대략적인 크기(m). 보로노이 방식에서는 셀 하나의 평균 크기다. 클수록 풀이 넓은 덩어리로 뭉쳐 난다.
     [SerializeField, Min(0.1f)] private float m_ClumpSize = 20f;
-    // 군락이 지면을 덮는 대략적인 비율. 1이면 군락 없이 바이옴 전체에 고르게 깔리고, 작을수록 듬성듬성한 무리로 난다.
+    // 군락이 지면을 덮는 대략적인 비율. 보로노이 방식에서는 풀이 채워지는 셀의 비율이다. 1이면 군락 없이 바이옴 전체에 고르게 깔린다.
     [SerializeField, Range(0f, 1f)] private float m_ClumpCoverage = 1f;
-    // 군락 가장자리에서 밀도가 줄어드는 폭(노이즈 값 기준). 0이면 군락 경계가 딱 끊긴다.
+    // 군락 가장자리에서 밀도가 줄어드는 폭. 펄린 방식은 노이즈 값, 보로노이 방식은 셀 크기 대비 경계까지의 거리 기준이다. 0이면 경계가 딱 끊긴다.
     [SerializeField, Range(0f, 0.5f)] private float m_ClumpEdgeSoftness = 0.1f;
     // 풀 종류마다 군락 노이즈 패턴이 겹치지 않도록 하는 구분 번호. 에셋을 만들 때 자동으로 정해지며, 바꾸면 이 풀의 배치가 달라진다.
     [SerializeField] private int m_NoiseSalt;
@@ -34,6 +36,7 @@ public class GrassType : ScriptableObject
     public GameObject Prefab => m_Prefab;
     public float MinSpawnHeight => m_SpawnHeightRange.x;
     public float MaxSpawnHeight => m_SpawnHeightRange.y;
+    public GrassDistributionMode DistributionMode => m_DistributionMode;
     public float ClumpSize => m_ClumpSize;
     public float ClumpCoverage => m_ClumpCoverage;
     public float ClumpEdgeSoftness => m_ClumpEdgeSoftness;

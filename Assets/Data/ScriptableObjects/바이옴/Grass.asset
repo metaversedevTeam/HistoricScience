@@ -26,3 +26,5 @@ MonoBehaviour:
   m_GrassEntries:
   - m_GrassType: {fileID: 11400000, guid: e554948784ac3514694b8c3e799e0ae3, type: 2}
     m_Density: 3
+  - m_GrassType: {fileID: 11400000, guid: 1237fe77ce33e924da30952b7a63806a, type: 2}
+    m_Density: 1.2

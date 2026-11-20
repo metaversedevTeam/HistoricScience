@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b15619577451e6e4bb2c270e0630603b, type: 3}
+  m_Name: TestFlowerType
+  m_EditorClassIdentifier: 
+  m_Prefab: {fileID: 7695901438559564354, guid: cf593e09a688b6449bb52ffaf0318069, type: 3}
+  m_WidthRange: {x: 0.8, y: 1.3}
+  m_HeightRange: {x: 0.8, y: 1.3}
+  m_AlignToGround: 0.3
+  m_PositionJitter: 1
+  m_SpawnHeightRange: {x: 12, y: 100}
+  m_DistributionMode: 1
+  m_ClumpSize: 12
+  m_ClumpCoverage: 0.3
+  m_ClumpEdgeSoftness: 0.15
+  m_NoiseSalt: 1593240901

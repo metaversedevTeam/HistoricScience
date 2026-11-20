@@ -8,6 +8,10 @@ public static class GrassDensityBuilder
 {
     // 디테일 셀 하나에 놓을 수 있는 최대 풀 개수
     private const int k_MaxInstancesPerCell = 255;
+    // 보로노이 특징점 위치와 셀 채움 여부를 서로 다른 난수로 뽑기 위해 풀 종류 구분 번호에 섞는 값
+    private const int k_VoronoiJitterXSalt = 0x1F3D5B79;
+    private const int k_VoronoiJitterZSalt = 0x5A17C3E1;
+    private const int k_VoronoiActiveSalt = 0x3C6EF372;
 
     // 풀 종류별 디테일 레이어를 계산해 레이아웃의 풀 종류 순서대로 반환한다. 각 레이어는 [z, x] 순서의 detailResolution × detailResolution 배열이다.
     public static int[][,] Build(ChunkGrassLayout layout, float[,,] alphamap, float[,] heightmap, int detailResolution, Vector2 mapViewOrigin, float mapViewSize, MapTerrainConfig config, int seed)
@@ -67,7 +71,7 @@ public static class GrassDensityBuilder
                     if (height < grassType.MinSpawnHeight || height > grassType.MaxSpawnHeight)
                         continue;
 
-                    float clumpMask = HandleSampleClumpMask(grassType, worldPosition, noiseOffsets[g]);
+                    float clumpMask = HandleSampleClumpMask(grassType, worldPosition, noiseOffsets[g], seed);
                     if (clumpMask <= 0f)
                         continue;
 
@@ -125,8 +129,8 @@ public static class GrassDensityBuilder
         t = position - index0;
     }
 
-    // 군락 노이즈로 주어진 월드 위치의 밀도 배율(0~1)을 구한다. 덮는 비율이 1이면 항상 1이고, 노이즈가 임계값을 넘는 곳에서만 풀이 난다.
-    private static float HandleSampleClumpMask(GrassType grassType, Vector2 worldPosition, Vector2 noiseOffset)
+    // 풀 종류의 군락 방식으로 주어진 월드 위치의 밀도 배율(0~1)을 구한다. 덮는 비율이 1이면 방식과 관계없이 항상 1이다.
+    private static float HandleSampleClumpMask(GrassType grassType, Vector2 worldPosition, Vector2 noiseOffset, int seed)
     {
         float coverage = grassType.ClumpCoverage;
         if (coverage >= 1f)
@@ -134,6 +138,16 @@ public static class GrassDensityBuilder
         if (coverage <= 0f)
             return 0f;
 
+        if (grassType.DistributionMode == GrassDistributionMode.Voronoi)
+            return HandleSampleVoronoiMask(grassType, worldPosition, seed);
+
+        return HandleSamplePerlinMask(grassType, worldPosition, noiseOffset);
+    }
+
+    // 펄린 노이즈가 임계값을 넘는 곳에서만 풀이 나도록 밀도 배율(0~1)을 구한다.
+    private static float HandleSamplePerlinMask(GrassType grassType, Vector2 worldPosition, Vector2 noiseOffset)
+    {
+        float coverage = grassType.ClumpCoverage;
         float noise = Mathf.PerlinNoise(
             worldPosition.x / grassType.ClumpSize + noiseOffset.x,
             worldPosition.y / grassType.ClumpSize + noiseOffset.y);
@@ -145,6 +159,58 @@ public static class GrassDensityBuilder
             return noise >= threshold ? 1f : 0f;
 
         float t = Mathf.Clamp01((noise - (threshold - softness)) / (softness * 2f));
+        return t * t * (3f - 2f * t);
+    }
+
+    // 지면을 보로노이 셀로 나눠, 위치가 속한 셀이 채워지는 셀이면 경계까지의 거리에 따라 밀도 배율(0~1)을 구한다.
+    // 셀마다 특징점을 격자 칸 안에 하나씩 흩뿌리고, 가장 가까운 특징점의 셀에 속한 것으로 본다. 두 번째로 가까운 특징점과의 거리 차로 경계까지의 거리를 어림한다.
+    private static float HandleSampleVoronoiMask(GrassType grassType, Vector2 worldPosition, int seed)
+    {
+        Vector2 position = worldPosition / grassType.ClumpSize;
+        int baseCellX = Mathf.FloorToInt(position.x);
+        int baseCellZ = Mathf.FloorToInt(position.y);
+        int salt = grassType.NoiseSalt;
+
+        float nearestDistance = float.MaxValue;
+        float secondDistance = float.MaxValue;
+        int nearestCellX = baseCellX;
+        int nearestCellZ = baseCellZ;
+
+        for (int offsetZ = -1; offsetZ <= 1; offsetZ++)
+        {
+            for (int offsetX = -1; offsetX <= 1; offsetX++)
+            {
+                int cellX = baseCellX + offsetX;
+                int cellZ = baseCellZ + offsetZ;
+                Vector2 featurePoint = new Vector2(
+                    cellX + HandleHash01(cellX, cellZ, seed, salt ^ k_VoronoiJitterXSalt),
+                    cellZ + HandleHash01(cellX, cellZ, seed, salt ^ k_VoronoiJitterZSalt));
+
+                float distance = Vector2.Distance(featurePoint, position);
+                if (distance < nearestDistance)
+                {
+                    secondDistance = nearestDistance;
+                    nearestDistance = distance;
+                    nearestCellX = cellX;
+                    nearestCellZ = cellZ;
+                }
+                else if (distance < secondDistance)
+                {
+                    secondDistance = distance;
+                }
+            }
+        }
+
+        if (HandleHash01(nearestCellX, nearestCellZ, seed, salt ^ k_VoronoiActiveSalt) >= grassType.ClumpCoverage)
+            return 0f;
+
+        float softness = grassType.ClumpEdgeSoftness;
+        if (softness <= 0f)
+            return 1f;
+
+        // 두 특징점까지의 거리 차의 절반은 셀 경계까지의 거리와 비슷하다(셀 크기 단위).
+        float edgeDistance = (secondDistance - nearestDistance) * 0.5f;
+        float t = Mathf.Clamp01(edgeDistance / softness);
         return t * t * (3f - 2f * t);
     }
 
