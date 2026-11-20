@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b15619577451e6e4bb2c270e0630603b, type: 3}
+  m_Name: TestGrassType
+  m_EditorClassIdentifier: 
+  m_Prefab: {fileID: 5505280911271813560, guid: 9befa94635cefdb4cbd6452a5a4cb6c4, type: 3}
+  m_WidthRange: {x: 0.8, y: 1.2}
+  m_HeightRange: {x: 0.8, y: 1.2}
+  m_AlignToGround: 0.5
+  m_PositionJitter: 1
+  m_SpawnHeightRange: {x: 12, y: 100}
+  m_ClumpSize: 15
+  m_ClumpCoverage: 1
+  m_ClumpEdgeSoftness: 0.1
+  m_NoiseSalt: 2009541025

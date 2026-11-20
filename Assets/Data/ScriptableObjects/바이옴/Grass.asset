@@ -23,3 +23,6 @@ MonoBehaviour:
   m_BaseHeight: 22
   m_HeightNoiseAmplitude: 6
   m_HeightNoiseScale: 3
+  m_GrassEntries:
+  - m_GrassType: {fileID: 11400000, guid: e554948784ac3514694b8c3e799e0ae3, type: 2}
+    m_Density: 3
