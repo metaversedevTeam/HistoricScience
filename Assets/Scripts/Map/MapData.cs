@@ -25,6 +25,8 @@ public sealed class MapData
     private readonly MapTerrainConfig m_TerrainConfig;
     // 높이 샘플 격자 한 칸의 길이 (정규화 맵 좌표). 조회마다 다시 나누지 않도록 지형 설정에서 한 번 계산해 둔다.
     private readonly float m_HeightSampleSpacing;
+    // 내륙 노이즈로 산/바다 배치와 산 높이를 조절하는 규칙 값
+    private readonly MapInlandConfig m_InlandConfig;
 
     // 이 맵 데이터를 생성할 때 사용된 랜덤 시드를 반환한다.
     public int Seed => m_Seed;
@@ -41,11 +43,12 @@ public sealed class MapData
     // 높이 샘플 격자 한 칸의 길이 (정규화 맵 좌표). GetHeight의 정수 격자 좌표에 곱하면 맵 좌표가 된다.
     public float HeightSampleSpacing => m_HeightSampleSpacing;
 
-    // 주어진 시드와 바이옴 목록, 지형 설정으로 바이옴 영역 맵을 생성한다.
-    public MapData(int seed, MapBiome[] biomes, MapBiome defaultBiome, MapTerrainConfig terrainConfig, float minWeight = 0.5f, float maxWeight = 2f, float boundaryNoiseScale = 4f, float boundaryNoiseStrength = 0.15f, float maxInfluenceDistance = 0.6f)
+    // 주어진 시드와 바이옴 목록, 지형 설정, 내륙 노이즈 규칙으로 바이옴 영역 맵을 생성한다.
+    public MapData(int seed, MapBiome[] biomes, MapBiome defaultBiome, MapTerrainConfig terrainConfig, MapInlandConfig inlandConfig, float minWeight = 0.5f, float maxWeight = 2f, float boundaryNoiseScale = 4f, float boundaryNoiseStrength = 0.15f, float maxInfluenceDistance = 0.6f)
     {
         m_Seed = seed;
         m_TerrainConfig = terrainConfig;
+        m_InlandConfig = inlandConfig;
         m_HeightSampleSpacing = terrainConfig.HeightSampleSpacing;
         m_HeightNoiseOffset = HandleGetHeightNoiseOffset(seed);
         m_BoundaryNoiseScale = boundaryNoiseScale;
@@ -55,7 +58,33 @@ public sealed class MapData
         // 호출부가 넘긴 배열을 나중에 바꾸더라도 이 객체의 상태가 변하지 않도록 방어적으로 복사해 둔다.
         m_Biomes = biomes != null ? (MapBiome[])biomes.Clone() : new MapBiome[0];
 
-        m_RegionMap = new BiomeRegionMap(seed, minWeight, maxWeight, biomes);
+        m_RegionMap = new BiomeRegionMap(seed, minWeight, maxWeight, biomes, inlandConfig);
+
+        HandleWarnIfMountainExceedsMaxHeight();
+    }
+
+    // 산 분류 바이옴이 낼 수 있는 최대 높이가 터레인 최대 높이를 넘으면, 정상이 평평하게 잘린다는 경고를 남긴다.
+    private void HandleWarnIfMountainExceedsMaxHeight()
+    {
+        float maxInlandBonus = m_InlandConfig.MaxHeightCurveValue * m_InlandConfig.MountainHeightScale;
+        float maxTerrainHeight = m_TerrainConfig.MaxTerrainHeight;
+
+        for (int i = 0; i < m_Biomes.Length; i++)
+        {
+            MapBiome biome = m_Biomes[i];
+            if (biome == null || biome.Category != MapBiomeCategory.Mountain)
+                continue;
+
+            float peakHeight = biome.BaseHeight + biome.HeightNoiseAmplitude + maxInlandBonus;
+            if (peakHeight > maxTerrainHeight)
+                Debug.LogWarning($"MapData: 산 바이옴 '{biome.Name}'의 최대 높이 {peakHeight:F1}m가 터레인 최대 높이 {maxTerrainHeight:F1}m를 {peakHeight - maxTerrainHeight:F1}m 넘어 정상이 평평하게 잘립니다. Mountain Inland Height나 바이옴의 기준 높이/굴곡 세기를 낮추세요.");
+        }
+    }
+
+    // 주어진 맵 좌표의 내륙 노이즈 값(대략 0~1)을 반환한다. 높을수록 산, 낮을수록 바다가 배치되기 쉽다.
+    public float SampleInlandNoise(Vector2 position)
+    {
+        return m_RegionMap.SampleInlandNoise(position);
     }
 
     // 이 맵을 만들 때 사용한 바이옴 목록을 순서 그대로 복사해 반환한다. 지형을 굽는 쪽이 터레인 레이어 순서를 맞추는 데 쓰는데,
@@ -128,6 +157,8 @@ public sealed class MapData
         float totalInfluence = 0f;
         float blendedHeight = 0f;
         bool hasCandidate = false;
+        // 산 바이옴 높이 보정에 쓰는 내륙 노이즈. 위치마다 하나라 후보 정점마다 다시 샘플링하지 않는다.
+        float inland = m_RegionMap.SampleInlandNoise(position);
 
         foreach (BiomeRegion candidate in m_RegionMap.EnumerateRegions(position, m_MaxInfluenceDistance, field))
         {
@@ -143,11 +174,11 @@ public sealed class MapData
             float influence = 1f / (falloff * falloff);
 
             totalInfluence += influence;
-            blendedHeight += influence * HandleSampleBiomeHeight(candidate.Biome, position);
+            blendedHeight += influence * HandleSampleBiomeHeight(candidate.Biome, position, inland);
         }
 
         if (!hasCandidate)
-            return HandleClampHeight(HandleSampleBiomeHeight(m_DefaultBiome, position));
+            return HandleClampHeight(HandleSampleBiomeHeight(m_DefaultBiome, position, inland));
 
         return HandleClampHeight(blendedHeight / totalInfluence);
     }
@@ -346,8 +377,8 @@ public sealed class MapData
         return Mathf.Clamp(height, 0f, m_TerrainConfig.MaxTerrainHeight);
     }
 
-    // 한 바이옴의 높이 프로필(기준 높이 + 굴곡 노이즈, m)을 주어진 맵 좌표에서 샘플링한다.
-    private float HandleSampleBiomeHeight(MapBiome biome, Vector2 position)
+    // 한 바이옴의 높이 프로필(기준 높이 + 굴곡 노이즈, 산 바이옴이면 + 높이 커브(내륙 노이즈) × 배율, m)을 주어진 맵 좌표에서 샘플링한다.
+    private float HandleSampleBiomeHeight(MapBiome biome, Vector2 position, float inland)
     {
         // 바이옴마다 샘플 위치를 밀어, 서로 다른 바이옴이 같은 굴곡 패턴을 공유하지 않게 한다.
         Vector2 shift = HandleGetBiomeNoiseShift(biome);
@@ -356,7 +387,13 @@ public sealed class MapData
             position.x * biome.HeightNoiseScale + m_HeightNoiseOffset.x + shift.x,
             position.y * biome.HeightNoiseScale + m_HeightNoiseOffset.y + shift.y);
 
-        return biome.BaseHeight + noise * biome.HeightNoiseAmplitude;
+        float height = biome.BaseHeight + noise * biome.HeightNoiseAmplitude;
+
+        // 산 바이옴은 내륙 깊숙할수록 더 높아지도록 높이 커브를 적용한 내륙 노이즈만큼 높이를 더한다.
+        if (biome.Category == MapBiomeCategory.Mountain)
+            height += m_InlandConfig.EvaluateHeightCurve(inland) * m_InlandConfig.MountainHeightScale;
+
+        return height;
     }
 
     // 바이옴 이름에서 결정론적인 굴곡 노이즈 샘플 오프셋을 계산한다.
