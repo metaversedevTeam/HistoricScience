@@ -7,7 +7,7 @@ using UnityEditor;
 #endif
 
 // 소환된 청크마다 바이옴 판정용 고도/습도 노이즈를 흑백 텍스처로 구워, 지형 표면을 따라가는 반투명 메쉬로 겹쳐 보여주는 에디터 전용 디버그 툴.
-// 고도와 습도는 별도 레이어라 따로 켜고 끄고 색을 정할 수 있고, 레이어 색에 가까울수록 노이즈 값이 1에, 검을수록 0에 가깝다.
+// 고도, 습도, 내륙 노이즈는 별도 레이어라 따로 켜고 끄고 색을 정할 수 있고, 레이어 색에 가까울수록 노이즈 값이 1에, 검을수록 0에 가깝다.
 // 바이옴 레이어는 노이즈 대신 최종 판정된 바이옴을 각 바이옴의 GizmoColor로 칠해 보여준다. 걷기 가능 레이어는 걸을 수 있는 곳을 레이어 색으로, 걸을 수 없는 곳(해수면 아래, 최대 높이 초과)을 검게 칠한다. 노이즈는 MapData의 에디터 전용 함수로 읽으므로 빌드에서는 아무 동작도 하지 않는다.
 [ExecuteAlways]
 public class BiomeNoiseOverlayDebugger : MonoBehaviour
@@ -20,6 +20,8 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
     [SerializeField] private bool m_ShowElevation = false;
     // 습도 노이즈 레이어를 표시할지 여부
     [SerializeField] private bool m_ShowMoisture = false;
+    // 내륙 노이즈 레이어를 표시할지 여부
+    [SerializeField] private bool m_ShowInland = false;
     // 최종 판정된 바이옴을 각 바이옴의 GizmoColor로 칠한 레이어를 표시할지 여부
     [SerializeField] private bool m_ShowBiome = false;
     // 걸을 수 있는 영역(해수면 ~ 걸을 수 있는 최대 높이)을 칠한 레이어를 표시할지 여부
@@ -28,6 +30,8 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
     [SerializeField, ColorUsage(false)] private Color m_ElevationColor = new Color(1f, 1f, 0f);
     // 습도 노이즈 레이어의 색. 노이즈 값이 1에 가까울수록 이 색에 가깝고, 0에 가까울수록 검게 표시된다. 투명도는 Opacity로 정한다.
     [SerializeField, ColorUsage(false)] private Color m_MoistureColor = new Color(0f, 1f, 1f);
+    // 내륙 노이즈 레이어의 색. 노이즈 값이 1에 가까울수록 이 색에 가깝고, 0에 가까울수록 검게 표시된다. 투명도는 Opacity로 정한다.
+    [SerializeField, ColorUsage(false)] private Color m_InlandColor = new Color(1f, 0f, 1f);
     // 걷기 가능 레이어에서 걸을 수 있는 곳의 색. 걸을 수 없는 곳은 검게 표시된다. 투명도는 Opacity로 정한다.
     [SerializeField, ColorUsage(false)] private Color m_WalkableColor = new Color(0f, 1f, 0f);
     // 오버레이의 불투명도 (0이면 투명, 1이면 지형이 완전히 가려진다)
@@ -42,13 +46,13 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
     [SerializeField, Min(1)] private int m_MaxBuildsPerFrame = 2;
 
     [Header("Hover Info")]
-    // 씬 뷰에서 마우스 아래 오버레이 칸을 표시하고, 최종 지형 높이와 표시가 켜진 레이어(고도/습도/바이옴/걷기 가능)의 값을 라벨로 보여줄지 여부
+    // 씬 뷰에서 마우스 아래 오버레이 칸을 표시하고, 최종 지형 높이와 표시가 켜진 레이어(고도/습도/내륙/바이옴/걷기 가능)의 값을 라벨로 보여줄지 여부
     [SerializeField] private bool m_ShowHoverInfo = false;
 
 #if UNITY_EDITOR
     // URP 언릿 셰이더 경로
     private const string k_UnlitShaderName = "Universal Render Pipeline/Unlit";
-    // 여러 레이어를 함께 켰을 때 서로 겹쳐 깜빡이지 않도록 레이어마다 더 띄울 높이 간격(월드 단위). 고도, 습도, 바이옴, 걷기 가능 순으로 쌓인다.
+    // 여러 레이어를 함께 켰을 때 서로 겹쳐 깜빡이지 않도록 레이어마다 더 띄울 높이 간격(월드 단위). 고도, 습도, 내륙, 바이옴, 걷기 가능 순으로 쌓인다.
     private const float k_LayerGap = 0.5f;
     // 매 프레임 불투명도를 적용할 때 문자열 조회를 피하기 위한 셰이더 프로퍼티 ID
     private static readonly int s_BaseColorId = Shader.PropertyToID("_BaseColor");
@@ -61,12 +65,13 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
         public Material Material;
     }
 
-    // 청크 하나에 붙은 오버레이(고도/습도/바이옴/걷기 가능 레이어와 공유 메쉬)를 묶어 두는 클래스
+    // 청크 하나에 붙은 오버레이(고도/습도/내륙/바이옴/걷기 가능 레이어와 공유 메쉬)를 묶어 두는 클래스
     private sealed class OverlayEntry
     {
         public Mesh Mesh;
         public OverlayLayer Elevation;
         public OverlayLayer Moisture;
+        public OverlayLayer Inland;
         public OverlayLayer Biome;
         public OverlayLayer Walkable;
         // 이 오버레이를 구울 때 사용한 맵 데이터와 해상도. 하나라도 달라지면 오버레이를 다시 굽는다.
@@ -198,7 +203,7 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
     // 굽기가 필요한 청크의 오버레이를 최대 maxBuilds개까지 굽는다. 모든 레이어가 꺼져 있으면 굽지 않는다.
     private void HandleBuildPendingOverlays(int maxBuilds)
     {
-        if (!m_ShowElevation && !m_ShowMoisture && !m_ShowBiome && !m_ShowWalkable)
+        if (!m_ShowElevation && !m_ShowMoisture && !m_ShowInland && !m_ShowBiome && !m_ShowWalkable)
             return;
 
         int builtCount = 0;
@@ -221,6 +226,7 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
     {
         return entry.Elevation.Root != null
             && entry.Moisture.Root != null
+            && entry.Inland.Root != null
             && entry.Biome.Root != null
             && entry.Walkable.Root != null
             && entry.MapData == mapData
@@ -228,7 +234,7 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
             && entry.MeshResolution == m_MeshResolution;
     }
 
-    // 청크 하나의 표면 메쉬와 고도/습도/바이옴/걷기 가능 레이어를 굽고 청크 터레인의 자식으로 오버레이 오브젝트를 만든다. 굽지 못했으면 false를 반환한다.
+    // 청크 하나의 표면 메쉬와 고도/습도/내륙/바이옴/걷기 가능 레이어를 굽고 청크 터레인의 자식으로 오버레이 오브젝트를 만든다. 굽지 못했으면 false를 반환한다.
     private bool HandleBuildOverlay(TerrainPainter painter)
     {
         MapData mapData = painter.CurrentMapData;
@@ -260,6 +266,7 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
             Mesh = mesh,
             Elevation = HandleCreateLayer("BiomeNoiseOverlay_Elevation", terrain.transform, mesh, shader, HandleCreateNoiseTexture(mapData, mapArea, BiomeNoiseOverlayMode.Elevation)),
             Moisture = HandleCreateLayer("BiomeNoiseOverlay_Moisture", terrain.transform, mesh, shader, HandleCreateNoiseTexture(mapData, mapArea, BiomeNoiseOverlayMode.Moisture)),
+            Inland = HandleCreateLayer("BiomeNoiseOverlay_Inland", terrain.transform, mesh, shader, HandleCreateNoiseTexture(mapData, mapArea, BiomeNoiseOverlayMode.Inland)),
             Biome = HandleCreateLayer("BiomeNoiseOverlay_Biome", terrain.transform, mesh, shader, HandleCreateBiomeTexture(mapData, mapArea, field)),
             Walkable = HandleCreateLayer("BiomeNoiseOverlay_Walkable", terrain.transform, mesh, shader, HandleCreateWalkableTexture(mapData, mapArea, field)),
             MapData = mapData,
@@ -377,9 +384,18 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
     // 지정한 종류의 바이옴 판정 노이즈 값을 샘플링한다.
     private float HandleSampleNoise(MapData mapData, Vector2 position, BiomeNoiseOverlayMode mode)
     {
-        return mode == BiomeNoiseOverlayMode.Elevation
-            ? mapData.EditorSampleElevationNoise(position)
-            : mapData.EditorSampleMoistureNoise(position);
+        switch (mode)
+        {
+            case BiomeNoiseOverlayMode.Elevation:
+                return mapData.EditorSampleElevationNoise(position);
+            case BiomeNoiseOverlayMode.Moisture:
+                return mapData.EditorSampleMoistureNoise(position);
+            case BiomeNoiseOverlayMode.Inland:
+                return mapData.SampleInlandNoise(position);
+            default:
+                // 픽셀마다 호출되므로 로그 대신 예외로 한 번에 드러낸다. 모드를 추가하면 이 switch에도 추가해야 한다.
+                throw new System.ArgumentOutOfRangeException(nameof(mode), mode, null);
+        }
     }
 
     // 맵 데이터의 표면 높이를 따라가는 격자 메쉬를 터레인 로컬 좌표로 만든다. 터레인 높이맵이 아직 적용되기 전이어도 같은 높이가 나온다.
@@ -482,6 +498,7 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
     {
         Color elevationColor = HandleGetLayerColor(m_ElevationColor);
         Color moistureColor = HandleGetLayerColor(m_MoistureColor);
+        Color inlandColor = HandleGetLayerColor(m_InlandColor);
         // 바이옴 레이어는 텍스처에 이미 GizmoColor가 담겨 있으므로 흰색을 곱해 색을 그대로 쓴다.
         Color biomeColor = HandleGetLayerColor(Color.white);
         Color walkableColor = HandleGetLayerColor(m_WalkableColor);
@@ -490,8 +507,9 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
         {
             HandleApplyLayerSettings(entry.Elevation, m_ShowElevation, m_HeightOffset, elevationColor);
             HandleApplyLayerSettings(entry.Moisture, m_ShowMoisture, m_HeightOffset + k_LayerGap, moistureColor);
-            HandleApplyLayerSettings(entry.Biome, m_ShowBiome, m_HeightOffset + k_LayerGap * 2f, biomeColor);
-            HandleApplyLayerSettings(entry.Walkable, m_ShowWalkable, m_HeightOffset + k_LayerGap * 3f, walkableColor);
+            HandleApplyLayerSettings(entry.Inland, m_ShowInland, m_HeightOffset + k_LayerGap * 2f, inlandColor);
+            HandleApplyLayerSettings(entry.Biome, m_ShowBiome, m_HeightOffset + k_LayerGap * 3f, biomeColor);
+            HandleApplyLayerSettings(entry.Walkable, m_ShowWalkable, m_HeightOffset + k_LayerGap * 4f, walkableColor);
         }
     }
 
@@ -613,9 +631,12 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
     private float HandleGetTopVisibleLayerOffset()
     {
         if (m_ShowWalkable)
-            return m_HeightOffset + k_LayerGap * 3f;
+            return m_HeightOffset + k_LayerGap * 4f;
 
         if (m_ShowBiome)
+            return m_HeightOffset + k_LayerGap * 3f;
+
+        if (m_ShowInland)
             return m_HeightOffset + k_LayerGap * 2f;
 
         if (m_ShowMoisture)
@@ -674,7 +695,7 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
     // 최종 지형 높이는 항상, 레이어 값은 표시가 켜진 것만 한 줄씩 담은 라벨 문자열을 만든다.
     private string HandleBuildHoverText(HoverCell cell)
     {
-        List<string> lines = new List<string>(5);
+        List<string> lines = new List<string>(6);
 
         lines.Add($"높이: {cell.MapData.GetSurfaceHeight(cell.MapPosition):F2}m");
 
@@ -683,6 +704,9 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
 
         if (m_ShowMoisture)
             lines.Add($"습도: {cell.MapData.EditorSampleMoistureNoise(cell.MapPosition):F3}");
+
+        if (m_ShowInland)
+            lines.Add($"내륙: {cell.MapData.SampleInlandNoise(cell.MapPosition):F3}");
 
         if (m_ShowBiome)
         {
@@ -720,6 +744,7 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
     {
         HandleDestroyLayer(entry.Elevation);
         HandleDestroyLayer(entry.Moisture);
+        HandleDestroyLayer(entry.Inland);
         HandleDestroyLayer(entry.Biome);
         HandleDestroyLayer(entry.Walkable);
         HandleDestroyObject(entry.Mesh);
@@ -753,6 +778,7 @@ public class BiomeNoiseOverlayDebugger : MonoBehaviour
     {
         Elevation,
         Moisture,
+        Inland,
     }
 #endif
 }

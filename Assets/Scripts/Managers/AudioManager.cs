@@ -321,10 +321,16 @@ public class AudioManager : MonoBehaviour
     {
         _playableBgmClips.Clear();
 
-        foreach (AudioClip clip in _bgmClips)
+        for (int i = 0; i < _bgmClips.Count; i++)
         {
+            AudioClip clip = _bgmClips[i];
             if (clip != null)
+            {
                 _playableBgmClips.Add(clip);
+                continue;
+            }
+
+            Debug.LogWarning($"[{nameof(AudioManager)}] {name}의 BGM 목록 {i}번 칸에 클립이 할당되지 않아 재생 목록에서 뺀다.", this);
         }
     }
 

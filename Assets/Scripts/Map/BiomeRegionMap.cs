@@ -4,6 +4,7 @@ using UnityEngine;
 // 무한 평면 위의 보로노이 바이옴 정점들을 정의된 생성 규칙에 따라 계산해 제공하는 클래스. 정점을 저장하지 않고 조회할 때마다 규칙으로 다시 계산하되,
 // 한 영역을 반복해서 조회할 때는 CreateField로 그 영역의 정점을 미리 계산해 두고 EnumerateRegions에 넘겨 재계산을 피할 수 있다.
 // 생성 규칙: 평면을 격자 셀로 나눠 셀마다 정점을 하나씩 배치하고, 저주파 고도/습도 노이즈 값을 바이옴 에셋의 배치 범위와 목록 순서대로 대조해 처음 맞는 바이옴을 배정한다.
+// 이보다 더 완만한 내륙 노이즈가 높으면 산, 낮으면 바다 바이옴이 강제로 배정되고, 그 사이에서는 내륙 노이즈가 고도를 보정해 산/바다가 나올 가능성을 조절한다.
 // 노이즈가 저주파라 이웃 정점들이 같은 바이옴으로 뭉쳐 좁은 파편 영역이 생기지 않으며, 주변 정점에 인접 금지 바이옴이 있으면 에셋에 지정된 대체 바이옴으로 바뀐다.
 // 생성 후 상태가 변하지 않는 불변 클래스로, 여러 스레드에서 동시에 읽어도 안전하다.
 public sealed class BiomeRegionMap
@@ -16,6 +17,8 @@ public sealed class BiomeRegionMap
     private const float k_ElevationNoiseScale = 1.2f;
     // 습도 노이즈의 스케일. 작을수록 사막/평원 덩어리가 넓어져 파편화가 줄어든다.
     private const float k_MoistureNoiseScale = 0.9f;
+    // 내륙 노이즈의 스케일. 고도 노이즈보다 8배 완만하게 변해 대륙/대양 규모의 산·바다 분포를 만든다.
+    private const float k_InlandNoiseScale = k_ElevationNoiseScale / 8f;
     // 인접 금지 검사에서 확인할 주변 셀 반경 (체비쇼프 거리). 가중치 범위가 기본값(0.5~2)일 때 보로노이 이웃이 될 수 있는 범위를 덮는다.
     private const int k_IncompatibleCheckRadius = 2;
     // MapData의 경계 노이즈 펄린 샘플 좌표가 너무 커지지 않도록 정점 인덱스 값 범위를 제한하는 마스크
@@ -29,10 +32,14 @@ public sealed class BiomeRegionMap
     // 시드마다 고도/습도 노이즈가 달라지도록 하는 펄린 샘플 오프셋
     private readonly Vector2 m_ElevationNoiseOffset;
     private readonly Vector2 m_MoistureNoiseOffset;
+    private readonly Vector2 m_InlandNoiseOffset;
+    // 내륙 노이즈로 산/바다 배치를 조절하는 규칙 값
+    private readonly MapInlandConfig m_InlandConfig;
 
-    // 시드, 정점 가중치 범위, 바이옴 목록으로 맵을 초기화한다.
-    public BiomeRegionMap(int seed, float minWeight, float maxWeight, MapBiome[] biomes)
+    // 시드, 정점 가중치 범위, 바이옴 목록, 내륙 노이즈 규칙으로 맵을 초기화한다.
+    public BiomeRegionMap(int seed, float minWeight, float maxWeight, MapBiome[] biomes, MapInlandConfig inlandConfig)
     {
+        m_InlandConfig = inlandConfig;
         m_Seed = seed;
         m_MinWeight = minWeight;
         m_MaxWeight = maxWeight;
@@ -43,6 +50,15 @@ public sealed class BiomeRegionMap
             Debug.LogError("BiomeRegionMap: 바이옴 목록이 비어 있습니다.");
         m_ElevationNoiseOffset = new Vector2(HandleHash01(0, 0, 101) * 997f, HandleHash01(0, 0, 102) * 997f);
         m_MoistureNoiseOffset = new Vector2(HandleHash01(0, 0, 103) * 997f, HandleHash01(0, 0, 104) * 997f);
+        m_InlandNoiseOffset = new Vector2(HandleHash01(0, 0, 105) * 997f, HandleHash01(0, 0, 106) * 997f);
+    }
+
+    // 주어진 맵 좌표의 내륙 노이즈 값(대략 0~1)을 반환한다. 높을수록 내륙(산), 낮을수록 바다 쪽이다. 산 바이옴의 높이 보정에도 쓰인다.
+    public float SampleInlandNoise(Vector2 position)
+    {
+        return Mathf.PerlinNoise(
+            position.x * k_InlandNoiseScale + m_InlandNoiseOffset.x,
+            position.y * k_InlandNoiseScale + m_InlandNoiseOffset.y);
     }
 
     // 주어진 위치에서 maxInfluenceDistance 이내의 정점들을, 배열을 만들지 않고 순서대로 훑는 열거자를 반환한다.
@@ -140,7 +156,8 @@ public sealed class BiomeRegionMap
         return rawBiome;
     }
 
-    // 고도/습도 노이즈 값을 바이옴 목록의 배치 범위와 순서대로 대조해 셀 정점의 기본 바이옴을 계산한다. 맞는 바이옴이 없으면 목록의 첫 바이옴을 반환한다.
+    // 내륙/고도/습도 노이즈로 셀 정점의 기본 바이옴을 계산한다. 내륙 노이즈가 산 기준 이상이면 산, 바다 기준 이하이면 바다 바이옴 중에서 고르고,
+    // 그 사이에서는 내륙 노이즈로 보정한 고도를 바이옴 목록의 배치 범위와 순서대로 대조한다. 맞는 바이옴이 없으면 목록의 첫 바이옴을 반환한다.
     private MapBiome HandleGetRawBiome(int cellX, int cellY)
     {
         if (m_Biomes.Length == 0)
@@ -148,8 +165,18 @@ public sealed class BiomeRegionMap
 
         Vector2 position = HandleGetRegionPosition(cellX, cellY);
 
+        float inland = SampleInlandNoise(position);
         float elevation = HandleSampleElevationNoise(position);
         float moisture = HandleSampleMoistureNoise(position);
+
+        if (inland >= m_InlandConfig.MountainThreshold && HandleTryPickBiomeInCategory(MapBiomeCategory.Mountain, elevation, moisture, out MapBiome mountain))
+            return mountain;
+
+        if (inland <= m_InlandConfig.SeaThreshold && HandleTryPickBiomeInCategory(MapBiomeCategory.Sea, elevation, moisture, out MapBiome sea))
+            return sea;
+
+        // 내륙 노이즈가 높을수록 고도를 올려 산이, 낮을수록 고도를 내려 바다가 배치될 가능성을 높인다.
+        elevation = Mathf.Clamp01(elevation + (inland - 0.5f) * m_InlandConfig.ElevationBias);
 
         for (int i = 0; i < m_Biomes.Length; i++)
         {
@@ -158,6 +185,30 @@ public sealed class BiomeRegionMap
         }
 
         return m_Biomes[0];
+    }
+
+    // 지정한 분류의 바이옴 중 고도/습도 배치 범위에 가장 가까운 바이옴을 고른다. 범위에 들어가는 바이옴이 여럿이면 목록 순서가 앞선 바이옴을 고르고,
+    // 그 분류의 바이옴이 목록에 하나도 없으면 false를 반환한다.
+    private bool HandleTryPickBiomeInCategory(MapBiomeCategory category, float elevation, float moisture, out MapBiome picked)
+    {
+        picked = null;
+        float bestDistanceSqr = float.MaxValue;
+
+        for (int i = 0; i < m_Biomes.Length; i++)
+        {
+            MapBiome biome = m_Biomes[i];
+            if (biome == null || biome.Category != category)
+                continue;
+
+            float distanceSqr = biome.GetRangeDistanceSqr(elevation, moisture);
+            if (distanceSqr < bestDistanceSqr)
+            {
+                bestDistanceSqr = distanceSqr;
+                picked = biome;
+            }
+        }
+
+        return picked != null;
     }
 
     // 주어진 맵 좌표에서 바이옴 판정용 고도 노이즈 값(대략 0~1)을 샘플링한다.

@@ -53,7 +53,7 @@ public class GroundMover : MonoBehaviour, IMover
     // 방향 이동 중 달릴 때 걷는 속도에 곱할 배율. FPVTest 브랜치의 걷기 5 / 달리기 9 비율을 따른다.
     [SerializeField, Min(1f)] private float _runSpeedMultiplier = 1.8f;
 
-    // 이동하는 동안 계속 반복 재생할 걷는 소리. 비워 두면 발소리를 내지 않는다.
+    // 이동하는 동안 계속 반복 재생할 걷는 소리. 비워 두면 발소리를 내지 않고, 처음 걸을 때 한 번 경고를 남긴다.
     [SerializeField] private AudioClip _walkSfx;
 
     // 걷는 소리에 적용할 볼륨 배율. AudioManager의 효과음 볼륨에 곱해진다.
@@ -108,6 +108,8 @@ public class GroundMover : MonoBehaviour, IMover
     private float   _walkSfxPitchScale = 1f;
     // 속도가 떨어졌을 때 발소리를 실제로 멈출 시각. 그 전에 다시 움직이면 소리를 끊지 않고 이어 간다.
     private float   _walkSfxStopTime;
+    // 걷는 소리가 비어 있다고 이미 경고했는지. 걷는 동안 매 프레임 확인하므로 한 번만 알리기 위한 값이다.
+    private bool    _hasWarnedMissingWalkSfx;
     // 방향 입력으로 직접 걷는 중인지. 이 이동은 경로를 쓰지 않아 에이전트 속도가 0이므로, 걷는 중인지는 이 값으로 판정한다.
     private bool    _isDirectMoving;
     // 마지막으로 방향 이동 입력을 받은 프레임. 입력이 끊긴 프레임을 찾아 방향 이동을 끝내는 기준이다.
@@ -663,10 +665,23 @@ public class GroundMover : MonoBehaviour, IMover
     // 걷는 소리를 반복 재생하기 시작한다. 이미 내고 있으면 그대로 두므로, 움직이는 내내 매 프레임 불러도 소리가 처음부터 다시 시작되지 않는다.
     private void PlayWalkSfx()
     {
-        if (_walkSfx == null) return;
+        if (_walkSfx == null)
+        {
+            WarnMissingWalkSfx();
+            return;
+        }
         if (_walkSfxHandle != null && _walkSfxHandle.IsPlaying) return;
 
         _walkSfxHandle = AudioManager.PlayLoop(_walkSfx, transform, _walkSfxVolume, GetWalkSfxPitch());
+    }
+
+    // 걷는 소리가 할당되지 않았다는 경고를 이 오브젝트에서 처음 한 번만 남긴다.
+    private void WarnMissingWalkSfx()
+    {
+        if (_hasWarnedMissingWalkSfx) return;
+
+        _hasWarnedMissingWalkSfx = true;
+        Debug.LogWarning($"[{nameof(GroundMover)}] {name}의 {nameof(_walkSfx)}에 클립이 할당되지 않아 발소리를 내지 않는다.", this);
     }
 
     // 내고 있던 걷는 소리를 멈춘다.
