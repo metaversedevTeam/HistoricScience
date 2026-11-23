@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 // 내륙 노이즈(inlandNoise) 규칙에서 바이옴을 구분하는 분류
@@ -40,8 +41,11 @@ public class MapBiome : ScriptableObject
     [SerializeField, Min(0f)] private float m_HeightNoiseAmplitude = 5f;
     // 굴곡 노이즈의 스케일 (정규화 맵 좌표 기준). 클수록 더 잘게, 자주 굴곡진다.
     [SerializeField, Min(0f)] private float m_HeightNoiseScale = 3f;
+    // 이 바이옴 위에 출력할 풀 종류와 각각의 밀도 목록. 같은 풀 종류를 여러 바이옴에 등록하면 경계에서 두 밀도가 자연스럽게 섞인다.
+    [SerializeField] private BiomeGrassEntry[] m_GrassEntries;
 
     public string Name => m_BiomeName;
+    public IReadOnlyList<BiomeGrassEntry> GrassEntries => m_GrassEntries ?? System.Array.Empty<BiomeGrassEntry>();
     public TerrainLayer TerrainLayer => m_TerrainLayer;
     public Material BottomMaterial => m_BottomMaterial;
     public Color GizmoColor => m_GizmoColor;

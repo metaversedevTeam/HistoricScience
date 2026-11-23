@@ -92,7 +92,7 @@ namespace HistoricScience.Test
         }
 
         // 주입받은 맵 데이터를 보관하고 백그라운드 계산에 필요한 데이터를 모아 반환한다. Unity API를 사용하므로 반드시 메인 스레드에서 호출해야 한다.
-        public (MapData MapData, MapBiome[] Biomes, TerrainLayer[] Layers, int AlphamapWidth, int AlphamapHeight, int HeightmapResolution)? PrepareForPaint(MapData mapData)
+        public (MapData MapData, MapBiome[] Biomes, TerrainLayer[] Layers, int AlphamapWidth, int AlphamapHeight, int HeightmapResolution, ChunkGrassLayout GrassLayout, int DetailResolution)? PrepareForPaint(MapData mapData)
         {
             if (mapData == null)
             {
@@ -118,12 +118,16 @@ namespace HistoricScience.Test
             TerrainData terrainData = m_Terrain.terrainData;
             terrainData.terrainLayers = layers;
 
-            return (mapData, biomes, layers, terrainData.alphamapWidth, terrainData.alphamapHeight, terrainData.heightmapResolution);
+            // 디테일 레이어 순서도 같은 바이옴 목록에서 정해지므로, 바이옴에 등록된 풀 종류를 여기서 모아 프로토타입으로 할당한다.
+            ChunkGrassLayout grassLayout = ChunkGrassLayout.Create(biomes);
+            HandleApplyGrassDetailSettings(terrainData, grassLayout, mapData.TerrainConfig);
+
+            return (mapData, biomes, layers, terrainData.alphamapWidth, terrainData.alphamapHeight, terrainData.heightmapResolution, grassLayout, terrainData.detailResolution);
         }
 
         // 준비된 데이터로 알파맵과 높이맵을 계산한다. Terrain을 직접 건드리지 않는 순수 계산이라 백그라운드 스레드에서 호출해도 안전하다.
         // 굽는 동안 조회할 보로노이 정점을 먼저 한 번에 계산해 두고 모든 조회에 넘기므로, 같은 정점을 텍셀마다 다시 만들지 않는다.
-        public (float[,,] Alphamap, float[,] Heightmap, ChunkRegionField RegionField) ComputePaint((MapData MapData, MapBiome[] Biomes, TerrainLayer[] Layers, int AlphamapWidth, int AlphamapHeight, int HeightmapResolution) context)
+        public (float[,,] Alphamap, float[,] Heightmap, int[][,] GrassLayers, ChunkRegionField RegionField) ComputePaint((MapData MapData, MapBiome[] Biomes, TerrainLayer[] Layers, int AlphamapWidth, int AlphamapHeight, int HeightmapResolution, ChunkGrassLayout GrassLayout, int DetailResolution) context)
         {
             // 블러가 터레인 밖(이웃 청크가 칠할 영역)까지 참고할 수 있도록 반경만큼 여백을 두고 계산한 뒤, 블러가 끝나면 여백을 잘라낸다.
             // 여백이 없으면 가장자리 셀이 자기 청크 안쪽 값만 평균내어, 이웃 청크와 그라데이션이 어긋난 이음매가 생긴다.
@@ -137,7 +141,10 @@ namespace HistoricScience.Test
 
             float[,] heightmap = HandleBuildHeightmap(context.HeightmapResolution, context.MapData, regionField);
 
-            return (alphamap, heightmap, regionField);
+            // 풀 밀도는 블러된 알파맵과 완성된 높이맵을 그대로 읽어, 바이옴 경계의 그라데이션과 지형 표면 높이를 따로 계산하지 않는다.
+            int[][,] grassLayers = GrassDensityBuilder.Build(context.GrassLayout, alphamap, heightmap, context.DetailResolution, m_MapViewOrigin, m_MapViewSize, context.MapData.TerrainConfig, context.MapData.Seed);
+
+            return (alphamap, heightmap, grassLayers, regionField);
         }
 
         // 이 청크를 굽는 동안 조회할 맵 영역의 정점 필드를 만든다. 알파맵은 블러 여백만큼, 높이맵은 격자 보간 때문에 한 격자 칸만큼
@@ -158,13 +165,36 @@ namespace HistoricScience.Test
         }
 
         // 계산된 알파맵과 높이맵을 실제 터레인에 적용한다. Unity API를 사용하므로 반드시 메인 스레드에서 호출해야 한다.
-        public void ApplyPaint((float[,,] Alphamap, float[,] Heightmap, ChunkRegionField RegionField) result)
+        public void ApplyPaint((float[,,] Alphamap, float[,] Heightmap, int[][,] GrassLayers, ChunkRegionField RegionField) result)
         {
             TerrainData terrainData = m_Terrain.terrainData;
             terrainData.SetAlphamaps(0, 0, result.Alphamap);
             terrainData.SetHeights(0, 0, result.Heightmap);
+            HandleApplyGrassLayers(terrainData, result.GrassLayers);
 
             HandleSpawnResources(result.RegionField);
+        }
+
+        // 맵 설정의 디테일 해상도와 풀 레이아웃의 프로토타입을 터레인에 맞춘다. 해상도를 바꾸면 기존 디테일이 지워지므로 값이 다를 때만 바꾼다.
+        private void HandleApplyGrassDetailSettings(TerrainData terrainData, ChunkGrassLayout grassLayout, MapTerrainConfig config)
+        {
+            if (terrainData.detailResolution != config.DetailResolution || terrainData.detailResolutionPerPatch != config.DetailResolutionPerPatch)
+                terrainData.SetDetailResolution(config.DetailResolution, config.DetailResolutionPerPatch);
+
+            // 디테일 레이어 값을 셀당 풀 개수로 해석하도록 맞춘다. GrassDensityBuilder가 이 기준으로 개수를 계산한다.
+            terrainData.SetDetailScatterMode(DetailScatterMode.InstanceCountMode);
+            terrainData.detailPrototypes = grassLayout.CopyPrototypes();
+        }
+
+        // 계산된 풀 종류별 디테일 레이어를 터레인에 적용한다. 프로토타입 개수와 어긋난 레이어는 건너뛴다.
+        private void HandleApplyGrassLayers(TerrainData terrainData, int[][,] grassLayers)
+        {
+            if (grassLayers == null)
+                return;
+
+            int layerCount = Mathf.Min(grassLayers.Length, terrainData.detailPrototypes.Length);
+            for (int i = 0; i < layerCount; i++)
+                terrainData.SetDetailLayer(0, 0, i, grassLayers[i]);
         }
 
         // 같은 오브젝트에 ChunkResourceSpawner가 있으면 현재 시드와 맵 출력 영역, 맵 데이터로 자원 소환을 요청한다. 스포너는 선택적 구성이라 없으면 아무것도 하지 않는다.

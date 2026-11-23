@@ -11,6 +11,10 @@ public class MapTerrainSettings : ScriptableObject
     // Unity 터레인이 허용하는 알파맵 해상도 범위
     private const int k_MinAlphamapResolution = 16;
     private const int k_MaxAlphamapResolution = 2048;
+    // Unity 터레인이 허용하는 디테일(풀) 해상도 상한과 패치당 해상도 범위
+    private const int k_MaxDetailResolution = 4048;
+    private const int k_MinDetailResolutionPerPatch = 8;
+    private const int k_MaxDetailResolutionPerPatch = 128;
     // 내륙 노이즈 높이 커브를 미리 샘플링할 지점 수
     private const int k_InlandHeightCurveSampleCount = 256;
 
@@ -29,6 +33,10 @@ public class MapTerrainSettings : ScriptableObject
     [SerializeField, Delayed] private int m_HeightmapResolution = 129;
     // 청크 터레인의 알파맵(바이옴 페인팅) 해상도
     [SerializeField, Delayed] private int m_AlphamapResolution = 512;
+    // 청크 터레인의 디테일(풀) 해상도. 청크 한 변을 이 수만큼의 셀로 나눠 셀마다 풀 개수를 정한다. 0이면 풀을 출력하지 않는다.
+    [SerializeField, Delayed] private int m_DetailResolution = 512;
+    // 디테일 해상도를 렌더링 패치로 나누는 단위(셀). 패치 단위로 풀 메시가 묶여 컬링된다.
+    [SerializeField, Delayed] private int m_DetailResolutionPerPatch = 32;
 
     [Header("기준 높이 (m)")]
     // 이 높이(월드 Y) 미만의 지형은 해수면 아래로 잠겨 걸을 수 없다. 씬의 바다 평면 높이와 같아야 한다.
@@ -60,7 +68,7 @@ public class MapTerrainSettings : ScriptableObject
     // 현재 설정값을 복사한 불변 값 묶음을 만든다. 백그라운드 스레드가 읽는 값은 에셋이 아니라 이 묶음에서 가져가야 한다.
     public MapTerrainConfig CreateConfig()
     {
-        return new MapTerrainConfig(m_ChunkWorldSize, m_MapViewSize, m_MaxTerrainHeight, m_HeightmapResolution, m_AlphamapResolution, m_SeaLevel, m_WalkableMaxHeight);
+        return new MapTerrainConfig(m_ChunkWorldSize, m_MapViewSize, m_MaxTerrainHeight, m_HeightmapResolution, m_AlphamapResolution, m_DetailResolution, m_DetailResolutionPerPatch, m_SeaLevel, m_WalkableMaxHeight);
     }
 
     // 현재 내륙 노이즈 설정값을 복사하고 높이 커브를 미리 샘플링한 불변 값 묶음을 만든다. 커브를 읽으므로 메인 스레드에서 호출해야 한다.
@@ -75,6 +83,8 @@ public class MapTerrainSettings : ScriptableObject
     {
         m_HeightmapResolution = HandleSnapHeightmapResolution(m_HeightmapResolution);
         m_AlphamapResolution = Mathf.Clamp(Mathf.ClosestPowerOfTwo(m_AlphamapResolution), k_MinAlphamapResolution, k_MaxAlphamapResolution);
+        m_DetailResolution = Mathf.Clamp(m_DetailResolution, 0, k_MaxDetailResolution);
+        m_DetailResolutionPerPatch = Mathf.Clamp(m_DetailResolutionPerPatch, k_MinDetailResolutionPerPatch, k_MaxDetailResolutionPerPatch);
         m_SeaLevel = Mathf.Min(m_SeaLevel, m_MaxTerrainHeight);
         m_WalkableMaxHeight = Mathf.Clamp(m_WalkableMaxHeight, m_SeaLevel, m_MaxTerrainHeight);
         m_InlandMountainThreshold = Mathf.Clamp01(m_InlandMountainThreshold);
@@ -102,18 +112,24 @@ public readonly struct MapTerrainConfig
     public readonly int HeightmapResolution;
     // 청크 터레인의 알파맵 해상도
     public readonly int AlphamapResolution;
+    // 청크 터레인의 디테일(풀) 해상도. 0이면 풀을 출력하지 않는다.
+    public readonly int DetailResolution;
+    // 디테일 해상도를 렌더링 패치로 나누는 단위(셀)
+    public readonly int DetailResolutionPerPatch;
     // 해수면 높이(m)
     public readonly float SeaLevel;
     // 걸을 수 있는 최대 높이(m)
     public readonly float WalkableMaxHeight;
 
-    public MapTerrainConfig(float chunkWorldSize, float mapViewSize, float maxTerrainHeight, int heightmapResolution, int alphamapResolution, float seaLevel, float walkableMaxHeight)
+    public MapTerrainConfig(float chunkWorldSize, float mapViewSize, float maxTerrainHeight, int heightmapResolution, int alphamapResolution, int detailResolution, int detailResolutionPerPatch, float seaLevel, float walkableMaxHeight)
     {
         ChunkWorldSize = chunkWorldSize;
         MapViewSize = mapViewSize;
         MaxTerrainHeight = maxTerrainHeight;
         HeightmapResolution = heightmapResolution;
         AlphamapResolution = alphamapResolution;
+        DetailResolution = detailResolution;
+        DetailResolutionPerPatch = detailResolutionPerPatch;
         SeaLevel = seaLevel;
         WalkableMaxHeight = walkableMaxHeight;
     }
