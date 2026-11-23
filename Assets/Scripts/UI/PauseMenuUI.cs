@@ -13,6 +13,9 @@ public class PauseMenuUI : OpenableUIBase
     [SerializeField] private Button _quitToMenuButton;
     [SerializeField] private string _mainMenuSceneName = "MainMenu";
 
+    // OPTION을 눌렀을 때 일시정지 화면 위에 띄울 설정 화면
+    [SerializeField] private SettingsUI _settingsPrefab;
+
     [Header("오른쪽 일시정지 표식")]
     // 누르면 이어하기와 같이 동작하는 표식 버튼
     [SerializeField] private Button _emblemButton;
@@ -53,9 +56,7 @@ public class PauseMenuUI : OpenableUIBase
         _emblemButton.onClick.AddListener(HandleEmblemClick);
         _saveAndExitButton.onClick.AddListener(HandleSaveAndExitClick);
         _quitToMenuButton.onClick.AddListener(HandleQuitToMenuClick);
-
-        // OPTION은 아직 기능이 없어 잠금 상태로만 보여 준다. (MainMenuUI의 OPTION과 동일한 규약)
-        _optionButton.interactable = false;
+        _optionButton.onClick.AddListener(HandleOptionClick);
     }
 
     private void Update()
@@ -129,6 +130,15 @@ public class PauseMenuUI : OpenableUIBase
     {
         _emblemIcon.Morph = progress;
         _emblemFill.localScale = new Vector3(progress, 1f, 1f);
+    }
+
+    // 일시정지 화면 위에 설정 화면을 연다. 설정 화면이 나중에 열렸으므로 ESC는 설정 화면부터 닫는다.
+    private void HandleOptionClick()
+    {
+        if (_isExiting || State != UIState.Open)
+            return;
+
+        UIManager.Instance.OpenUI(_settingsPrefab);
     }
 
     // 현재 맵을 저장한 뒤 메인 메뉴로 나간다.

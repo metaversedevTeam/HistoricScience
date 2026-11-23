@@ -963,6 +963,7 @@ MonoBehaviour:
   _playButton: {fileID: 24604295}
   _optionButton: {fileID: 1528055293}
   _exitButton: {fileID: 1291870488}
+  _settingsPrefab: {fileID: 6922547284478697472, guid: bfb3d1ddfba21254f8a921e0e9bc8d64, type: 3}
   _menuContent: {fileID: 1773142718}
 --- !u!114 &70043257
 MonoBehaviour:
@@ -7814,12 +7815,18 @@ MonoBehaviour:
   _progressFillSpeed: 1.5
   _sceneLoadShare: 0.3
   _handoffSortingOrder: 1000
+  _holdBeforeActivation: 0.3
   _fadeOutDuration: 0.5
+  _holdBeforeReveal: 0.35
   _revealCore: {fileID: 1555357219}
   _settleDuration: 0.45
   _revealDuration: 0.9
   _revealBorder: 12
   _revealCoreAlpha: 0.9
+  _maxMotionDeltaTime: 0.033333335
+  _returnStableFrameCount: 3
+  _returnStableFrameTime: 0.033333335
+  _returnStableTimeout: 1
   _skippedIntroOnReturn: {fileID: 70043257}
 --- !u!1 &929417583
 GameObject:

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 // 캔버스 UI의 활성화, 풀링을 담당하는 관리자 클래스.
@@ -53,6 +54,18 @@ public class UIManager : MonoBehaviour
         }
 
         _instance = this;
+        HandleDuplicateEventSystem();
+    }
+
+    // 프리팹에 딸린 EventSystem(프리팹에서는 꺼 둔다)은 씬에 EventSystem이 없을 때(인게임)만 켠다.
+    // 메인 메뉴처럼 씬에 이미 있으면 꺼 둔 채로 두어 중복 경고와 입력 충돌을 막는다.
+    private void HandleDuplicateEventSystem()
+    {
+        EventSystem own = GetComponentInChildren<EventSystem>(true);
+        if (own == null) return;
+
+        bool hasSceneEventSystem = EventSystem.current != null && EventSystem.current != own;
+        own.gameObject.SetActive(!hasSceneEventSystem);
     }
 
     private void Update()

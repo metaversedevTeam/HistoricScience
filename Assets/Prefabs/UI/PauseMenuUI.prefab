@@ -62,6 +62,7 @@ MonoBehaviour:
   _optionButton: {fileID: 4674870681761523129}
   _quitToMenuButton: {fileID: 2402080030503636103}
   _mainMenuSceneName: MainMenu
+  _settingsPrefab: {fileID: 6922547284478697472, guid: bfb3d1ddfba21254f8a921e0e9bc8d64, type: 3}
   _emblemButton: {fileID: 4555526612787217437}
   _emblemIcon: {fileID: 7475736524930424400}
   _emblemFill: {fileID: 5088054804695349526}

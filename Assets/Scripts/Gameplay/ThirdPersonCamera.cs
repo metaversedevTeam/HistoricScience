@@ -31,7 +31,7 @@ public class ThirdPersonCamera : MonoBehaviour
     [Tooltip("시작할 때 카메라가 바라보는 월드 방위각(도). 0이면 +Z 방향을 본다")]
     [SerializeField] private float _yaw;
 
-    [Tooltip("마우스 이동 1픽셀당 회전 각도(도)")]
+    [Tooltip("마우스 이동 1픽셀당 회전 각도(도). 설정 화면의 감도로 정해진 축별 배율이 곱해진다")]
     [SerializeField] private float _lookSensitivity = 0.1f;
 
     [Tooltip("위아래로 돌릴 수 있는 최대 각도(도)")]
@@ -104,9 +104,10 @@ public class ThirdPersonCamera : MonoBehaviour
         Mouse mouse = Mouse.current;
         if (mouse == null) return;
 
+        // 기본 감도에 설정 화면의 감도로 정해진 실제 배율을 축별로 곱한다. (수직은 수평의 절반)
         Vector2 delta = mouse.delta.ReadValue() * _lookSensitivity;
-        _yaw += delta.x;
-        _pitch = Mathf.Clamp(_pitch - delta.y, -_maxPitch, _maxPitch);
+        _yaw += delta.x * GameSettings.AppliedHorizontalLookSensitivity;
+        _pitch = Mathf.Clamp(_pitch - delta.y * GameSettings.AppliedVerticalLookSensitivity, -_maxPitch, _maxPitch);
     }
 
     // 왼쪽이나 오른쪽 Alt 키를 누르고 있는지 확인한다.
