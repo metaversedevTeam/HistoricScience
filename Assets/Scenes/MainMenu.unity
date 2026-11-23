@@ -6963,6 +6963,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: c77f73d9300940344a63ca8145e455b6, type: 2}
   - {fileID: 11400000, guid: 011b8d3e13524994b8bf3dab990a2ed9, type: 2}
   - {fileID: 11400000, guid: 91f64ac3ccafd8947a939d5ed25d7307, type: 2}
+  - {fileID: 11400000, guid: 48ffed858ed81b540b824fb740ba8d4f, type: 2}
   - {fileID: 11400000, guid: 54a51f916e7b33b4998e37a57c060571, type: 2}
   - {fileID: 11400000, guid: 17b382bad77ec244e9420e62e2439394, type: 2}
   - {fileID: 11400000, guid: fa795c83498fc4245bb9d32f27ec7a2e, type: 2}
@@ -9952,6 +9953,8 @@ MonoBehaviour:
   _bgmInterval: 1
   _bgmVolume: 0.2
   _sfxVolume: 0.5
+  _loopSfxMinDistance: 3
+  _loopSfxMaxDistance: 25
 --- !u!4 &1920571597
 Transform:
   m_ObjectHideFlags: 0
