@@ -73,6 +73,21 @@ public class MapTerrainSettings : ScriptableObject
     // 샘플 좌표를 비트는 세기. 클수록 능선이 곧게 반복되지 않고 휘어지며 갈라진다.
     [SerializeField, Min(0f)] private float m_MountainRidgeWarp = 0.5f;
 
+    // 바이옴 페인팅 위에 경사·고도에 따라 덮는 레이어. 바이옴과 상관없이 가파른 곳은 바위, 높은 곳은 눈으로 덮여 산의 굴곡이 드러난다.
+    [Header("경사·고도 페인팅")]
+    // 가파른 경사에 덮을 절벽 레이어. 비워 두면 절벽 덮기를 하지 않는다.
+    [SerializeField] private TerrainLayer m_CliffLayer;
+    // 절벽 레이어가 나타나기 시작하는 경사(x, 도)와 완전히 덮는 경사(y, 도)
+    [SerializeField] private Vector2 m_CliffSlopeRange = new Vector2(45f, 58f);
+    // 높은 곳에 덮을 눈 레이어. 비워 두면 눈 덮기를 하지 않는다.
+    [SerializeField] private TerrainLayer m_SnowLayer;
+    // 눈이 나타나기 시작하는 높이(x, m)와 완전히 덮는 높이(y, m)
+    [SerializeField] private Vector2 m_SnowHeightRange = new Vector2(270f, 330f);
+    // 눈이 옅어지기 시작하는 경사(x, 도)와 완전히 사라지는 경사(y, 도). 너무 가파른 곳에는 눈이 쌓이지 않는다.
+    [SerializeField] private Vector2 m_SnowSlopeRange = new Vector2(50f, 65f);
+    // 눈 경계 높이를 위치마다 흔드는 폭(m). 경계가 등고선처럼 곧게 그어지지 않게 한다.
+    [SerializeField, Min(0f)] private float m_SnowLineJitter = 25f;
+
     // 청크 하나가 월드에서 차지하는 가로/세로 길이(m)
     public float ChunkWorldSize => m_ChunkWorldSize;
     // 청크 하나가 출력하는 정규화 맵 영역의 한 변 길이
@@ -85,7 +100,8 @@ public class MapTerrainSettings : ScriptableObject
     // 현재 설정값을 복사한 불변 값 묶음을 만든다. 백그라운드 스레드가 읽는 값은 에셋이 아니라 이 묶음에서 가져가야 한다.
     public MapTerrainConfig CreateConfig()
     {
-        return new MapTerrainConfig(m_ChunkWorldSize, m_MapViewSize, m_MaxTerrainHeight, m_HeightmapResolution, m_AlphamapResolution, m_DetailResolution, m_DetailResolutionPerPatch, m_SeaLevel, m_WalkableMaxHeight);
+        MapSurfaceOverlayConfig surfaceOverlay = new MapSurfaceOverlayConfig(m_CliffLayer, m_CliffSlopeRange, m_SnowLayer, m_SnowHeightRange, m_SnowSlopeRange, m_SnowLineJitter);
+        return new MapTerrainConfig(m_ChunkWorldSize, m_MapViewSize, m_MaxTerrainHeight, m_HeightmapResolution, m_AlphamapResolution, m_DetailResolution, m_DetailResolutionPerPatch, m_SeaLevel, m_WalkableMaxHeight, surfaceOverlay);
     }
 
     // 현재 내륙 노이즈 설정값을 복사하고 높이 커브를 미리 샘플링한 불변 값 묶음을 만든다. 커브를 읽으므로 메인 스레드에서 호출해야 한다.
@@ -138,9 +154,12 @@ public readonly struct MapTerrainConfig
     public readonly float SeaLevel;
     // 걸을 수 있는 최대 높이(m)
     public readonly float WalkableMaxHeight;
+    // 바이옴 페인팅 위에 경사·고도에 따라 절벽·눈 레이어를 덮는 규칙
+    public readonly MapSurfaceOverlayConfig SurfaceOverlay;
 
-    public MapTerrainConfig(float chunkWorldSize, float mapViewSize, float maxTerrainHeight, int heightmapResolution, int alphamapResolution, int detailResolution, int detailResolutionPerPatch, float seaLevel, float walkableMaxHeight)
+    public MapTerrainConfig(float chunkWorldSize, float mapViewSize, float maxTerrainHeight, int heightmapResolution, int alphamapResolution, int detailResolution, int detailResolutionPerPatch, float seaLevel, float walkableMaxHeight, MapSurfaceOverlayConfig surfaceOverlay)
     {
+        SurfaceOverlay = surfaceOverlay;
         ChunkWorldSize = chunkWorldSize;
         MapViewSize = mapViewSize;
         MaxTerrainHeight = maxTerrainHeight;

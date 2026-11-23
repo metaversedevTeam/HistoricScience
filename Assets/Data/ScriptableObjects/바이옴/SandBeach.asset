@@ -22,8 +22,9 @@ MonoBehaviour:
   m_IncompatibleBiomes:
   - {fileID: 11400000, guid: 91f64ac3ccafd8947a939d5ed25d7307, type: 2}
   - {fileID: 11400000, guid: 011b8d3e13524994b8bf3dab990a2ed9, type: 2}
-  - {fileID: 11400000, guid: 48ffed858ed81b540b824fb740ba8d4f, type: 2}
+  - {fileID: 11400000, guid: dcefe265e93f1494285ce8c1b7550892, type: 2}
   m_FallbackBiome: {fileID: 0}
   m_BaseHeight: 22
   m_HeightNoiseAmplitude: 6
   m_HeightNoiseScale: 5
+  m_GrassEntries: []
