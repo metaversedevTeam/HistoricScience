@@ -17,6 +17,8 @@ MonoBehaviour:
   m_MaxTerrainHeight: 512
   m_HeightmapResolution: 257
   m_AlphamapResolution: 512
+  m_DetailResolution: 512
+  m_DetailResolutionPerPatch: 32
   m_SeaLevel: 12
   m_WalkableMaxHeight: 28
   m_InlandMountainThreshold: 0.6
@@ -83,3 +85,10 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+  m_MountainRidgeOctaves: 5
+  m_MountainRidgeFrequency: 0.4
+  m_MountainRidgeLacunarity: 2
+  m_MountainRidgePersistence: 0.45
+  m_MountainRidgeStrength: 0.7
+  m_MountainRidgeSharpness: 1.3
+  m_MountainRidgeWarp: 0.5

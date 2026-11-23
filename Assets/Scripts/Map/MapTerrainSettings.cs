@@ -56,6 +56,23 @@ public class MapTerrainSettings : ScriptableObject
     // 내륙 노이즈(가로축, 0~1)를 산 높이 보정값(세로축)으로 바꾸는 커브. 세로축 값에 Mountain Inland Height가 곱해진다. 바이옴 판정에는 영향을 주지 않는다.
     [SerializeField] private AnimationCurve m_InlandHeightCurve = AnimationCurve.Linear(0f, 0f, 1f, 1f);
 
+    // 산 높이(높이 커브 × Mountain Inland Height)에 능선 노이즈 배율을 곱해 날카로운 능선과 봉우리를 만든다. (정규화 맵 좌표 1 = 청크 크기 ÷ Map View Size m)
+    [Header("산 형태 (능선 노이즈)")]
+    // 합산할 옥타브 수. 많을수록 큰 능선 위에 작은 바위 능선까지 겹쳐 거칠어진다.
+    [SerializeField, Range(1, 8)] private int m_MountainRidgeOctaves = 5;
+    // 첫 옥타브의 주파수. 클수록 능선 사이 간격이 좁아져 봉우리가 촘촘해진다.
+    [SerializeField, Min(0.0001f)] private float m_MountainRidgeFrequency = 0.4f;
+    // 옥타브마다 주파수에 곱해지는 값
+    [SerializeField, Min(1f)] private float m_MountainRidgeLacunarity = 2f;
+    // 옥타브마다 세기에 곱해지는 값. 클수록 잔 능선이 도드라진다.
+    [SerializeField, Range(0f, 1f)] private float m_MountainRidgePersistence = 0.45f;
+    // 산 높이 중 능선 노이즈가 깎아 내는 비율. 0이면 기존처럼 매끈한 언덕, 1이면 계곡이 산 바닥까지 깊게 파인다.
+    [SerializeField, Range(0f, 1f)] private float m_MountainRidgeStrength = 0.7f;
+    // 능선 노이즈에 거는 지수. 1보다 크면 봉우리가 뾰족해지고 계곡이 넓어진다.
+    [SerializeField, Range(0.25f, 4f)] private float m_MountainRidgeSharpness = 1.3f;
+    // 샘플 좌표를 비트는 세기. 클수록 능선이 곧게 반복되지 않고 휘어지며 갈라진다.
+    [SerializeField, Min(0f)] private float m_MountainRidgeWarp = 0.5f;
+
     // 청크 하나가 월드에서 차지하는 가로/세로 길이(m)
     public float ChunkWorldSize => m_ChunkWorldSize;
     // 청크 하나가 출력하는 정규화 맵 영역의 한 변 길이
@@ -75,7 +92,8 @@ public class MapTerrainSettings : ScriptableObject
     public MapInlandConfig CreateInlandConfig()
     {
         float[] heightCurveSamples = MapInlandConfig.BakeHeightCurve(m_InlandHeightCurve, k_InlandHeightCurveSampleCount);
-        return new MapInlandConfig(m_InlandElevationBias, m_InlandMountainThreshold, m_InlandSeaThreshold, m_MountainInlandHeight, heightCurveSamples);
+        MountainShapeConfig mountainShape = new MountainShapeConfig(m_MountainRidgeOctaves, m_MountainRidgeFrequency, m_MountainRidgeLacunarity, m_MountainRidgePersistence, m_MountainRidgeStrength, m_MountainRidgeSharpness, m_MountainRidgeWarp);
+        return new MapInlandConfig(m_InlandElevationBias, m_InlandMountainThreshold, m_InlandSeaThreshold, m_MountainInlandHeight, heightCurveSamples, mountainShape);
     }
 
     // 인스펙터에서 값을 바꿀 때 해상도를 터레인이 허용하는 값으로, 기준 높이를 최대 높이 안으로, 내륙 노이즈 기준을 0~1 안에서 바다 ≤ 산이 되도록 보정한다.
