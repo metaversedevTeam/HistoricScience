@@ -57,6 +57,22 @@ public class ThirdPersonCamera : MonoBehaviour
     // 지금 적용 중인 회전축-카메라 거리. 장애물에 막히면 즉시 줄고, 풀리면 천천히 늘어난다.
     private float _currentDistance;
 
+    [Header("고정 시점")]
+    [Tooltip("작업대처럼 외부에서 지정한 고정 시점으로 옮겨 가거나 돌아오는 데 걸리는 시간(초)")]
+    [SerializeField, Min(0.01f)] private float _viewOverrideBlendTime = 0.6f;
+
+    // 외부에서 지정한 고정 시점을 쓰는 중인지 여부. 풀리면 비중이 0으로 내려가며 3인칭 시점으로 돌아온다.
+    private bool _hasViewOverride;
+
+    // 고정 시점의 월드 위치
+    private Vector3 _overridePosition;
+
+    // 고정 시점의 월드 회전
+    private Quaternion _overrideRotation = Quaternion.identity;
+
+    // 고정 시점이 3인칭 시점을 덮는 비중(0~1). 실제 시간으로 오르내린다.
+    private float _viewOverrideWeight;
+
     // 장애물 감지 결과를 담아 둘 재사용 버퍼
     private readonly RaycastHit[] _hits = new RaycastHit[k_MaxCollisionHits];
 
@@ -101,6 +117,34 @@ public class ThirdPersonCamera : MonoBehaviour
         HandleLook();
         HandleSmoothLook();
         HandleFollowTarget();
+        HandleViewOverride();
+    }
+
+    // 카메라를 지정한 위치·회전의 고정 시점으로 부드럽게 옮긴다. ClearViewOverride를 부를 때까지 유지된다.
+    public void SetViewOverride(Vector3 position, Quaternion rotation)
+    {
+        _hasViewOverride = true;
+        _overridePosition = position;
+        _overrideRotation = rotation;
+    }
+
+    // 고정 시점을 풀어 3인칭 시점으로 부드럽게 되돌린다.
+    public void ClearViewOverride()
+    {
+        _hasViewOverride = false;
+    }
+
+    // 고정 시점 비중을 실제 시간으로 올리거나 내리고, 3인칭 배치와 고정 시점 사이를 그 비중으로 섞는다.
+    private void HandleViewOverride()
+    {
+        float step = Time.unscaledDeltaTime / _viewOverrideBlendTime;
+        _viewOverrideWeight = Mathf.MoveTowards(_viewOverrideWeight, _hasViewOverride ? 1f : 0f, step);
+        if (_viewOverrideWeight <= 0f) return;
+
+        float t = Mathf.SmoothStep(0f, 1f, _viewOverrideWeight);
+        Vector3 position = Vector3.Lerp(transform.position, _overridePosition, t);
+        Quaternion rotation = Quaternion.Slerp(transform.rotation, _overrideRotation, t);
+        transform.SetPositionAndRotation(position, rotation);
     }
 
     // Alt를 누르고 있지 않고 조작을 막는 UI(창고·건물 선택 등)도 열려 있지 않으면 커서를 잠그고, 잠긴 동안 마우스 이동량으로 목표 좌우·위아래 방향을 돌린다.
