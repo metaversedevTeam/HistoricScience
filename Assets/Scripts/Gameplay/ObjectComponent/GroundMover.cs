@@ -47,7 +47,7 @@ public class GroundMover : MonoBehaviour, IMover
     // 이동 속도에 곱해서 적용할 연구 보너스. 비워 두면 연구 보너스를 적용하지 않고 프리팹에 설정된 속도를 그대로 쓴다.
     [SerializeField] private ResearchBonusData _moveSpeedBonus;
 
-    // 이동하는 동안 계속 반복 재생할 걷는 소리. 비워 두면 발소리를 내지 않는다.
+    // 이동하는 동안 계속 반복 재생할 걷는 소리. 비워 두면 발소리를 내지 않고, 처음 걸을 때 한 번 경고를 남긴다.
     [SerializeField] private AudioClip _walkSfx;
 
     // 걷는 소리에 적용할 볼륨 배율. AudioManager의 효과음 볼륨에 곱해진다.
@@ -102,6 +102,8 @@ public class GroundMover : MonoBehaviour, IMover
     private float   _walkSfxPitchScale = 1f;
     // 속도가 떨어졌을 때 발소리를 실제로 멈출 시각. 그 전에 다시 움직이면 소리를 끊지 않고 이어 간다.
     private float   _walkSfxStopTime;
+    // 걷는 소리가 비어 있다고 이미 경고했는지. 걷는 동안 매 프레임 확인하므로 한 번만 알리기 위한 값이다.
+    private bool    _hasWarnedMissingWalkSfx;
 
     // NavMeshAgent와 HitableObject 컴포넌트를 캐싱하고 지면 레이어와 기본 이동 속도를 확보
     private void Awake()
@@ -527,10 +529,23 @@ public class GroundMover : MonoBehaviour, IMover
     // 걷는 소리를 반복 재생하기 시작한다. 이미 내고 있으면 그대로 두므로, 움직이는 내내 매 프레임 불러도 소리가 처음부터 다시 시작되지 않는다.
     private void PlayWalkSfx()
     {
-        if (_walkSfx == null) return;
+        if (_walkSfx == null)
+        {
+            WarnMissingWalkSfx();
+            return;
+        }
         if (_walkSfxHandle != null && _walkSfxHandle.IsPlaying) return;
 
         _walkSfxHandle = AudioManager.PlayLoop(_walkSfx, transform, _walkSfxVolume, GetWalkSfxPitch());
+    }
+
+    // 걷는 소리가 할당되지 않았다는 경고를 이 오브젝트에서 처음 한 번만 남긴다.
+    private void WarnMissingWalkSfx()
+    {
+        if (_hasWarnedMissingWalkSfx) return;
+
+        _hasWarnedMissingWalkSfx = true;
+        Debug.LogWarning($"[{nameof(GroundMover)}] {name}의 {nameof(_walkSfx)}에 클립이 할당되지 않아 발소리를 내지 않는다.", this);
     }
 
     // 내고 있던 걷는 소리를 멈춘다.
