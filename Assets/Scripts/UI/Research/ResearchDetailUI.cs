@@ -5,11 +5,11 @@ using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 // 연구 하나의 상세 패널 — 썸네일, 연구 효과, 필요 자원을 보여주고 연구 버튼을 제공한다.
-// 시대 제한이나 선행 연구에 걸린 연구는 내용만 보여주고 연구 버튼이 잠긴다.
+// 시대 제한이나 선행 연구에 걸린 연구는 내용만 보여주고 연구 버튼이 잠긴다. 아이템 정보 팝업과 같은 모달 창 디자인과 등장·퇴장 연출을 쓴다.
 public class ResearchDetailUI : OpenableUIBase<ResearchDetailData>
 {
     [Header("헤더")]
-    // "구석기 시대 연구" 형태로 시대 제한을 보여주는 줄
+    // 연구에 필요한 시대를 보여주는 배지 글자 ("구석기 시대")
     [SerializeField] private TextMeshProUGUI _ageText;
     [SerializeField] private TextMeshProUGUI _nameText;
     [SerializeField] private Button _closeButton;
@@ -26,8 +26,8 @@ public class ResearchDetailUI : OpenableUIBase<ResearchDetailData>
 
     [Header("연구 버튼")]
     [SerializeField] private Button _actionButton;
-    [SerializeField] private Image _actionFill;
-    [SerializeField] private Image _actionOutline;
+    [SerializeField] private Graphic _actionFill;
+    [SerializeField] private Graphic _actionOutline;
     [SerializeField] private Image _actionIcon;
     [SerializeField] private TextMeshProUGUI _actionText;
 
@@ -37,21 +37,25 @@ public class ResearchDetailUI : OpenableUIBase<ResearchDetailData>
     [SerializeField] private Sprite _lockIcon;
 
     [Header("버튼 색상")]
-    [SerializeField] private Color _readyFill = new Color32(0xF9, 0x73, 0x16, 0xFF);
-    [SerializeField] private Color _readyOutline = new Color32(0x11, 0x18, 0x27, 0xFF);
-    [SerializeField] private Color _readyText = new Color32(0x11, 0x18, 0x27, 0xFF);
-    [SerializeField] private Color _disabledFill = new Color32(0x0A, 0x0F, 0x1C, 0xFF);
-    [SerializeField] private Color _disabledOutline = new Color32(0x2A, 0x33, 0x45, 0xFF);
-    [SerializeField] private Color _disabledText = new Color32(0x7B, 0x84, 0x96, 0xFF);
-    [SerializeField] private Color _completedFill = new Color32(0x07, 0x1C, 0x14, 0xFF);
-    [SerializeField] private Color _completedOutline = new Color32(0x16, 0xA3, 0x4A, 0xFF);
-    [SerializeField] private Color _completedText = new Color32(0x16, 0xA3, 0x4A, 0xFF);
+    [SerializeField] private Color _readyFill = new Color32(0xFB, 0x92, 0x3C, 0xFF);
+    [SerializeField] private Color _readyOutline = new Color32(0xFB, 0x92, 0x3C, 0x00);
+    [SerializeField] private Color _readyText = new Color32(0x05, 0x05, 0x0E, 0xFF);
+    [SerializeField] private Color _disabledFill = new Color32(0x05, 0x05, 0x0E, 0x99);
+    [SerializeField] private Color _disabledOutline = new Color32(0xFF, 0xFF, 0xFF, 0x1F);
+    [SerializeField] private Color _disabledText = new Color32(0x94, 0xA3, 0xB8, 0xFF);
+    [SerializeField] private Color _completedFill = new Color32(0x4A, 0xDE, 0x80, 0x1F);
+    [SerializeField] private Color _completedOutline = new Color32(0x4A, 0xDE, 0x80, 0xFF);
+    [SerializeField] private Color _completedText = new Color32(0x4A, 0xDE, 0x80, 0xFF);
 
     [Header("자원 문구 색상")]
     // 자원이 충분할 때 붙는 표시의 색 (16진 RGB)
-    [SerializeField] private string _enoughColorHex = "#22C55E";
+    [SerializeField] private string _enoughColorHex = "#4ADE80";
     // 자원이 모자랄 때 붙는 표시의 색 (16진 RGB)
-    [SerializeField] private string _lackingColorHex = "#EF4444";
+    [SerializeField] private string _lackingColorHex = "#F87171";
+
+    [Header("연출")]
+    // 열릴 때 창을 들여오고, 닫힐 때 거꾸로 내보내는 연출 (비워 두면 연출 없이 바로 닫힌다)
+    [SerializeField] private MainMenuIntroSequence _introSequence;
 
     // 이번 열림 동안 표시 중인 연구
     private ResearchData _research;
@@ -112,6 +116,18 @@ public class ResearchDetailUI : OpenableUIBase<ResearchDetailData>
         RefreshDynamicContent();
     }
 
+    // 등장 연출을 거꾸로 재생해 창을 내보낸 뒤 닫기를 마무리한다.
+    protected override void PlayCloseTransition()
+    {
+        if (_introSequence == null || !_introSequence.isActiveAndEnabled)
+        {
+            FinishClose();
+            return;
+        }
+
+        _introSequence.PlayReverse(FinishClose);
+    }
+
     // 풀로 돌아가기 전에 이번 열림 동안 들고 있던 참조를 비운다.
     protected override void OnReturnToPool()
     {
@@ -124,7 +140,7 @@ public class ResearchDetailUI : OpenableUIBase<ResearchDetailData>
     {
         if (_research == null) return;
 
-        _ageText.text = $"{_research.RequiredAge.ToTabName()} 연구";
+        _ageText.text = _research.RequiredAge.ToTabName();
         _nameText.text = _research.ResearchName;
 
         bool hasThumbnail = _research.Thumbnail != null;

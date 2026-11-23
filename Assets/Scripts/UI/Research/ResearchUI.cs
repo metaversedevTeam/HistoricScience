@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 // 고인돌의 연구 목록 UI — 연구 목록을 카드 격자로 나열하고, 카드를 누르면 상세 패널을 연다.
-// 완료·시대 잠금 같은 상태는 씬의 ResearchManager에서 읽는다.
+// 완료·시대 잠금 같은 상태는 씬의 ResearchManager에서 읽는다. 도감과 같은 모달 창 디자인과 등장·퇴장 연출을 쓴다.
 public class ResearchUI : OpenableUIBase<ResearchListData>
 {
     [Header("헤더")]
@@ -18,8 +18,18 @@ public class ResearchUI : OpenableUIBase<ResearchListData>
     [SerializeField] private ScrollRect _scrollRect;
     [SerializeField] private TextMeshProUGUI _emptyText;
 
+    [Header("진행도")]
+    // "연구 완료: 3/10 (30%)" 형태로 진행도를 보여 줄 글자 (비워 두면 표시하지 않는다)
+    [SerializeField] private TextMeshProUGUI _progressText;
+    // 진행도만큼 가로로 차오를 막대. 앵커 최대값 x로 길이를 정하므로 앵커는 왼쪽 끝(0)에서 시작해야 한다.
+    [SerializeField] private RectTransform _progressFill;
+
     [Header("상세 패널")]
     [SerializeField] private ResearchDetailUI _detailPrefab;
+
+    [Header("연출")]
+    // 열릴 때 창을 들여오고, 닫힐 때 거꾸로 내보내는 연출 (비워 두면 연출 없이 바로 닫힌다)
+    [SerializeField] private MainMenuIntroSequence _introSequence;
 
     // 이번 열림 동안 표시할 연구 목록
     private ResearchDataList _researchDataList;
@@ -71,6 +81,18 @@ public class ResearchUI : OpenableUIBase<ResearchListData>
         Refresh();
     }
 
+    // 등장 연출을 거꾸로 재생해 창을 내보낸 뒤 닫기를 마무리한다.
+    protected override void PlayCloseTransition()
+    {
+        if (_introSequence == null || !_introSequence.isActiveAndEnabled)
+        {
+            FinishClose();
+            return;
+        }
+
+        _introSequence.PlayReverse(FinishClose);
+    }
+
     // 풀로 돌아가기 전에 열어 둔 상세 패널을 정리하고 스크롤 위치를 되돌린다.
     protected override void OnReturnToPool()
     {
@@ -94,11 +116,11 @@ public class ResearchUI : OpenableUIBase<ResearchListData>
     // 시대가 바뀌면 시대 제한이 달라지므로 카드 상태를 다시 그린다.
     private void HandleAgeChanged(Age _) => Refresh();
 
-    // 카드 격자와 부제(현재 시대·진행도)를 모두 다시 그린다.
+    // 카드 격자와 현재 시대·진행도 표시를 모두 다시 그린다.
     private void Refresh()
     {
         RefreshCards();
-        RefreshSubtitle();
+        RefreshProgress();
     }
 
     // 연구 목록만큼 카드를 켜서 채우고, 남는 카드는 끈다.
@@ -124,8 +146,8 @@ public class ResearchUI : OpenableUIBase<ResearchListData>
         _emptyText.gameObject.SetActive(visibleCount == 0);
     }
 
-    // 현재 시대와 연구 진행도를 부제에 표시한다.
-    private void RefreshSubtitle()
+    // 현재 시대와 연구 진행도(글자·막대)를 표시한다.
+    private void RefreshProgress()
     {
         IReadOnlyList<ResearchData> researches = Researches;
         int completed = 0;
@@ -140,7 +162,14 @@ public class ResearchUI : OpenableUIBase<ResearchListData>
         }
 
         Age age = _manager != null ? _manager.CurrentAge : Age.nature;
-        _subtitleText.text = $"현재 {age.ToTabName()} · 연구 완료 {completed}/{total}";
+        _subtitleText.text = $"현재 {age.ToTabName()}";
+
+        float ratio = total > 0 ? (float)completed / total : 0f;
+        if (_progressText != null)
+            _progressText.text = $"연구 완료: {completed}/{total} ({Mathf.RoundToInt(ratio * 100f)}%)";
+
+        if (_progressFill != null)
+            _progressFill.anchorMax = new Vector2(ratio, _progressFill.anchorMax.y);
     }
 
     // index번째 카드를 반환하고, 아직 없으면 새로 만들어 재사용 목록에 넣는다.
