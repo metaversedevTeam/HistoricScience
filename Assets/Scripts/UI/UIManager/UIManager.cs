@@ -38,6 +38,9 @@ public class UIManager : MonoBehaviour
     // 열려 있는 관리형 UI가 하나라도 있는지 여부. 다른 시스템(일시정지 화면 등)이 ESC 우선순위를 판단할 때 쓴다.
     public bool HasOpenUI => activeQueue.Count > 0;
 
+    // 조작을 막는(IPassiveUI가 아닌) 관리형 UI가 하나라도 열려 있는지 여부. 커서 잠금 해제와 일시정지 화면 우선순위를 판단할 때 쓴다.
+    public bool HasBlockingUI => FindLastBlockingUI() != null;
+
     // UI 인스턴스가 붙는 캔버스 루트. 채집 팝업처럼 풀링·개폐 관리를 받지 않는 UI가 부모로 쓴다.
     public Transform UIRoot => uiRoot != null ? uiRoot : transform;
 
@@ -57,13 +60,31 @@ public class UIManager : MonoBehaviour
         HandleEscapeClose();
     }
 
-    // Esc 입력 시 가장 마지막에 연 UI(큐의 맨 뒤)를 닫는다
+    // Esc 입력 시 가장 마지막에 연 UI(큐의 맨 뒤)를 닫는다. Esc로 닫을 수 없는 UI(로딩 화면 등)와
+    // 그 UI를 띄운 쪽이 직접 닫는 IPassiveUI(건설 비용 등)는 건너뛴다
     private void HandleEscapeClose()
     {
         if (Keyboard.current == null || !Keyboard.current.escapeKey.wasPressedThisFrame) return;
-        if (activeQueue.Count == 0) return;
 
-        activeQueue.Last.Value.Close();
+        for (LinkedListNode<IManagedUI> node = activeQueue.Last; node != null; node = node.Previous)
+        {
+            if (!node.Value.ClosesOnEscape || node.Value is IPassiveUI) continue;
+
+            node.Value.Close();
+            return;
+        }
+    }
+
+    // 활성 큐를 뒤에서부터 훑어 가장 마지막에 연 조작 차단 UI를 찾는다. 없으면 null을 반환한다.
+    private IManagedUI FindLastBlockingUI()
+    {
+        for (LinkedListNode<IManagedUI> node = activeQueue.Last; node != null; node = node.Previous)
+        {
+            if (node.Value is not IPassiveUI)
+                return node.Value;
+        }
+
+        return null;
     }
 
     // 프리팹에 해당하는 UI를 풀에서 꺼내거나 생성해 연다 (페이로드 없는 UI용).

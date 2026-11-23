@@ -4,12 +4,13 @@ using UnityEngine;
 using UnityEngine.AI;
 
 // 추적 대상 유닛들 주변의 내브메시 경계 중 어떤 세그먼트에 벽을 세울지 결정하는 씬 레벨 컨트롤러.
-// 여러 대상을 동시에 추적할 수 있으며(AddTarget/RemoveTarget), PlayerManager에서 선택된 GroundMover
-// 유닛도 자동으로 추적 대상에 포함된다. 대상들 주변 경계 세그먼트를 모아 가까운 순으로 배치 위치를
+// 여러 대상을 동시에 추적할 수 있으며(AddTarget/RemoveTarget), 카메라가 따라가는 GroundMover
+// 유닛(플레이어 시민)도 자동으로 추적 대상에 포함된다. 대상들 주변 경계 세그먼트를 모아 가까운 순으로 배치 위치를
 // 계산하고, 실제 벽의 소환·회수·풀링은 BoundaryWallSpawner에 위임한다.
 public class BoundaryWallEffectController : MonoBehaviour
 {
-    [SerializeField] private PlayerManager _playerManager;
+    // 따라가는 플레이어 시민을 알려 주는 카메라 리그. 비워 두면 씬에서 찾는다.
+    [SerializeField] private CameraController _cameraController;
     [SerializeField] private NavMeshBoundaryTracker _boundaryTracker;
     [SerializeField] private BoundaryWallSpawner _wallSpawner;
     // 각 대상에서 이 거리(m) 안의 경계에만 벽을 세운다
@@ -37,7 +38,8 @@ public class BoundaryWallEffectController : MonoBehaviour
     private static readonly Comparison<CandidateWall> s_compareByDistance =
         (a, b) => a.SqrDistance.CompareTo(b.SqrDistance);
 
-    private Transform _selectionTarget;
+    // 카메라가 따라가는 시민이라 자동으로 추적 대상에 넣어 둔 대상
+    private Transform _followTarget;
     private float _nextRefreshTime;
     private int _groundLayerMask;
 
@@ -50,26 +52,21 @@ public class BoundaryWallEffectController : MonoBehaviour
     private void Awake()
     {
         _groundLayerMask = LayerMask.GetMask("Ground");
-    }
 
-    private void OnEnable()
-    {
-        _playerManager.OnSelected   += HandleSelected;
-        _playerManager.OnDeselected += HandleDeselected;
+        if (_cameraController == null)
+            _cameraController = FindFirstObjectByType<CameraController>();
     }
 
     private void OnDisable()
     {
-        _playerManager.OnSelected   -= HandleSelected;
-        _playerManager.OnDeselected -= HandleDeselected;
-
         _targets.Clear();
-        _selectionTarget = null;
+        _followTarget = null;
         HandleStopTracking();
     }
 
     private void Update()
     {
+        HandleTrackFollowTarget();
         HandlePruneDestroyedTargets();
         HandleThrottledRefresh();
     }
@@ -95,22 +92,20 @@ public class BoundaryWallEffectController : MonoBehaviour
             HandleStopTracking();
     }
 
-    // 선택된 오브젝트가 GroundMover 유닛이면 추적 대상에 추가한다 (이전 선택은 OnDeselected에서 이미 제거됨)
-    private void HandleSelected(SelectableObject selected)
+    // 카메라가 따라가는 시민이 바뀌면 이전 시민을 추적에서 빼고, 새 시민이 GroundMover 유닛이면 추적 대상에 넣는다
+    private void HandleTrackFollowTarget()
     {
-        if (selected == null || selected.GetComponent<GroundMover>() == null) return;
+        Transform current = _cameraController != null ? _cameraController.FollowTarget : null;
+        if (current != null && current.GetComponent<GroundMover>() == null)
+            current = null;
+        if (current == _followTarget) return;
 
-        _selectionTarget = selected.transform;
-        AddTarget(_selectionTarget);
-    }
+        if (_followTarget != null)
+            RemoveTarget(_followTarget);
 
-    // 선택이 해제되면 선택으로 추가했던 대상만 추적에서 제외한다
-    private void HandleDeselected()
-    {
-        if (_selectionTarget != null)
-            RemoveTarget(_selectionTarget);
-
-        _selectionTarget = null;
+        _followTarget = current;
+        if (_followTarget != null)
+            AddTarget(_followTarget);
     }
 
     // 경계 추출을 중지하고 서 있는 벽을 모두 페이드 아웃시킨다

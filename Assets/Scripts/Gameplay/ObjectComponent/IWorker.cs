@@ -1,6 +1,8 @@
+using System;
 using UnityEngine;
 
 // 일터(WorkPlace)에 등록되어 일할 수 있는 유닛이 구현하는 인터페이스. 등록되면 JSON으로 접혀 보관되고 해제되면 새 인스턴스로 복원된다.
+[Obsolete("IWorker는 더 이상 사용되지 않습니다.")]
 public interface IWorker : ISavable
 {
     // 현재 소속된 일터. 소속되지 않았으면 null. 파괴는 프레임 끝에 처리되므로, 등록 직후 다른 일터에 중복 등록되는 것을 막는 데 쓴다.
