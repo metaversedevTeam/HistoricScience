@@ -41,11 +41,17 @@ public class GroundMover : MonoBehaviour, IMover
     // 한두 프레임 속도가 0이 되는데, 그때마다 소리를 끊으면 이동 명령이 연달아 들어올 때 발소리가 계속 처음부터 다시 재생된다.
     private const float k_WalkSfxStopGrace = 0.2f;
 
+    // 방향 이동 입력을 이동으로 볼 최소 크기의 제곱. 아날로그 입력의 미세한 흔들림으로 걷기가 시작되지 않게 한다.
+    private const float k_DirectMoveMinSqrInput = 0.0001f;
+
     // 목적지의 지면 높이를 찾을 때 감지할 지면 레이어. 비워두면 Awake에서 "Ground" 레이어를 자동으로 찾는다.
     [SerializeField] private LayerMask _groundLayer;
 
     // 이동 속도에 곱해서 적용할 연구 보너스. 비워 두면 연구 보너스를 적용하지 않고 프리팹에 설정된 속도를 그대로 쓴다.
     [SerializeField] private ResearchBonusData _moveSpeedBonus;
+
+    // 방향 이동 중 달릴 때 걷는 속도에 곱할 배율. FPVTest 브랜치의 걷기 5 / 달리기 9 비율을 따른다.
+    [SerializeField, Min(1f)] private float _runSpeedMultiplier = 1.8f;
 
     // 이동하는 동안 계속 반복 재생할 걷는 소리. 비워 두면 발소리를 내지 않는다.
     [SerializeField] private AudioClip _walkSfx;
@@ -102,6 +108,14 @@ public class GroundMover : MonoBehaviour, IMover
     private float   _walkSfxPitchScale = 1f;
     // 속도가 떨어졌을 때 발소리를 실제로 멈출 시각. 그 전에 다시 움직이면 소리를 끊지 않고 이어 간다.
     private float   _walkSfxStopTime;
+    // 방향 입력으로 직접 걷는 중인지. 이 이동은 경로를 쓰지 않아 에이전트 속도가 0이므로, 걷는 중인지는 이 값으로 판정한다.
+    private bool    _isDirectMoving;
+    // 마지막으로 방향 이동 입력을 받은 프레임. 입력이 끊긴 프레임을 찾아 방향 이동을 끝내는 기준이다.
+    private int     _lastDirectMoveFrame;
+    // 에이전트에 원래 설정돼 있던 자동 회전 여부. 방향 이동 동안 끈 회전을 경로 이동으로 돌아갈 때 되돌린다.
+    private bool    _defaultUpdateRotation;
+    // 방향 이동으로 달리는 중인지. 달리기 배율을 이동량과 MoveSpeedRatio에 반영하는 기준이다.
+    private bool    _isRunning;
 
     // NavMeshAgent와 HitableObject 컴포넌트를 캐싱하고 지면 레이어와 기본 이동 속도를 확보
     private void Awake()
@@ -109,6 +123,7 @@ public class GroundMover : MonoBehaviour, IMover
         _agent       = GetComponent<NavMeshAgent>();
         _selfHitable = GetComponent<HitableObject>();
         _baseSpeed   = _agent.speed;
+        _defaultUpdateRotation = _agent.updateRotation;
 
         HandleResolveGroundLayer();
     }
@@ -183,6 +198,124 @@ public class GroundMover : MonoBehaviour, IMover
 
         HandleMoveEnd();
         HandleWalkSfx();
+    }
+
+    // 이번 프레임에 방향 이동 입력이 들어오지 않았으면 방향 이동을 끝낸다. 입력을 주는 쪽의 Update보다 늦게 판정하려고 LateUpdate에서 처리한다.
+    private void LateUpdate()
+    {
+        if (_isDirectMoving && _lastDirectMoveFrame != Time.frameCount)
+            EndDirectMove(true);
+    }
+
+    // 이번 프레임 동안 월드 XZ 방향으로 직접 걷는다. 걸을 수 없는 지형 쪽은 막힌 축을 빼고 미끄러지듯 걷고, 내브메시 밖으로는 에이전트가 나가지 않는다.
+    public void MoveInDirection(Vector2 direction, bool isRunning = false)
+    {
+        if (direction.sqrMagnitude < k_DirectMoveMinSqrInput)
+            return;
+
+        if (!EnsureOnNavMesh())
+            return;
+
+        if (!_isDirectMoving)
+            BeginDirectMove();
+
+        _lastDirectMoveFrame = Time.frameCount;
+        SetRunning(isRunning);
+
+        Vector2 clamped = Vector2.ClampMagnitude(direction, 1f);
+        Vector3 delta   = new Vector3(clamped.x, 0f, clamped.y) * (_agent.speed * GetRunFactor() * Time.deltaTime);
+        delta = ResolveWalkableDelta(delta);
+
+        if (delta.sqrMagnitude > 0f)
+            _agent.Move(delta);
+    }
+
+    // 방향 이동을 시작한다. 진행 중이던 경로 이동·추적은 대체된 것이므로 콜백을 버리고 경로를 지운 뒤, 바라보는 방향이 바뀌지 않게 자동 회전을 끈다.
+    private void BeginDirectMove()
+    {
+        ReplaceMoveOrder();
+
+        _followTarget         = null;
+        _hasMoveOrder         = false;
+        _wasStopped           = false;
+        _hasStartedMoving     = false;
+        _destinationReachable = false;
+        _agent.ResetPath();
+        _agent.updateRotation = false;
+
+        _isDirectMoving = true;
+        OnMoveOrdered?.Invoke();
+    }
+
+    // 방향 이동 상태를 끝내고 자동 회전을 되돌린다. 입력이 끊겨 멈춘 경우에만 OnMoveEnd를 발생시키고, 새 경로 이동으로 바뀐 경우는 이동이 이어지므로 발생시키지 않는다.
+    private void EndDirectMove(bool raiseMoveEnd)
+    {
+        if (!_isDirectMoving)
+            return;
+
+        _isDirectMoving       = false;
+        _agent.updateRotation = _defaultUpdateRotation;
+        SetRunning(false);
+
+        if (raiseMoveEnd)
+            OnMoveEnd?.Invoke();
+    }
+
+    // 달리기 상태를 바꾸고, 바뀌었으면 발소리 재생 속도에 바로 반영한다.
+    private void SetRunning(bool isRunning)
+    {
+        if (_isRunning == isRunning)
+            return;
+
+        _isRunning = isRunning;
+        ApplyWalkSfxPitch();
+    }
+
+    // 지금 이동 속도에 곱할 달리기 배율을 반환한다. 달리지 않으면 1이다.
+    private float GetRunFactor()
+    {
+        return _isRunning ? _runSpeedMultiplier : 1f;
+    }
+
+    // 이번 프레임 이동량 중 걸을 수 있는 지형으로 가는 부분만 남긴다. 그대로 갈 수 없으면 X·Z 축 하나씩만 따로 시도해 벽을 따라 미끄러지게 하고, 둘 다 막히면 움직이지 않는다.
+    private Vector3 ResolveWalkableDelta(Vector3 delta)
+    {
+        if (CanStepTo(delta))
+            return delta;
+
+        Vector3 deltaX = new Vector3(delta.x, 0f, 0f);
+        if (CanStepTo(deltaX))
+            return deltaX;
+
+        Vector3 deltaZ = new Vector3(0f, 0f, delta.z);
+        if (CanStepTo(deltaZ))
+            return deltaZ;
+
+        return Vector3.zero;
+    }
+
+    // 지금 위치에서 delta만큼 걸었을 때 몸 앞쪽 끝(에이전트 반경만큼 앞)이 걸을 수 있는 지형에 있는지 판정한다.
+    private bool CanStepTo(Vector3 delta)
+    {
+        if (delta.sqrMagnitude <= 0f)
+            return false;
+
+        Vector3 probe = transform.position + delta + delta.normalized * _agent.radius;
+        return IsWalkableWorldPosition(probe);
+    }
+
+    // 월드 위치가 맵 데이터 기준으로 걸을 수 있는 지형인지 판정한다. 맵 데이터를 아직 쓸 수 없으면 막지 않고, 내브메시 제한에만 맡긴다.
+    private bool IsWalkableWorldPosition(Vector3 worldPosition)
+    {
+        MapSaveUtil mapSaveUtil = MapSaveUtil.Instance;
+        if (mapSaveUtil == null)
+            return true;
+
+        MapData mapData = mapSaveUtil.CurrentMapData;
+        if (mapData == null)
+            return true;
+
+        return mapData.IsWalkable(mapSaveUtil.WorldToMapPosition(worldPosition));
     }
 
     // 이동 명령이 살아 있는 동안 정지 상태로 바뀌는 순간에만 이벤트를 발생시킨다. 목적지에 실제로 닿았으면
@@ -484,6 +617,9 @@ public class GroundMover : MonoBehaviour, IMover
     // 발소리를 낼 만큼 에이전트가 실제로 움직이고 있는지 판정한다. 정지 판정과 같은 속도 임계값을 쓴다.
     private bool IsWalking()
     {
+        if (_isDirectMoving)
+            return true;
+
         if (!_agent.isOnNavMesh)
             return false;
 
@@ -511,16 +647,16 @@ public class GroundMover : MonoBehaviour, IMover
         return _walkSfxPitch * _walkSfxPitchScale * MoveSpeedRatio;
     }
 
-    // 프리팹에 설정된 기본 이동 속도 대비 지금 이동 속도의 배율. 연구 보너스가 곱해진 값이라, 걸음이 빨라지면
+    // 프리팹에 설정된 기본 이동 속도 대비 지금 이동 속도의 배율. 연구 보너스와 달리기 배율이 곱해진 값이라, 걸음이 빨라지면
     // 발소리와 걷는 애니메이션도 이 배율만큼 빨라진다. 기본 속도를 아직 알 수 없으면 배율을 따질 수 없으므로 1로 본다.
     public float MoveSpeedRatio
     {
         get
         {
             if (_baseSpeed <= 0f)
-                return 1f;
+                return GetRunFactor();
 
-            return _agent.speed / _baseSpeed;
+            return _agent.speed / _baseSpeed * GetRunFactor();
         }
     }
 
@@ -585,6 +721,8 @@ public class GroundMover : MonoBehaviour, IMover
         _destinationReachable = isExact && path.status == NavMeshPathStatus.PathComplete;
         _pendingArrived       = onArrived;
         _pendingMoveEnd       = onMoveEnd;
+        // 방향 이동 중이었다면 이 경로 이동으로 이어지므로 이동 종료 없이 넘긴다. 실패한 경우는 방향 이동이 그대로 이어진다.
+        EndDirectMove(false);
         BeginMoveOrder();
         return true;
     }
@@ -592,8 +730,10 @@ public class GroundMover : MonoBehaviour, IMover
     // NavMeshAgent 경로를 초기화하고 추적 대상을 해제해 이동을 중지; 이동 중이었다면 OnMoveEnd와 대기 중인 이동 종료 콜백을 호출한다
     public void Stop()
     {
-        bool   wasMoving       = _hasMoveOrder;
+        bool   wasMoving       = _hasMoveOrder || _isDirectMoving;
         Action moveEndCallback = _pendingMoveEnd;
+
+        EndDirectMove(false);
 
         // 목적지에 닿지 못한 채 끝났으므로 도착 콜백은 호출하지 않고 버린다.
         DiscardPendingCallbacks();
@@ -635,6 +775,7 @@ public class GroundMover : MonoBehaviour, IMover
 
         _nextRepathTime = Time.time + k_FollowRepathInterval;
         _pendingArrived = onArrived;
+        EndDirectMove(false);
         BeginMoveOrder();
         return true;
     }

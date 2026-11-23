@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-// 선택되었을 때 연구 목록 UI를 여는 명령을 제공하는 고인돌 건물 오브젝트
+// 시민이 상호작용하면 연구 목록 UI를 여는 명령을 제공하는 고인돌 건물 오브젝트
 public class Dolmen : MonoBehaviour, ICommandable, ISavable, IBuildable
 {
     [SerializeField] private ResearchUI _researchUiPrefab;
@@ -27,8 +27,6 @@ public class Dolmen : MonoBehaviour, ICommandable, ISavable, IBuildable
     // 인스펙터에서 지정하는 건설 비용 목록
     [SerializeField] private List<BuildCostEntry> _buildCost = new();
 
-    private SelectableObject _selectable;
-    private PlayerManager _selectedBy;
     private IReadOnlyList<CommandData> _commands;
     private IReadOnlyDictionary<ResourceData, int> _buildCostLookup;
 
@@ -43,14 +41,13 @@ public class Dolmen : MonoBehaviour, ICommandable, ISavable, IBuildable
     // 건물 선택 UI 등은 씬에 배치되지 않은 프리팹 에셋의 컴포넌트를 그대로 참조해 Awake가 실행되지 않으므로, 최초 접근 시 지연 계산한다.
     public IReadOnlyDictionary<ResourceData, int> BuildCost => _buildCostLookup ??= BuildCostLookup();
 
-    // SelectableObject 컴포넌트를 캐싱하고 명령 목록을 생성
+    // 명령 목록을 생성
     private void Awake()
     {
-        _selectable = GetComponent<SelectableObject>();
         _commands = new List<CommandData>
         {
             new CommandData("연구 목록 열기", _researchButtonIcon, OpenResearchUI),
-            new CommandData("철거", _demolishButtonIcon, ExecuteDemolish),
+            new CommandData("철거", _demolishButtonIcon, _ => ExecuteDemolish()),
         };
     }
 
@@ -66,54 +63,17 @@ public class Dolmen : MonoBehaviour, ICommandable, ISavable, IBuildable
         return lookup;
     }
 
-    // 자신의 선택 이벤트를 구독
-    private void OnEnable()
-    {
-        _selectable.OnSelect += HandleSelect;
-    }
-
-    // 자신의 선택 이벤트와 PlayerManager 구독을 해제
-    private void OnDisable()
-    {
-        _selectable.OnSelect -= HandleSelect;
-        UnsubscribeFromPlayer();
-    }
-
     // 이 오브젝트가 제공하는 명령 목록을 반환한다.
     public IReadOnlyList<CommandData> GetCommands()
     {
         return _commands;
     }
 
-    // 선택되었을 때 해당 PlayerManager를 저장하고 선택해제 이벤트를 구독
-    private void HandleSelect(PlayerManager playerManager)
-    {
-        UnsubscribeFromPlayer();
-
-        _selectedBy = playerManager;
-        _selectedBy.OnDeselected += HandleDeselected;
-    }
-
-    // 선택 해제 시 PlayerManager 구독을 해제
-    private void HandleDeselected()
-    {
-        UnsubscribeFromPlayer();
-    }
-
-    // 구독 중인 PlayerManager 이벤트를 해제하고 참조를 비운다.
-    private void UnsubscribeFromPlayer()
-    {
-        if (_selectedBy == null) return;
-
-        _selectedBy.OnDeselected -= HandleDeselected;
-        _selectedBy = null;
-    }
-
-    // 연구 목록 UI를 연구 목록과 선택 중인 플레이어의 자원 인벤토리와 함께 연다.
+    // 연구 목록 UI를 연구 목록과 명령을 내린 플레이어의 자원 인벤토리와 함께 연다.
     // 이미 이 고인돌이 연 UI가 떠 있으면 창이 겹쳐 쌓이지 않도록 다시 열지 않는다.
-    private void OpenResearchUI()
+    private void OpenResearchUI(PlayerManager player)
     {
-        if (_selectedBy == null || _openResearchUI != null) return;
+        if (player == null || _openResearchUI != null) return;
 
         if (_researchUiPrefab == null)
         {
@@ -121,7 +81,7 @@ public class Dolmen : MonoBehaviour, ICommandable, ISavable, IBuildable
             return;
         }
 
-        var data = new ResearchListData(_researchDataList, _selectedBy.ResourceInventory, _buildingName);
+        var data = new ResearchListData(_researchDataList, player.ResourceInventory, _buildingName);
         _openResearchUI = UIManager.Instance.OpenUI(_researchUiPrefab, data);
         _openResearchUI.OnFinishClose += HandleResearchUIClosed;
     }
@@ -141,12 +101,9 @@ public class Dolmen : MonoBehaviour, ICommandable, ISavable, IBuildable
         _openResearchUI = null;
     }
 
-    // 선택을 해제하고 건물을 철거한다.
+    // 건물을 철거한다.
     private void ExecuteDemolish()
     {
-        if (_selectedBy != null)
-            _selectedBy.DeselectExternally();
-
         Destroy(gameObject);
     }
 

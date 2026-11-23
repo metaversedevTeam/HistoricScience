@@ -33,7 +33,7 @@ public class TutorialProgressWatcher : IDisposable
     // 이번 단계에서 휠로 바뀐 확대 배율의 누적 변화량
     public float ZoomChange { get; private set; }
 
-    // 이번 단계에서 선택된 시민에게 이동 명령이 내려졌는지 여부
+    // 이번 단계에서 카메라가 따라가는 시민에게 이동 명령이 내려졌는지 여부
     public bool MoveOrdered { get; private set; }
 
     // 이번 단계에서 조합법 힌트가 공개되었는지 여부
@@ -56,7 +56,7 @@ public class TutorialProgressWatcher : IDisposable
     {
         HandleTrackCamera();
         HandleTrackZoom();
-        HandleTrackSelectedMover();
+        HandleTrackFollowedMover();
     }
 
     // 이번 단계에서 지정한 아이템을 새로 몇 개 얻었는지 돌려준다.
@@ -130,10 +130,10 @@ public class TutorialProgressWatcher : IDisposable
         _lastZoomScale = scale;
     }
 
-    // 현재 선택된 시민의 이동 컴포넌트로 구독을 옮긴다. 선택이 풀렸으면 구독을 끊는다.
-    private void HandleTrackSelectedMover()
+    // 카메라가 따라가는 시민의 이동 컴포넌트로 구독을 옮긴다. 따라가는 시민이 없으면 구독을 끊는다.
+    private void HandleTrackFollowedMover()
     {
-        Citizen citizen = _context.SelectedCitizen;
+        Citizen citizen = _context.FollowedCitizen;
         IMover mover = citizen != null ? citizen.GetComponent<IMover>() : null;
 
         if (ReferenceEquals(mover, _subscribedMover) && !IsSubscribedMoverDestroyed())
@@ -163,7 +163,7 @@ public class TutorialProgressWatcher : IDisposable
         _subscribedMover = null;
     }
 
-    // 선택된 시민에게 이동 명령이 내려졌음을 기록한다.
+    // 카메라가 따라가는 시민에게 이동 명령이 내려졌음을 기록한다.
     private void HandleMoveOrdered()
     {
         MoveOrdered = true;

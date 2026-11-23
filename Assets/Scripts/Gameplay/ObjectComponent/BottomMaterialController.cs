@@ -11,6 +11,9 @@ public class BottomMaterialController : MonoBehaviour
     // 첫 프레임에 자동으로 바닥 머티리얼을 적용할지 여부
     [SerializeField] private bool _applyOnStart = true;
 
+    // 바닥 머티리얼을 적용하는 렌더러. 흑백 화면에서 건물 색을 유지할 때 바닥은 제외하도록 KeepColorTarget이 읽는다.
+    public MeshRenderer BottomRenderer => _bottomRenderer;
+
     // 소환한 쪽이 위치를 잡아 준 뒤에 자동으로 바닥 머티리얼을 적용한다.
     // OnEnable은 Instantiate 안에서 곧바로 실행되어 저장 파일에서 복원되는 오브젝트가 아직 프리팹 원본 자리에 있으므로, 위치 지정이 끝난 뒤 도는 Start를 쓴다.
     private void Start()

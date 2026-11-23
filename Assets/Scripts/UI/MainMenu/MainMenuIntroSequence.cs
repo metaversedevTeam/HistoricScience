@@ -136,6 +136,24 @@ public class MainMenuIntroSequence : MonoBehaviour
         }
     }
 
+    // 등장 연출을 건너뛰고 모든 요소를 원래 배치로 바로 옮긴 뒤 입력을 풀어 준다.
+    public void Skip()
+    {
+        HandleCacheOnce();
+
+        _elapsed = HandleGetTotalTime();
+        _isPlaying = false;
+        _isReversing = false;
+        _onReverseComplete = null;
+        HandleApplyAll();
+
+        if (_inputBlocker != null)
+        {
+            _inputBlocker.interactable = true;
+            _inputBlocker.alpha = 1f;
+        }
+    }
+
     // 등장 연출을 거꾸로 재생해 요소들을 처음 상태로 되돌리고, 다 사라지면 콜백을 부른다.
     public void PlayReverse(Action onComplete)
     {

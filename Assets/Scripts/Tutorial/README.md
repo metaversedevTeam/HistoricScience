@@ -51,7 +51,7 @@
 게임 코드는 튜토리얼을 모르므로, 완료 판정은 이미 공개되어 있는 이벤트와 상태만 읽어서 합니다.
 
 - 카메라 조작 — 카메라 위치 변화 누적
-- 개체 선택 / 이동 명령 — `PlayerManager.OnSelected`, 선택된 시민의 `IMover.OnMoveOrdered`
+- 이동 명령 — 카메라가 따라가는 시민(`CameraController.FollowTarget`)의 `IMover.OnMoveOrdered`
 - 채집 모드 / 각종 UI 열기 — 커맨드 패널 버튼의 `Button.onClick`에 청취자를 하나 더 얹어 읽는다
 - 돌 채집 · 좀돌날 제작 — `ResourceInventory.OnAddItemAt`
 - 대장간 · 창고 · 근거지 건축 — 씬에 `Lab` / `Warehouse` / `HomeBase`가 생겼는지

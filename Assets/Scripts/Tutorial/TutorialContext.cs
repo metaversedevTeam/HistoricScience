@@ -35,9 +35,6 @@ public class TutorialContext : IDisposable
     // 작업대 안내에서 만들게 할 좀돌날 아이템
     public ItemData Microblade { get; private set; }
 
-    // 현재 선택된 오브젝트. 아무것도 선택되지 않았으면 null이다.
-    public SelectableObject CurrentSelection { get; private set; }
-
     // 가장 가까운 시민을 잠시 들고 있는 캐시
     private TutorialTargetCache<Citizen> _nearestCitizen;
 
@@ -84,23 +81,23 @@ public class TutorialContext : IDisposable
         _lab = new TutorialTargetCache<Lab>(UnityEngine.Object.FindFirstObjectByType<Lab>);
         _warehouse = new TutorialTargetCache<Warehouse>(UnityEngine.Object.FindFirstObjectByType<Warehouse>);
         _homeBase = new TutorialTargetCache<HomeBase>(UnityEngine.Object.FindFirstObjectByType<HomeBase>);
-
-        PlayerManager.OnSelected += HandleSelected;
-        PlayerManager.OnDeselected += HandleDeselected;
         return true;
     }
 
-    // 구독을 모두 끊는다. 튜토리얼이 끝날 때 호출한다.
+    // 튜토리얼이 끝날 때 호출한다. 지금은 따로 끊어 둘 구독이 없다.
     public void Dispose()
     {
-        if (PlayerManager == null) return;
-
-        PlayerManager.OnSelected -= HandleSelected;
-        PlayerManager.OnDeselected -= HandleDeselected;
     }
 
-    // 현재 선택된 대상이 시민이면 그 시민을 돌려준다. 아니면 null이다.
-    public Citizen SelectedCitizen => CurrentSelection != null ? CurrentSelection.GetComponent<Citizen>() : null;
+    // 카메라가 따라가는 플레이어 시민을 돌려준다. 아직 찾지 못했으면 null이다.
+    public Citizen FollowedCitizen
+    {
+        get
+        {
+            Transform target = CameraController != null ? CameraController.FollowTarget : null;
+            return target != null ? target.GetComponent<Citizen>() : null;
+        }
+    }
 
     // 카메라에서 가장 가까운 시민을 돌려준다. (강조 대상용, 잠시 캐싱된다)
     public Citizen NearestCitizen => _nearestCitizen?.Get();
@@ -230,17 +227,5 @@ public class TutorialContext : IDisposable
         float dx = target.position.x - origin.x;
         float dz = target.position.z - origin.z;
         return dx * dx + dz * dz;
-    }
-
-    // 선택된 대상을 기억한다.
-    private void HandleSelected(SelectableObject selected)
-    {
-        CurrentSelection = selected;
-    }
-
-    // 선택이 풀렸음을 기억한다.
-    private void HandleDeselected()
-    {
-        CurrentSelection = null;
     }
 }
