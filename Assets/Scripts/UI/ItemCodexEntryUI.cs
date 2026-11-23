@@ -10,11 +10,11 @@ using UnityEngine.UI;
 public class ItemCodexEntryUI : MonoBehaviour
 {
     [Header("카드")]
-    [SerializeField] private Image _cardFill;
-    [SerializeField] private Image _cardOutline;
+    [SerializeField] private Graphic _cardFill;
+    [SerializeField] private Graphic _cardOutline;
 
     [Header("썸네일")]
-    [SerializeField] private Image _thumbnailOutline;
+    [SerializeField] private Graphic _thumbnailOutline;
     [SerializeField] private Image _thumbnail;
     [SerializeField] private Image _lockIcon;
     // 썸네일 액자에 붙는 버튼. 이미 획득해 정보를 볼 수 있는 카드에서만 켜진다.
@@ -22,13 +22,13 @@ public class ItemCodexEntryUI : MonoBehaviour
 
     [Header("정보")]
     [SerializeField] private TextMeshProUGUI _indexText;
-    [SerializeField] private Image _ageBadgeFill;
+    [SerializeField] private Graphic _ageBadgeFill;
     [SerializeField] private TextMeshProUGUI _ageBadgeText;
     [SerializeField] private TextMeshProUGUI _nameText;
 
     [Header("상태 바")]
-    [SerializeField] private Image _statusFill;
-    [SerializeField] private Image _statusOutline;
+    [SerializeField] private Graphic _statusFill;
+    [SerializeField] private Graphic _statusOutline;
     [SerializeField] private TextMeshProUGUI _statusText;
     // 상태 바 자체에 붙는 버튼. 힌트를 받을 수 있는 카드에서만 켜진다.
     [SerializeField] private Button _statusButton;
@@ -41,6 +41,10 @@ public class ItemCodexEntryUI : MonoBehaviour
     [SerializeField] private Color _discoveredStatusFill = new Color32(0x07, 0x1C, 0x14, 0xFF);
     [SerializeField] private Color _discoveredStatusOutline = new Color32(0x16, 0xA3, 0x4A, 0xFF);
     [SerializeField] private Color _discoveredStatusText = new Color32(0x22, 0xC5, 0x5E, 0xFF);
+
+    [Header("시대 배지 색상")]
+    [SerializeField] private Color _discoveredAgeBadge = new Color32(0x25, 0x63, 0xEB, 0xFF);
+    [SerializeField] private Color _undiscoveredAgeBadge = new Color32(0x25, 0x63, 0xEB, 0x99);
 
     [Header("미획득 색상")]
     [SerializeField] private Color _undiscoveredCardFill = new Color32(0x09, 0x0D, 0x18, 0xFF);
@@ -103,9 +107,7 @@ public class ItemCodexEntryUI : MonoBehaviour
         _thumbnailOutline.color = discovered ? _discoveredThumbOutline : _undiscoveredThumbOutline;
         _nameText.color = discovered ? _discoveredName : _undiscoveredName;
 
-        _ageBadgeFill.color = discovered
-            ? new Color32(0x25, 0x63, 0xEB, 0xFF)
-            : new Color32(0x25, 0x63, 0xEB, 0x99);
+        _ageBadgeFill.color = discovered ? _discoveredAgeBadge : _undiscoveredAgeBadge;
 
         ApplyStatusBar(discovered);
     }

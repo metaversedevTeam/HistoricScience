@@ -7,8 +7,8 @@ using UnityEngine.UI;
 public class CodexAgeTabUI : MonoBehaviour
 {
     [SerializeField] private Button _button;
-    [SerializeField] private Image _fill;
-    [SerializeField] private Image _outline;
+    [SerializeField] private Graphic _fill;
+    [SerializeField] private Graphic _outline;
     [SerializeField] private TextMeshProUGUI _label;
 
     [Header("선택됨")]

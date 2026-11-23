@@ -13,7 +13,7 @@ public class ItemDetailPopupUI : OpenableUIBase<ItemDetailData>
     [SerializeField] private TextMeshProUGUI _eraTagText;
     [SerializeField] private TextMeshProUGUI _codexNumberText;
     // 도감 번호 문구 형식. {0}에 도감 번호가 들어간다.
-    [SerializeField] private string _codexNumberFormat = "도감 번호: No. {0:D3}";
+    [SerializeField] private string _codexNumberFormat = "No. {0:D3}";
 
     [Header("썸네일")]
     [SerializeField] private Image _thumbnail;
@@ -27,6 +27,10 @@ public class ItemDetailPopupUI : OpenableUIBase<ItemDetailData>
 
     [Header("확인")]
     [SerializeField] private Button _confirmButton;
+
+    [Header("연출")]
+    // 열릴 때 창을 들여오고, 닫힐 때 거꾸로 내보내는 연출 (비워 두면 연출 없이 바로 닫힌다)
+    [SerializeField] private MainMenuIntroSequence _introSequence;
 
     private void Awake()
     {
@@ -73,6 +77,18 @@ public class ItemDetailPopupUI : OpenableUIBase<ItemDetailData>
         _descriptionText.text = string.IsNullOrWhiteSpace(item.Description)
             ? _emptyDescription
             : item.Description;
+    }
+
+    // 등장 연출을 거꾸로 재생해 창을 내보낸 뒤 닫기를 마무리한다.
+    protected override void PlayCloseTransition()
+    {
+        if (_introSequence == null || !_introSequence.isActiveAndEnabled)
+        {
+            FinishClose();
+            return;
+        }
+
+        _introSequence.PlayReverse(FinishClose);
     }
 
     // 다음에 열릴 때 이전 아이템의 내용이 남지 않도록 표시를 비운다.
