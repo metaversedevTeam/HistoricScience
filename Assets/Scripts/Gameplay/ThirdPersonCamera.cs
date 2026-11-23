@@ -37,6 +37,9 @@ public class ThirdPersonCamera : MonoBehaviour
     [Tooltip("위아래로 돌릴 수 있는 최대 각도(도)")]
     [SerializeField, Range(10f, 89f)] private float _maxPitch = 85f;
 
+    [Tooltip("마우스로 정한 목표 방향을 카메라가 따라잡는 데 걸리는 시간(초). 클수록 부드럽고 느리게 따라가며, 0이면 즉시 따라간다")]
+    [SerializeField, Min(0f)] private float _lookSmoothTime = 0.08f;
+
     [Header("장애물")]
 
     [Tooltip("카메라를 가리는 장애물로 볼 레이어")]
@@ -60,7 +63,13 @@ public class ThirdPersonCamera : MonoBehaviour
     // 직전 프레임에 커서가 풀려 있었는지 여부. 커서가 다시 잠기는 프레임의 마우스 이동량은 튀므로 버린다.
     private bool _wasCursorFree = true;
 
-    // 카메라가 바라보는 월드 방위각(도). 플레이어가 카메라와 같은 쪽을 보게 할 때 쓴다.
+    // 마우스 입력이 쌓이는 목표 방위각(도). 실제 방위각(_yaw)이 이 값을 보간해 따라간다.
+    private float _targetYaw;
+
+    // 마우스 입력이 쌓이는 목표 내려다보기 각도(도). 실제 각도(_pitch)가 이 값을 보간해 따라간다.
+    private float _targetPitch;
+
+    // 카메라가 지금 바라보는(보간된) 월드 방위각(도). 플레이어가 카메라와 같은 쪽을 보게 할 때 쓴다.
     public float Yaw => _yaw;
 
     // 장애물 판정에서 제외할 대상. 따라가는 플레이어가 바뀔 때 CameraController가 갱신한다.
@@ -77,6 +86,8 @@ public class ThirdPersonCamera : MonoBehaviour
 
         _currentDistance = GetZoomedDistance();
         _pitch = Mathf.Clamp(_pitch, -_maxPitch, _maxPitch);
+        _targetYaw = _yaw;
+        _targetPitch = _pitch;
     }
 
     // 컴포넌트가 꺼지면 커서를 원래대로 풀어 메뉴 화면 등에서 커서가 사라진 채 남지 않게 한다.
@@ -88,10 +99,11 @@ public class ThirdPersonCamera : MonoBehaviour
     private void LateUpdate()
     {
         HandleLook();
+        HandleSmoothLook();
         HandleFollowTarget();
     }
 
-    // Alt를 누르고 있지 않고 조작을 막는 UI(창고·건물 선택 등)도 열려 있지 않으면 커서를 잠그고, 잠긴 동안 마우스 이동량으로 좌우·위아래 방향을 돌린다.
+    // Alt를 누르고 있지 않고 조작을 막는 UI(창고·건물 선택 등)도 열려 있지 않으면 커서를 잠그고, 잠긴 동안 마우스 이동량으로 목표 좌우·위아래 방향을 돌린다.
     private void HandleLook()
     {
         bool isCursorFree = IsAltPressed() || UIManager.Instance.HasBlockingUI;
@@ -106,8 +118,23 @@ public class ThirdPersonCamera : MonoBehaviour
 
         // 기본 감도에 설정 화면의 감도로 정해진 실제 배율을 축별로 곱한다. (수직은 수평의 절반)
         Vector2 delta = mouse.delta.ReadValue() * _lookSensitivity;
-        _yaw += delta.x * GameSettings.AppliedHorizontalLookSensitivity;
-        _pitch = Mathf.Clamp(_pitch - delta.y * GameSettings.AppliedVerticalLookSensitivity, -_maxPitch, _maxPitch);
+        _targetYaw += delta.x * GameSettings.AppliedHorizontalLookSensitivity;
+        _targetPitch = Mathf.Clamp(_targetPitch - delta.y * GameSettings.AppliedVerticalLookSensitivity, -_maxPitch, _maxPitch);
+    }
+
+    // 실제 방향을 목표 방향 쪽으로 프레임 속도와 무관하게 지수 보간한다. 커서가 풀려도 남은 거리는 마저 따라간다.
+    private void HandleSmoothLook()
+    {
+        if (_lookSmoothTime <= 0f)
+        {
+            _yaw = _targetYaw;
+            _pitch = _targetPitch;
+            return;
+        }
+
+        float t = 1f - Mathf.Exp(-Time.unscaledDeltaTime / _lookSmoothTime);
+        _yaw = Mathf.Lerp(_yaw, _targetYaw, t);
+        _pitch = Mathf.Lerp(_pitch, _targetPitch, t);
     }
 
     // 왼쪽이나 오른쪽 Alt 키를 누르고 있는지 확인한다.
