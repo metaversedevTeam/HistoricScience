@@ -35,6 +35,11 @@ public interface IMover
     // 추적은 대상이 다시 멀어지면 이동이 이어져 종료 시점이 하나로 정해지지 않으므로, 대상에 처음 도달했을 때 한 번 호출되는
     // onArrived만 받는다. 중간에 막혀 멈춘 것은 도달이 아니므로 그때는 호출되지 않고 추적과 함께 유지된다.
     bool Move(Transform targetTransform, Action onArrived = null);
+    // 이번 프레임 동안 월드 XZ 방향(크기 0~1)으로 직접 걸어간다. 입력이 있는 동안 매 프레임 호출해야 하며, 호출이 끊긴 프레임에 이동이 끝난다.
+    // 진행 중이던 위치 이동·추적은 대체되고, 바라보는 방향은 바꾸지 않으며, 걸을 수 없는 지형으로는 들어가지 않는다.
+    // 처음 걷기 시작할 때 OnMoveOrdered가, 입력이 끊겨 멈출 때 OnMoveEnd가 발생한다.
+    // isRunning이 true면 이번 프레임은 달리기 배율만큼 빠르게 움직이고, MoveSpeedRatio에도 그 배율이 반영된다.
+    void MoveInDirection(Vector2 direction, bool isRunning = false);
     // 현재 이동을 즉시 중지; 이동 중이었다면 대기 중인 이동 종료 콜백도 호출한다(도착 콜백은 폐기)
     void Stop();
 }

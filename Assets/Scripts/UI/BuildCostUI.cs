@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 // 건설 비용 UI — 선택한 건물의 필요 자원별 수량과 보유 인벤토리를 페이로드로 받아 여는 관리형 UI
-public class BuildCostUI : OpenableUIBase<BuildCostData>
+public class BuildCostUI : OpenableUIBase<BuildCostData>, IPassiveUI
 {
     [SerializeField] private BuildCostRowUI _rowPrefab;
     [SerializeField] private RectTransform _rowContainer;

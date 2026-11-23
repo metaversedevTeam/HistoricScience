@@ -69,10 +69,16 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
     // 씬 전환 너머로 넘어간 뒤 인게임 UI보다 위에 그려지도록 바꿀 캔버스 정렬 순서
     [SerializeField] private int _handoffSortingOrder = 1000;
 
+    // 연출과 씬 불러오기가 모두 끝나고 진행도 표시가 따라잡은 뒤, 씬을 활성화하기 전에 잠시 머무는 시간(초)
+    [SerializeField, Min(0f)] private float _holdBeforeActivation = 0.3f;
+
     // 지우기 연출에 쓸 중심 사각형이 없을 때, 인게임 씬 로딩이 끝난 뒤 화면이 완전히 사라지기까지 걸리는 시간(초)
     [SerializeField, Min(0f)] private float _fadeOutDuration = 0.5f;
 
     [Header("로딩 종료 연출")]
+    // 인게임 로딩이 끝나 진행도가 100%까지 차오른 뒤, 지우기 연출을 시작하기 전에 잠시 머무는 시간(초)
+    [SerializeField, Min(0f)] private float _holdBeforeReveal = 0.35f;
+
     // 로딩이 끝나면 커지며 로딩 화면을 지워 나갈 중심 사각형. 비워 두면 화면 전체가 서서히 사라진다.
     [SerializeField] private RectTransform _revealCore;
 
@@ -87,6 +93,32 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
 
     // 커지기 시작하면서 중심 사각형(남는 테두리)이 올라갈 투명도. 테두리가 지워지는 경계로 또렷이 보이게 한다.
     [SerializeField, Range(0f, 1f)] private float _revealCoreAlpha = 0.9f;
+
+    [Header("프레임 끊김 보정")]
+    // 한 프레임에 연출이 진행될 수 있는 가장 긴 시간(초). 씬 전환 직후처럼 한 프레임이 오래 걸려도 연출이 건너뛰지 않고 이어지게 한다.
+    [SerializeField, Min(0.001f)] private float _maxMotionDeltaTime = 1f / 30f;
+
+    // 돌아온 직후 역재생을 시작하기 전에, 이 시간(초)보다 짧은 프레임이 연달아 나와야 하는 횟수
+    [SerializeField, Min(0)] private int _returnStableFrameCount = 3;
+
+    // 프레임이 안정되었다고 볼 한 프레임의 최대 시간(초)
+    [SerializeField, Min(0.001f)] private float _returnStableFrameTime = 1f / 30f;
+
+    // 프레임이 끝내 안정되지 않아도 역재생을 시작할 때까지 기다리는 최대 시간(초)
+    [SerializeField, Min(0f)] private float _returnStableTimeout = 1f;
+
+    [Header("인게임에서 돌아올 때")]
+    // 돌아올 때는 로딩 연출을 거꾸로 재생하므로, 그 대신 건너뛸 메인 메뉴 등장 연출
+    [SerializeField] private MainMenuIntroSequence _skippedIntroOnReturn;
+
+    // 인게임 씬이 메인 메뉴로 돌아가며 로딩 연출을 거꾸로 재생해 달라고 요청했는지 여부. 메인 메뉴 씬이 시작될 때 한 번 소비된다.
+    private static bool _isReturnRequested;
+
+    // 인게임 씬이 넘겨준 장식 사각형들의 회전 각도(계층 순서). 돌아올 때 이 각도에서 이어 돌게 한다. 없으면 null
+    private static float[] _returnAngles;
+
+    // 회전 각도를 넘겨받은 순간의 실제 시간(초). 씬이 바뀌는 동안 흐른 시간만큼 더 돌려 놓는 데 쓴다.
+    private static float _returnAnglesTime;
 
     // 이 연출이 붙은 메뉴 캔버스
     private Canvas _canvas;
@@ -114,6 +146,9 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
 
     // 로딩 연출이 이미 시작되었는지 여부
     private bool _isRunning;
+
+    // 인게임에서 돌아오며 연출을 거꾸로 재생하는 중인지 여부. 이때는 장식 조각의 출발 순서를 뒤집어 중심 조각부터 움직이게 한다.
+    private bool _isReturning;
 
     // 목표 진행도(0~1)
     private float _targetProgress;
@@ -143,10 +178,24 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
         HandleApplyProgress();
     }
 
+    private void Start()
+    {
+        HandleBeginReturnIfRequested();
+    }
+
     private void Update()
     {
         HandleFillProgress();
         HandleFadeOut();
+    }
+
+    // 다음에 메인 메뉴 씬이 시작될 때 로딩 연출을 거꾸로 재생하도록 요청한다. (인게임에서 메인 메뉴로 돌아갈 때 쓴다)
+    // floats에는 인게임 쪽 장식 사각형들을 메인 메뉴와 같은 계층 순서로 넘기면, 그 회전 각도에서 이어 돌게 한다.
+    public static void RequestReturnSequence(UIRectFloatMotion[] floats)
+    {
+        _isReturnRequested = true;
+        _returnAngles = floats != null ? Array.ConvertAll(floats, motion => motion.Angle) : null;
+        _returnAnglesTime = Time.unscaledTime;
     }
 
     // 지정한 씬을 비동기로 불러오며 로딩 연출을 시작한다. 이미 시작했으면 무시한다.
@@ -165,28 +214,41 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
         HandleSetTargetProgress(_sceneLoadShare + Mathf.Clamp01(progress) * (1f - _sceneLoadShare));
     }
 
-    // 진행도를 끝까지 채우고 로딩 종료 연출을 시작한다. 연출이 끝나면 스스로 파괴된다.
+    // 진행도를 끝까지 채우고 잠시 머문 뒤 로딩 종료 연출을 시작한다. 연출이 끝나면 스스로 파괴된다.
     public void Finish()
     {
         if (_isFinishing)
             return;
 
         _isFinishing = true;
-        _targetProgress = 1f;
-        _displayedProgress = 1f;
-        HandleApplyProgress();
+        HandleSetTargetProgress(1f);
+        StartCoroutine(HandleFinishRoutine());
+    }
+
+    // 진행도 표시가 100%에 닿고 정해 둔 시간만큼 머물 때까지 기다린 뒤, 지우기 연출(또는 서서히 사라지기)을 시작한다.
+    private IEnumerator HandleFinishRoutine()
+    {
+        yield return HandleWaitProgressCatchUp();
+        yield return new WaitForSecondsRealtime(_holdBeforeReveal);
 
         // 사라지는 동안에는 아래쪽 인게임 UI를 바로 조작할 수 있도록 입력 차단만 먼저 풀어 준다.
         _rootGroup.blocksRaycasts = false;
 
         if (_revealCore != null)
         {
-            StartCoroutine(HandleRevealRoutine());
-            return;
+            yield return HandleRevealRoutine();
+            yield break;
         }
 
         _isFadingOut = true;
         _fadeElapsed = 0f;
+    }
+
+    // 화면에 표시 중인 진행도가 목표 진행도를 다 따라잡을 때까지 기다린다.
+    private IEnumerator HandleWaitProgressCatchUp()
+    {
+        while (!Mathf.Approximately(_displayedProgress, _targetProgress))
+            yield return null;
     }
 
     // 장식 사각형들을 정렬한 뒤, 중심 사각형을 키우며 그 안쪽의 로딩 화면을 지워 나가고, 다 지우면 스스로 파괴된다.
@@ -333,13 +395,18 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
         // allowSceneActivation이 꺼져 있으면 진행도는 0.9에서 멈추므로, 0.9를 씬 불러오기 완료로 본다.
         while (elapsed < motionEnd || operation.progress < 0.9f)
         {
-            elapsed += Time.unscaledDeltaTime;
+            elapsed += HandleGetMotionDeltaTime();
             HandleApplyMotion(elapsed);
             HandleSetTargetProgress(Mathf.Clamp01(operation.progress / 0.9f) * _sceneLoadShare);
             yield return null;
         }
 
         HandleApplyMotion(motionEnd);
+
+        // 이미 다 불러왔더라도 진행도가 씬 불러오기 몫까지 차오르고 잠시 머문 뒤 넘어가, 연출이 끊기지 않고 이어지게 한다.
+        yield return HandleWaitProgressCatchUp();
+        yield return new WaitForSecondsRealtime(_holdBeforeActivation);
+
         HandleHandOff();
         operation.allowSceneActivation = true;
 
@@ -351,6 +418,92 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
         yield return null;
         if (SceneLoadingHandoff.TryRevoke(this))
             Finish();
+    }
+
+    // 돌아오기 요청이 있으면 요청을 소비하고 로딩 연출의 역재생을 시작한다.
+    private void HandleBeginReturnIfRequested()
+    {
+        if (!_isReturnRequested)
+            return;
+
+        _isReturnRequested = false;
+        _isRunning = true;
+        StartCoroutine(HandleReturnRoutine());
+    }
+
+    // 장식이 가운데에 모이고 조작 UI가 사라진 로딩 끝 상태에서 시작해, 시간을 거꾸로 흘려 메인 메뉴 배치로 되돌린다.
+    // 인게임 쪽 연출이 진행도를 0%까지 비운 채 넘어오므로 진행도도 0%에서 시작해 함께 사라진다.
+    private IEnumerator HandleReturnRoutine()
+    {
+        HandlePrepare();
+        HandleContinueReturnAngles();
+        _isReturning = true;
+
+        if (_skippedIntroOnReturn != null)
+            _skippedIntroOnReturn.Skip();
+
+        _targetProgress = 0f;
+        _displayedProgress = 0f;
+        HandleApplyProgress();
+
+        // 씬이 막 바뀐 직후에는 이전 씬 정리 등으로 프레임이 길어지므로, 로딩 끝 상태로 멈춰 둔 채 프레임이 안정되길 기다린다.
+        float motionEnd = HandleGetMotionEndTime();
+        HandleApplyMotion(motionEnd);
+        yield return HandleWaitFrameStable();
+
+        for (float elapsed = motionEnd; elapsed > 0f; elapsed -= HandleGetMotionDeltaTime())
+        {
+            HandleApplyMotion(elapsed);
+            yield return null;
+        }
+
+        HandleApplyMotion(0f);
+        _rootGroup.interactable = true;
+        _isReturning = false;
+        _isRunning = false;
+    }
+
+    // 인게임 씬이 넘겨준 회전 각도를 소비해, 장식 사각형들이 씬이 바뀌기 전 방향에서 끊기지 않고 이어 돌게 한다.
+    private void HandleContinueReturnAngles()
+    {
+        float[] angles = _returnAngles;
+        _returnAngles = null;
+        if (angles == null)
+            return;
+
+        RectTransform settleRoot = _centerTarget != null ? _centerTarget : _revealCore;
+        if (settleRoot == null)
+            return;
+
+        UIRectFloatMotion[] floats = settleRoot.GetComponentsInChildren<UIRectFloatMotion>();
+        if (floats.Length != angles.Length)
+        {
+            Debug.LogWarning($"MainMenuLoadingSequence: 인게임에서 넘어온 장식 각도 수({angles.Length})가 메인 메뉴 장식 수({floats.Length})와 달라 회전을 이어 가지 않습니다.", this);
+            return;
+        }
+
+        float elapsed = Time.unscaledTime - _returnAnglesTime;
+        for (int i = 0; i < floats.Length; i++)
+            floats[i].ContinueRotation(angles[i], elapsed);
+    }
+
+    // 짧은 프레임이 정해 둔 횟수만큼 연달아 나오거나 최대 대기 시간이 지날 때까지 기다린다.
+    private IEnumerator HandleWaitFrameStable()
+    {
+        int stableFrames = 0;
+        float waited = 0f;
+        while (stableFrames < _returnStableFrameCount && waited < _returnStableTimeout)
+        {
+            yield return null;
+            waited += Time.unscaledDeltaTime;
+            stableFrames = Time.unscaledDeltaTime <= _returnStableFrameTime ? stableFrames + 1 : 0;
+        }
+    }
+
+    // 이번 프레임에 연출을 진행시킬 시간을 구한다. 프레임이 길어져도 정해 둔 최대 시간을 넘지 않게 해 연출이 건너뛰지 않게 한다.
+    private float HandleGetMotionDeltaTime()
+    {
+        return Mathf.Min(Time.unscaledDeltaTime, _maxMotionDeltaTime);
     }
 
     // 버튼 입력을 막고, 퇴장·이동 대상들의 원래 배치를 기억해 둔다.
@@ -439,14 +592,17 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
     }
 
     // 장식 조각들을 중심 조각부터 차례로 출발시켜 가운데로 부드럽게 옮긴다.
+    // 거꾸로 재생할 때는 늦게 출발한 조각부터 되돌아가므로, 출발 순서를 뒤집어 그때도 중심 조각부터 움직이게 한다.
     private void HandleApplyCenter(float elapsed)
     {
+        int lastIndex = _movingParts.Length - 1;
         for (int i = 0; i < _movingParts.Length; i++)
         {
             if (_movingParts[i] == null)
                 continue;
 
-            float t = Mathf.Clamp01((elapsed - _centerDelay - _centerStagger * i) / _centerDuration);
+            int order = _isReturning ? lastIndex - i : i;
+            float t = Mathf.Clamp01((elapsed - _centerDelay - _centerStagger * order) / _centerDuration);
             float eased = t < 0.5f ? 4f * t * t * t : 1f - Mathf.Pow(-2f * t + 2f, 3f) * 0.5f;
             Vector2 position = _movingStartPositions[i] + _centerDelta * eased;
 

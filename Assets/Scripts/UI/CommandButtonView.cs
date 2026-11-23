@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using TMPro;
 
 // 커맨드 버튼 프리팹의 뷰 컴포넌트. 아이콘/텍스트 표시와 클릭 콜백 연결을 담당한다.
+[System.Obsolete("하단 명령 패널(TempCommandPanelUI)과 함께 더 이상 쓰지 않는다. 명령은 InteractionCommandListUI에 표시된다.")]
 public class CommandButtonView : MonoBehaviour
 {
     [SerializeField] private Button _button;
@@ -22,7 +23,7 @@ public class CommandButtonView : MonoBehaviour
     private void HandleClick(CommandData cmd)
     {
         AudioManager.PlayButtonClick();
-        cmd.OnExecute?.Invoke();
+        cmd.OnExecute?.Invoke(PlayerManager.Instance);
     }
 
     // 아이콘이 있으면 아이콘만, 없으면 이름 텍스트만 표시한다.

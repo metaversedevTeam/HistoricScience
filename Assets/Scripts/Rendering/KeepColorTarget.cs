@@ -12,6 +12,9 @@ public class KeepColorTarget : MonoBehaviour
     // 렌더러별로 KeepColor 레이어를 적용 중인 KeepColorTarget 수. 마지막 하나가 빠질 때만 비트를 지운다
     private static readonly Dictionary<Renderer, int> AppliedCounts = new Dictionary<Renderer, int>();
 
+    // 바닥 렌더러를 찾을 때 재사용하는 임시 목록
+    private static readonly List<BottomMaterialController> BottomControllerBuffer = new List<BottomMaterialController>();
+
     private readonly List<Renderer> _renderers = new List<Renderer>();
     private uint _layerBit;
 
@@ -82,6 +85,23 @@ public class KeepColorTarget : MonoBehaviour
         {
             _renderers.Add(own);
         }
+
+        ExcludeBottomRenderers();
+    }
+
+    // 건물 바닥(BottomMaterialController의 렌더러)은 건물 색을 유지하더라도 흑백으로 보이도록 목록에서 뺀다
+    private void ExcludeBottomRenderers()
+    {
+        GetComponentsInChildren(true, BottomControllerBuffer);
+        foreach (BottomMaterialController bottom in BottomControllerBuffer)
+        {
+            if (bottom.BottomRenderer != null)
+            {
+                _renderers.Remove(bottom.BottomRenderer);
+            }
+        }
+
+        BottomControllerBuffer.Clear();
     }
 
     // 적용했던 KeepColor 레이어를 렌더러에서 제거한다

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 //다른 컴포넌트에 일꾼 할당 관련 정보를 제공해주는 컴포넌트
+[Obsolete("IWorker와 함께 더 이상 사용되지 않습니다.")]
 public class WorkPlace : MonoBehaviour, IStatePart
 {
     public event Action OnAddWorker;
