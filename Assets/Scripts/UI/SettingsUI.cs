@@ -3,13 +3,19 @@ using UnityEngine;
 using UnityEngine.UI;
 
 // 설정 화면. 메인 메뉴와 일시정지 화면의 OPTION 버튼이 UIManager로 여는 공용 창이며,
-// 카메라 수평 감도를 슬라이더로 바꿔 GameSettings에 바로 반영한다. (수직 감도는 수평의 절반으로 자동으로 맞춰진다)
+// 카메라 수평 감도와 청크 로딩·유지 범위를 슬라이더로 바꿔 GameSettings에 바로 반영한다. (수직 감도는 수평의 절반으로 자동으로 맞춰진다)
 // 일시정지 중(Time.timeScale = 0)에도 열리므로 페이드 연출은 실제 경과 시간으로 돈다.
 public class SettingsUI : OpenableUIBase
 {
     [Header("카메라 감도")]
     [SerializeField] private Slider _horizontalSlider;
     [SerializeField] private TMP_Text _horizontalValueText;
+
+    [Header("청크 범위")]
+    [SerializeField] private Slider _chunkLoadSlider;
+    [SerializeField] private TMP_Text _chunkLoadValueText;
+    [SerializeField] private Slider _chunkKeepSlider;
+    [SerializeField] private TMP_Text _chunkKeepValueText;
 
     [Header("버튼")]
     [SerializeField] private Button _resetButton;
@@ -31,7 +37,17 @@ public class SettingsUI : OpenableUIBase
         _horizontalSlider.maxValue = GameSettings.MaxHorizontalLookSensitivity;
         _horizontalSlider.wholeNumbers = false;
 
+        _chunkLoadSlider.minValue = GameSettings.MinChunkLoadRadius;
+        _chunkLoadSlider.maxValue = GameSettings.MaxChunkLoadRadius;
+        _chunkLoadSlider.wholeNumbers = true;
+
+        _chunkKeepSlider.minValue = GameSettings.MinChunkKeepRadius;
+        _chunkKeepSlider.maxValue = GameSettings.MaxChunkKeepRadius;
+        _chunkKeepSlider.wholeNumbers = true;
+
         _horizontalSlider.onValueChanged.AddListener(HandleHorizontalChanged);
+        _chunkLoadSlider.onValueChanged.AddListener(HandleChunkLoadChanged);
+        _chunkKeepSlider.onValueChanged.AddListener(HandleChunkKeepChanged);
         _resetButton.onClick.AddListener(HandleResetClick);
         _closeButton.onClick.AddListener(HandleCloseClick);
     }
@@ -74,12 +90,40 @@ public class SettingsUI : OpenableUIBase
         _canvasGroup.interactable = true;
     }
 
-    // 저장된 수평 감도를 이벤트 없이 슬라이더와 값 표시에 반영한다.
+    // 저장된 수평 감도와 청크 범위를 이벤트 없이 슬라이더와 값 표시에 반영한다.
     private void HandleSyncFromSettings()
     {
         float horizontal = GameSettings.HorizontalLookSensitivity;
         _horizontalSlider.SetValueWithoutNotify(horizontal);
         _horizontalValueText.text = FormatSensitivity(horizontal);
+
+        HandleSyncChunkRadii();
+    }
+
+    // 저장된 청크 로딩·유지 범위를 이벤트 없이 두 슬라이더와 값 표시에 반영한다.
+    private void HandleSyncChunkRadii()
+    {
+        int load = GameSettings.ChunkLoadRadius;
+        int keep = GameSettings.ChunkKeepRadius;
+
+        _chunkLoadSlider.SetValueWithoutNotify(load);
+        _chunkLoadValueText.text = FormatChunkRadius(load);
+        _chunkKeepSlider.SetValueWithoutNotify(keep);
+        _chunkKeepValueText.text = FormatChunkRadius(keep);
+    }
+
+    // 로딩 범위 슬라이더가 움직이면 저장하고, 유지 범위가 밀려 올라갔을 수 있으므로 두 슬라이더를 다시 맞춘다.
+    private void HandleChunkLoadChanged(float value)
+    {
+        GameSettings.ChunkLoadRadius = Mathf.RoundToInt(value);
+        HandleSyncChunkRadii();
+    }
+
+    // 유지 범위 슬라이더가 움직이면 저장하고, 로딩 범위가 밀려 내려갔을 수 있으므로 두 슬라이더를 다시 맞춘다.
+    private void HandleChunkKeepChanged(float value)
+    {
+        GameSettings.ChunkKeepRadius = Mathf.RoundToInt(value);
+        HandleSyncChunkRadii();
     }
 
     // 수평 감도 슬라이더가 움직이면 0.05 단위로 맞춰 저장하고 표시를 갱신한다.
@@ -91,12 +135,14 @@ public class SettingsUI : OpenableUIBase
         _horizontalValueText.text = FormatSensitivity(snapped);
     }
 
-    // 수평 감도를 기본값으로 되돌린다.
+    // 수평 감도와 청크 범위를 기본값으로 되돌린다.
     private void HandleResetClick()
     {
         AudioManager.PlayConfirm();
 
         GameSettings.HorizontalLookSensitivity = GameSettings.DefaultHorizontalLookSensitivity;
+        GameSettings.ChunkLoadRadius = GameSettings.DefaultChunkLoadRadius;
+        GameSettings.ChunkKeepRadius = GameSettings.DefaultChunkKeepRadius;
         HandleSyncFromSettings();
     }
 
@@ -135,5 +181,11 @@ public class SettingsUI : OpenableUIBase
     private static string FormatSensitivity(float value)
     {
         return $"x{value:0.00}";
+    }
+
+    // 청크 범위를 숫자 문자열로 바꾼다. 값 표시 폰트(LiberationSans)에 한글이 없어 단위는 붙이지 않는다.
+    private static string FormatChunkRadius(int value)
+    {
+        return value.ToString();
     }
 }

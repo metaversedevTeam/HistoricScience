@@ -17,10 +17,6 @@ public class MapChunkLoader : MonoBehaviour
     [SerializeField] private ChunkObjectUnloader m_ObjectUnloader;
     // 이 대상들 각각의 주변 청크를 로딩한다 (예: 메인 카메라, 조작 중인 유닛들)
     [SerializeField] private List<Transform> m_FollowTargets = new List<Transform>();
-    // 각 추적 대상이 속한 청크를 중심으로 이 반경(청크 단위) 안의 청크까지 로딩한다.
-    [SerializeField, Min(0)] private int m_LoadRadius = 2;
-    // 모든 추적 대상에게서 이 반경(청크 단위) 밖으로 벗어난 청크만 해제한다. 로딩 반경보다 커야 경계에서 로딩과 해제가 반복되지 않는다.
-    [SerializeField, Min(1)] private int m_KeepRadius = 4;
     // 추적 대상 위치를 다시 확인해 로딩/해제 목록을 갱신하는 주기(초)
     [SerializeField, Min(0.05f)] private float m_RefreshInterval = 0.5f;
     // 동시에 백그라운드 스레드에서 계산할 최대 청크 개수. 클수록 빨리 채워지지만 CPU 부하가 커진다.
@@ -41,6 +37,12 @@ public class MapChunkLoader : MonoBehaviour
     // 마지막으로 계산해 알린 로딩 진행도(0~1). 같은 값을 반복해서 알리지 않기 위해 보관한다.
     private float m_LoadProgress;
 
+    // 각 추적 대상이 속한 청크를 중심으로 이 반경(청크 단위) 안의 청크까지 로딩한다. 설정 화면에서 바꾼 값을 갱신마다 다시 읽는다.
+    private int LoadRadius => GameSettings.ChunkLoadRadius;
+
+    // 모든 추적 대상에게서 이 반경(청크 단위) 밖으로 벗어난 청크만 해제한다. GameSettings가 항상 로딩 반경 + 1 이상으로 보장한다.
+    private int KeepRadius => GameSettings.ChunkKeepRadius;
+
     // 등록된 청크 중 로딩이 끝난 청크의 비율(0~1)이 바뀔 때마다 알린다. 로딩 화면의 프로그래스 바가 이 값을 표시한다.
     public event Action<float> LoadProgressChanged;
 
@@ -56,12 +58,6 @@ public class MapChunkLoader : MonoBehaviour
         m_Cancellation.Cancel();
         m_Cancellation.Dispose();
         m_Cancellation = null;
-    }
-
-    // 인스펙터에서 값을 바꿀 때 해제 반경이 항상 로딩 반경보다 크도록 보정한다.
-    private void OnValidate()
-    {
-        m_KeepRadius = Mathf.Max(m_KeepRadius, m_LoadRadius + 1);
     }
 
     // 추적 대상 주변 청크를 채우고, 초기 로딩이 끝나면 대상을 계속 따라다니는 추적 루프를 시작한다. 청크 시드가 주입된 뒤에 호출되어야 한다.
@@ -82,9 +78,6 @@ public class MapChunkLoader : MonoBehaviour
         // 청크 로딩 자체는 언로더 없이도 동작하므로 중단하지 않고, 유닛/건물이 남는다는 사실만 시작 시점에 한 번 알린다.
         if (m_ObjectUnloader == null)
             Debug.LogError("MapChunkLoader: ObjectUnloader가 지정되지 않아 해제된 청크의 유닛/건물이 씬에 그대로 남습니다.");
-
-        // 해제 반경이 로딩 반경보다 작으면 경계의 청크가 로딩과 해제를 무한히 반복하므로 최소한 한 칸 크게 맞춘다.
-        m_KeepRadius = Mathf.Max(m_KeepRadius, m_LoadRadius + 1);
 
         m_Cancellation = new CancellationTokenSource();
         CancellationToken token = m_Cancellation.Token;
@@ -169,13 +162,14 @@ public class MapChunkLoader : MonoBehaviour
     private void HandleCollectDesiredChunks()
     {
         m_DesiredChunks.Clear();
-        int loadRadiusSqr = m_LoadRadius * m_LoadRadius;
+        int loadRadius = LoadRadius;
+        int loadRadiusSqr = loadRadius * loadRadius;
 
         foreach (Vector2Int targetCoordinate in m_TargetCoordinates)
         {
-            for (int y = -m_LoadRadius; y <= m_LoadRadius; y++)
+            for (int y = -loadRadius; y <= loadRadius; y++)
             {
-                for (int x = -m_LoadRadius; x <= m_LoadRadius; x++)
+                for (int x = -loadRadius; x <= loadRadius; x++)
                 {
                     if (x * x + y * y > loadRadiusSqr)
                         continue;
@@ -190,7 +184,8 @@ public class MapChunkLoader : MonoBehaviour
     private void HandleUnloadDistantChunks()
     {
         m_CoordinateBuffer.Clear();
-        int keepRadiusSqr = m_KeepRadius * m_KeepRadius;
+        int keepRadius = KeepRadius;
+        int keepRadiusSqr = keepRadius * keepRadius;
 
         foreach (Vector2Int coordinate in m_ChunkManager.ActiveChunkCoordinates)
         {
