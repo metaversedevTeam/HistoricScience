@@ -254,21 +254,18 @@ public class WorkbenchUI : OpenableUIBase<WorkbenchData>
         if (ReferenceEquals(ui, _openCodexUI)) _openCodexUI = null;
     }
 
-    // 보유 중인 자원(시대가 nature인 아이템)으로 격자를 채우고, 남는 칸은 빈 칸으로 그린다.
+    // 보유 중인 자원으로 격자를 채우고, 남는 칸은 빈 칸으로 그린다.
     // 조합 격자에 올려둔 재료는 아직 소비되지 않았지만 보유 목록에서는 빠진 것처럼 보여 준다.
-    // 치트 모드에서는 모든 자원을 끌어 쓸 수 있게 보유량과 무관하게 전부 보여 주고, 차감되지 않는 실제 보유량을 표시한다.
+    // 치트 모드에서는 차감되지 않는 실제 보유량을 표시한다.
     private void PopulateSlots()
     {
         bool isInfinite = IsInfiniteResources();
         int filledCount = 0;
         foreach (var item in _inventory.ItemDataList.Items)
         {
-            // 보유 목록에는 자연에서 얻는 자원(시대가 nature인 아이템)만 재료로 보여 준다.
-            if (item.Age != Age.nature) continue;
+            if (!ShouldShowInOwnedList(item, isInfinite)) continue;
 
             var count = isInfinite ? _inventory.Get(item) : GetRemainingCount(item);
-            if (!isInfinite && count <= 0) continue;
-
             GetOrCreateSlot(filledCount).Setup(item, count);
             filledCount++;
         }
@@ -282,6 +279,14 @@ public class WorkbenchUI : OpenableUIBase<WorkbenchData>
             _slots[i].gameObject.SetActive(false);
 
         if (_ownedKindsText != null) _ownedKindsText.text = $"{filledCount}종";
+    }
+
+    // 보유 목록에 보여 줄 아이템인지 판정한다.
+    // 일반 모드: 남은 수량이 있는 아이템은 시대와 무관하게 전부. 치트 모드: 보유한 아이템은 전부, 보유하지 않았어도 nature 자원은 전부.
+    private bool ShouldShowInOwnedList(ItemData item, bool isInfinite)
+    {
+        if (isInfinite) return item.Age == Age.nature || _inventory.Get(item) > 0;
+        return GetRemainingCount(item) > 0;
     }
 
     // index번째 슬롯을 켜서 반환하고, 아직 없으면 새로 만들어 재사용 목록에 넣는다.
