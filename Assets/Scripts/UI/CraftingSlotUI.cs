@@ -4,11 +4,15 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 // 조합 격자의 한 칸. 인벤토리에서 드롭받아 아이템을 배치하고, 배치된 아이템을 다른 칸으로 드래그해 이동·교환할 수 있다.
-public class CraftingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
-    IBeginDragHandler, IDragHandler, IEndDragHandler
+public class CraftingSlotUI : MonoBehaviour, IItemHoverSource, IDropHandler, IPointerClickHandler,
+    IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerEnterHandler, IPointerExitHandler
 {
     // 배치된 아이템이 바뀔 때마다 발행된다. 결과 미리보기처럼 격자 전체를 다시 읽어야 하는 쪽이 구독한다.
     public event Action OnItemChanged;
+
+    // 마우스가 이 칸에 들어오거나 나갈 때 발행된다. 툴팁을 관리하는 쪽이 구독한다.
+    public event Action<IItemHoverSource> OnHoverEnter;
+    public event Action<IItemHoverSource> OnHoverExit;
 
     public ItemData Item { get; private set; }
 
@@ -60,6 +64,10 @@ public class CraftingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
         AudioManager.PlayButtonClick();
         Clear();
     }
+
+    public void OnPointerEnter(PointerEventData eventData) => OnHoverEnter?.Invoke(this);
+
+    public void OnPointerExit(PointerEventData eventData) => OnHoverExit?.Invoke(this);
 
     public void OnDrop(PointerEventData eventData)
     {

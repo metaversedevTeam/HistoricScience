@@ -31,6 +31,10 @@ public class WorkbenchUI : OpenableUIBase<WorkbenchData>
     // 처음 획득한 아이템을 조합했을 때 띄울 아이템 정보 팝업 (도감과 같은 프리팹)
     [SerializeField] private ItemDetailPopupUI _detailPopupPrefab;
 
+    [Header("툴팁")]
+    // 보유 칸·조합 칸에 마우스를 올려 두면 아이템 시대·이름·설명을 띄울 툴팁 (비워 두면 띄우지 않는다)
+    [SerializeField] private ItemTooltipUI _tooltip;
+
     [Header("헤더")]
     [SerializeField] private Button _closeButton;
 
@@ -85,7 +89,21 @@ public class WorkbenchUI : OpenableUIBase<WorkbenchData>
             slot.Clear();
             slot.SetPlacementRule(CanPlaceInCraftingGrid);
             slot.OnItemChanged += HandleCraftingGridChanged;
+            slot.OnHoverEnter += HandleSlotHoverEnter;
+            slot.OnHoverExit += HandleSlotHoverExit;
         }
+    }
+
+    // 마우스가 아이템 칸에 들어오면 툴팁 대기 시간을 센다.
+    private void HandleSlotHoverEnter(IItemHoverSource source)
+    {
+        if (_tooltip != null) _tooltip.BeginHover(source);
+    }
+
+    // 마우스가 아이템 칸을 벗어나면 툴팁을 감춘다.
+    private void HandleSlotHoverExit(IItemHoverSource source)
+    {
+        if (_tooltip != null) _tooltip.EndHover(source);
     }
 
     // 격자 배치가 바뀌면 결과 미리보기와 보유 목록에 남아 보이는 수량을 함께 갱신한다.
@@ -137,6 +155,7 @@ public class WorkbenchUI : OpenableUIBase<WorkbenchData>
     protected override void PlayCloseTransition()
     {
         HandleReleaseCamera();
+        if (_tooltip != null) _tooltip.Hide();
 
         if (_introSequence == null || !_introSequence.isActiveAndEnabled)
         {
@@ -269,7 +288,12 @@ public class WorkbenchUI : OpenableUIBase<WorkbenchData>
     private ItemSlotUI GetOrCreateSlot(int index)
     {
         while (_slots.Count <= index)
-            _slots.Add(Instantiate(_slotPrefab, _slotsContent));
+        {
+            var slot = Instantiate(_slotPrefab, _slotsContent);
+            slot.OnHoverEnter += HandleSlotHoverEnter;
+            slot.OnHoverExit += HandleSlotHoverExit;
+            _slots.Add(slot);
+        }
 
         _slots[index].gameObject.SetActive(true);
         return _slots[index];
