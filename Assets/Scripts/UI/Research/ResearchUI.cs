@@ -8,7 +8,6 @@ using UnityEngine.UI;
 public class ResearchUI : OpenableUIBase<ResearchListData>
 {
     [Header("헤더")]
-    [SerializeField] private TextMeshProUGUI _titleText;
     [SerializeField] private TextMeshProUGUI _subtitleText;
     [SerializeField] private Button _closeButton;
 
@@ -74,9 +73,6 @@ public class ResearchUI : OpenableUIBase<ResearchListData>
     {
         _researchDataList = data.ResearchDataList;
         _inventory = data.Inventory;
-
-        if (!string.IsNullOrEmpty(data.Title))
-            _titleText.text = data.Title;
 
         Refresh();
     }

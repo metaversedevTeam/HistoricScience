@@ -11,10 +11,10 @@ public class MainMenuSceneManager : MonoBehaviour
     [SerializeField] private MenuWipeTransition _transition;
 
     // 맵 선택 화면으로 넘어갈 때 전환 사각형에 띄울 글자
-    [SerializeField] private string _mapSelectCaption = "SELECT MAP";
+    [SerializeField] private string _mapSelectCaption = "맵 선택";
 
     // 메인 메뉴로 돌아갈 때 전환 사각형에 띄울 글자
-    [SerializeField] private string _mainMenuCaption = "MAIN MENU";
+    [SerializeField] private string _mainMenuCaption = "메인 메뉴";
 
     private void Awake()
     {
