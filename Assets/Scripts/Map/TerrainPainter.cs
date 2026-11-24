@@ -5,6 +5,11 @@ namespace HistoricScience.Test
     // 터레인에 TerrainData가 없으면 인메모리로 새로 만들어 할당하고, MapData가 계산한 보로노이 바이옴 정보를 이용해 터레인의 알파맵과 높이맵을 굽는 클래스
     public class TerrainPainter : MonoBehaviour
     {
+        // 절벽 판정에 쓰는 경사의 중앙 차분 간격(높이 격자 칸). 좁게 잡아 능선의 잔 바위까지 드러낸다.
+        private const int k_CliffSlopeStencil = 1;
+        // 눈 판정에 쓰는 경사의 중앙 차분 간격(높이 격자 칸). 넓게 잡아 잔 요철의 평평한 점마다 눈이 얼룩지는 것을 막는다.
+        private const int k_SnowSlopeStencil = ChunkHeightGrid.MaxSlopeStencil;
+
         [Header("Terrain Settings")]
         // 칠할 대상 터레인
         [SerializeField] private Terrain m_Terrain;
@@ -92,7 +97,7 @@ namespace HistoricScience.Test
         }
 
         // 주입받은 맵 데이터를 보관하고 백그라운드 계산에 필요한 데이터를 모아 반환한다. Unity API를 사용하므로 반드시 메인 스레드에서 호출해야 한다.
-        public (MapData MapData, MapBiome[] Biomes, TerrainLayer[] Layers, int AlphamapWidth, int AlphamapHeight, int HeightmapResolution, ChunkGrassLayout GrassLayout, int DetailResolution)? PrepareForPaint(MapData mapData)
+        public (MapData MapData, MapBiome[] Biomes, TerrainLayer[] Layers, int CliffLayerIndex, int SnowLayerIndex, int AlphamapWidth, int AlphamapHeight, int HeightmapResolution, ChunkGrassLayout GrassLayout, int DetailResolution)? PrepareForPaint(MapData mapData)
         {
             if (mapData == null)
             {
@@ -112,8 +117,9 @@ namespace HistoricScience.Test
             HandleAssignTerrainData(mapData.TerrainConfig);
 
             // 알파맵 레이어 순서는 맵이 바이옴을 판정할 때 쓴 목록 순서와 반드시 같아야 하므로, 목록도 맵에서 그대로 받아 온다.
+            // 경사·고도 레이어(절벽·눈)는 바이옴 레이어 뒤에 덧붙여, 바이옴 인덱스 = 레이어 인덱스 관계를 깨지 않는다.
             MapBiome[] biomes = mapData.CopyBiomes();
-            TerrainLayer[] layers = HandleCollectTerrainLayers(biomes);
+            TerrainLayer[] layers = HandleCollectTerrainLayers(biomes, mapData.TerrainConfig.SurfaceOverlay, out int cliffLayerIndex, out int snowLayerIndex);
 
             TerrainData terrainData = m_Terrain.terrainData;
             terrainData.terrainLayers = layers;
@@ -122,12 +128,12 @@ namespace HistoricScience.Test
             ChunkGrassLayout grassLayout = ChunkGrassLayout.Create(biomes);
             HandleApplyGrassDetailSettings(terrainData, grassLayout, mapData.TerrainConfig);
 
-            return (mapData, biomes, layers, terrainData.alphamapWidth, terrainData.alphamapHeight, terrainData.heightmapResolution, grassLayout, terrainData.detailResolution);
+            return (mapData, biomes, layers, cliffLayerIndex, snowLayerIndex, terrainData.alphamapWidth, terrainData.alphamapHeight, terrainData.heightmapResolution, grassLayout, terrainData.detailResolution);
         }
 
         // 준비된 데이터로 알파맵과 높이맵을 계산한다. Terrain을 직접 건드리지 않는 순수 계산이라 백그라운드 스레드에서 호출해도 안전하다.
         // 굽는 동안 조회할 보로노이 정점을 먼저 한 번에 계산해 두고 모든 조회에 넘기므로, 같은 정점을 텍셀마다 다시 만들지 않는다.
-        public (float[,,] Alphamap, float[,] Heightmap, int[][,] GrassLayers, ChunkRegionField RegionField) ComputePaint((MapData MapData, MapBiome[] Biomes, TerrainLayer[] Layers, int AlphamapWidth, int AlphamapHeight, int HeightmapResolution, ChunkGrassLayout GrassLayout, int DetailResolution) context)
+        public (float[,,] Alphamap, float[,] Heightmap, int[][,] GrassLayers, ChunkRegionField RegionField) ComputePaint((MapData MapData, MapBiome[] Biomes, TerrainLayer[] Layers, int CliffLayerIndex, int SnowLayerIndex, int AlphamapWidth, int AlphamapHeight, int HeightmapResolution, ChunkGrassLayout GrassLayout, int DetailResolution) context)
         {
             // 블러가 터레인 밖(이웃 청크가 칠할 영역)까지 참고할 수 있도록 반경만큼 여백을 두고 계산한 뒤, 블러가 끝나면 여백을 잘라낸다.
             // 여백이 없으면 가장자리 셀이 자기 청크 안쪽 값만 평균내어, 이웃 청크와 그라데이션이 어긋난 이음매가 생긴다.
@@ -139,7 +145,12 @@ namespace HistoricScience.Test
             paddedAlphamap = HandleSmoothAlphamap(paddedAlphamap, m_BlendRadius);
             float[,,] alphamap = HandleCropAlphamapPadding(paddedAlphamap, context.AlphamapWidth, context.AlphamapHeight, padding);
 
-            float[,] heightmap = HandleBuildHeightmap(context.HeightmapResolution, context.MapData, regionField);
+            // 높이맵과 경사 판정이 같은 높이 격자점을 쓰도록 한 번만 계산해 둔다.
+            ChunkHeightGrid heightGrid = HandleCreateHeightGrid(context.MapData, regionField);
+            float[,] heightmap = HandleBuildHeightmap(context.HeightmapResolution, context.MapData, heightGrid);
+
+            // 절벽·눈은 경계를 스스로 부드럽게 섞으므로 블러를 거치지 않고, 잘라낸 최종 알파맵에 바로 덮는다.
+            HandleApplySurfaceOverlay(alphamap, context.Biomes.Length, context.CliffLayerIndex, context.SnowLayerIndex, context.MapData.TerrainConfig.SurfaceOverlay, heightGrid);
 
             // 풀 밀도는 블러된 알파맵과 완성된 높이맵을 그대로 읽어, 바이옴 경계의 그라데이션과 지형 표면 높이를 따로 계산하지 않는다.
             int[][,] grassLayers = GrassDensityBuilder.Build(context.GrassLayout, alphamap, heightmap, context.DetailResolution, m_MapViewOrigin, m_MapViewSize, context.MapData.TerrainConfig, context.MapData.Seed);
@@ -152,7 +163,8 @@ namespace HistoricScience.Test
         private ChunkRegionField HandleCreateRegionField(MapData mapData, int alphamapWidth, int padding)
         {
             float alphamapSlack = padding / (float)Mathf.Max(alphamapWidth - 1, 1) * m_MapViewSize;
-            float heightGridSlack = mapData.HeightSampleSpacing;
+            // 높이 격자는 경사(중앙 차분)를 구하려고 출력 영역 밖으로 여백만큼 더 읽는다.
+            float heightGridSlack = mapData.HeightSampleSpacing * (ChunkHeightGrid.Padding + 1);
             float slack = alphamapSlack + heightGridSlack;
 
             Rect area = new Rect(
@@ -242,15 +254,84 @@ namespace HistoricScience.Test
             }
         }
 
-        // 바이옴 목록에서 터레인 레이어만 순서대로 추출한다.
-        private TerrainLayer[] HandleCollectTerrainLayers(MapBiome[] biomes)
+        // 바이옴 목록에서 터레인 레이어를 순서대로 추출하고, 지정된 절벽·눈 레이어를 그 뒤에 덧붙인다. 지정되지 않은 레이어의 인덱스는 -1이다.
+        private TerrainLayer[] HandleCollectTerrainLayers(MapBiome[] biomes, MapSurfaceOverlayConfig overlay, out int cliffLayerIndex, out int snowLayerIndex)
         {
-            TerrainLayer[] layers = new TerrainLayer[biomes.Length];
+            int layerCount = biomes.Length;
+            cliffLayerIndex = overlay.CliffLayer != null ? layerCount++ : -1;
+            snowLayerIndex = overlay.SnowLayer != null ? layerCount++ : -1;
+
+            TerrainLayer[] layers = new TerrainLayer[layerCount];
             for (int i = 0; i < biomes.Length; i++)
             {
                 layers[i] = biomes[i].TerrainLayer;
             }
+
+            if (cliffLayerIndex >= 0)
+                layers[cliffLayerIndex] = overlay.CliffLayer;
+            if (snowLayerIndex >= 0)
+                layers[snowLayerIndex] = overlay.SnowLayer;
+
             return layers;
+        }
+
+        // 이 청크의 출력 영역을 덮는 높이 격자를 만든다. 청크 좌표로 배치된 청크는 높이맵 정점과 같은 격자점 범위를 쓴다.
+        private ChunkHeightGrid HandleCreateHeightGrid(MapData mapData, ChunkRegionField regionField)
+        {
+            Vector2 mapMax = m_MapViewOrigin + Vector2.one * m_MapViewSize;
+            Vector2Int min;
+            Vector2Int max;
+
+            if (m_ChunkCoordinate.HasValue)
+            {
+                // 정수 격자 좌표로 직접 계산해, 맵 좌표 나눗셈의 부동소수 오차로 범위가 한 칸 어긋나는 일을 막는다.
+                int cellsPerChunk = mapData.TerrainConfig.HeightCellsPerChunk;
+                min = m_ChunkCoordinate.Value * cellsPerChunk;
+                max = min + Vector2Int.one * cellsPerChunk;
+            }
+            else
+            {
+                ChunkHeightGrid.GetGridBounds(m_MapViewOrigin, mapMax, mapData.HeightSampleSpacing, out min, out max);
+            }
+
+            return new ChunkHeightGrid(mapData, regionField, min, max);
+        }
+
+        // 알파맵 셀마다 경사와 높이를 보고 절벽·눈 레이어의 비율을 덮고, 남은 비율만큼 바이옴 레이어를 줄인다.
+        // 바이옴 레이어 가중치가 함께 줄어들어, 알파맵을 읽는 풀 밀도도 바위·눈 위에서는 자연스럽게 줄어든다.
+        private void HandleApplySurfaceOverlay(float[,,] alphamap, int biomeLayerCount, int cliffLayerIndex, int snowLayerIndex, MapSurfaceOverlayConfig overlay, ChunkHeightGrid heightGrid)
+        {
+            bool hasCliff = cliffLayerIndex >= 0;
+            bool hasSnow = snowLayerIndex >= 0;
+            if (!hasCliff && !hasSnow)
+                return;
+
+            int height = alphamap.GetLength(0);
+            int width = alphamap.GetLength(1);
+
+            for (int z = 0; z < height; z++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    Vector2 mapPosition = HandleTerrainToMapPosition(new Vector2(
+                        HandleAlphamapCellToNormalized(x, width),
+                        HandleAlphamapCellToNormalized(z, height)));
+
+                    float cliffSlope = hasCliff ? heightGrid.SampleSlopeDegrees(mapPosition, k_CliffSlopeStencil) : 0f;
+                    float snowSlope = hasSnow ? heightGrid.SampleSlopeDegrees(mapPosition, k_SnowSlopeStencil) : 0f;
+                    float surfaceHeight = heightGrid.SampleHeight(mapPosition);
+                    overlay.Evaluate(mapPosition, cliffSlope, snowSlope, surfaceHeight, hasCliff, hasSnow, out float cliff, out float snow);
+
+                    float remaining = 1f - cliff - snow;
+                    for (int l = 0; l < biomeLayerCount; l++)
+                        alphamap[z, x, l] *= remaining;
+
+                    if (hasCliff)
+                        alphamap[z, x, cliffLayerIndex] = cliff;
+                    if (hasSnow)
+                        alphamap[z, x, snowLayerIndex] = snow;
+                }
+            }
         }
 
         // 각 알파맵 셀의 정규화 좌표에 대해 MapData가 반환하는 바이옴에 해당하는 터레인 레이어로 100% 칠한 알파맵을,
@@ -317,7 +398,7 @@ namespace HistoricScience.Test
 
         // 각 높이맵 셀의 높이(m)를 MapData에서 받아와, 터레인이 쓰는 최대 높이 대비 비율(0~1)의 높이맵을 만든다. 높이 계산 로직은 MapData가 담당한다.
         // 청크 좌표로 배치된 청크는 높이맵 정점이 높이 격자점과 1:1로 겹치므로 격자점을 그대로 읽고, 그 밖의 경우(에디터에서 원점을 직접 지정 등)는 격자를 보간한다.
-        private float[,] HandleBuildHeightmap(int resolution, MapData mapData, ChunkRegionField regionField)
+        private float[,] HandleBuildHeightmap(int resolution, MapData mapData, ChunkHeightGrid heightGrid)
         {
             float[,] heightmap = new float[resolution, resolution];
             // 터레인은 맵 설정의 최대 높이로 만들어지므로(HandleAssignTerrainData), 같은 값으로 나눠 미터를 높이맵 비율로 바꾼다.
@@ -325,15 +406,15 @@ namespace HistoricScience.Test
 
             bool isGridAligned = m_ChunkCoordinate.HasValue && resolution == mapData.TerrainConfig.HeightmapResolution;
             if (isGridAligned)
-                HandleFillGridAlignedHeightmap(heightmap, resolution, mapData, regionField, inverseMaxHeight);
+                HandleFillGridAlignedHeightmap(heightmap, resolution, mapData, heightGrid, inverseMaxHeight);
             else
-                HandleFillInterpolatedHeightmap(heightmap, resolution, mapData, regionField, inverseMaxHeight);
+                HandleFillInterpolatedHeightmap(heightmap, resolution, heightGrid, inverseMaxHeight);
 
             return heightmap;
         }
 
         // 청크 원점의 격자 좌표부터 높이맵 정점마다 대응하는 격자점 높이를 그대로 채운다. 경계 정점은 이웃 청크와 같은 격자점을 읽어 높이가 정확히 일치한다.
-        private void HandleFillGridAlignedHeightmap(float[,] heightmap, int resolution, MapData mapData, ChunkRegionField regionField, float inverseMaxHeight)
+        private void HandleFillGridAlignedHeightmap(float[,] heightmap, int resolution, MapData mapData, ChunkHeightGrid heightGrid, float inverseMaxHeight)
         {
             int cellsPerChunk = mapData.TerrainConfig.HeightCellsPerChunk;
             int gridOriginX = m_ChunkCoordinate.Value.x * cellsPerChunk;
@@ -343,13 +424,13 @@ namespace HistoricScience.Test
             {
                 for (int x = 0; x < resolution; x++)
                 {
-                    heightmap[z, x] = mapData.GetHeight(new Vector2Int(gridOriginX + x, gridOriginZ + z), regionField) * inverseMaxHeight;
+                    heightmap[z, x] = heightGrid.GetGridHeight(gridOriginX + x, gridOriginZ + z) * inverseMaxHeight;
                 }
             }
         }
 
-        // 높이맵 정점의 맵 좌표에서 격자를 이중선형 보간한 표면 높이를 채운다. 정점과 격자가 어긋나는 경우에만 쓰는 느린 경로다.
-        private void HandleFillInterpolatedHeightmap(float[,] heightmap, int resolution, MapData mapData, ChunkRegionField regionField, float inverseMaxHeight)
+        // 높이맵 정점의 맵 좌표에서 격자를 이중선형 보간한 표면 높이를 채운다. 정점과 격자가 어긋나는 경우(에디터에서 원점을 직접 지정 등)에만 쓴다.
+        private void HandleFillInterpolatedHeightmap(float[,] heightmap, int resolution, ChunkHeightGrid heightGrid, float inverseMaxHeight)
         {
             for (int z = 0; z < resolution; z++)
             {
@@ -357,7 +438,7 @@ namespace HistoricScience.Test
                 {
                     // 높이맵은 양 끝 셀이 터레인 가장자리에 정확히 걸치므로 resolution-1로 나눈다.
                     Vector2 mapPosition = HandleTerrainToMapPosition(new Vector2((float)x / (resolution - 1), (float)z / (resolution - 1)));
-                    heightmap[z, x] = mapData.GetSurfaceHeight(mapPosition, regionField) * inverseMaxHeight;
+                    heightmap[z, x] = heightGrid.SampleHeight(mapPosition) * inverseMaxHeight;
                 }
             }
         }

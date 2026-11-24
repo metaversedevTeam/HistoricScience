@@ -11,6 +11,8 @@ public readonly struct MapInlandConfig
     public readonly float SeaThreshold;
     // 산 바이옴의 높이에 더할 값의 배율(m). 산 바이옴의 높이에 높이 커브(내륙 노이즈) × 이 값이 더해진다.
     public readonly float MountainHeightScale;
+    // 산 높이에 능선·봉우리 모양을 입히는 능선 노이즈 설정
+    public readonly MountainShapeConfig MountainShape;
     // 높이 커브를 0~1 구간에서 균등 간격으로 미리 샘플링한 값. AnimationCurve는 백그라운드 스레드에서 안전하게 읽을 수 없어 배열로 들고 다닌다.
     // 이 구조체 밖으로 내보내지 않고 읽기만 하므로 불변으로 취급한다. null이면 커브 없이 내륙 노이즈를 그대로 쓴다.
     private readonly float[] m_HeightCurveSamples;
@@ -20,13 +22,14 @@ public readonly struct MapInlandConfig
     // EvaluateHeightCurve가 0~1 입력에서 낼 수 있는 최댓값을 반환한다.
     public float MaxHeightCurveValue => m_MaxHeightCurveValue;
 
-    // 내륙 노이즈 규칙 값과 미리 샘플링한 높이 커브로 설정을 만든다.
-    public MapInlandConfig(float elevationBias, float mountainThreshold, float seaThreshold, float mountainHeightScale, float[] heightCurveSamples)
+    // 내륙 노이즈 규칙 값과 미리 샘플링한 높이 커브, 산 형태 설정으로 설정을 만든다.
+    public MapInlandConfig(float elevationBias, float mountainThreshold, float seaThreshold, float mountainHeightScale, float[] heightCurveSamples, MountainShapeConfig mountainShape)
     {
         ElevationBias = elevationBias;
         MountainThreshold = mountainThreshold;
         SeaThreshold = seaThreshold;
         MountainHeightScale = mountainHeightScale;
+        MountainShape = mountainShape;
         // 호출부가 넘긴 배열을 나중에 바꾸더라도 백그라운드 계산 중인 값이 변하지 않도록 방어적으로 복사해 둔다.
         m_HeightCurveSamples = heightCurveSamples != null ? (float[])heightCurveSamples.Clone() : null;
         m_MaxHeightCurveValue = HandleGetMaxSample(heightCurveSamples);
