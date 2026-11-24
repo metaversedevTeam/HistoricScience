@@ -3,8 +3,8 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-// 치트 관리 목록에 놓이는 슬라이더 한 줄. 이동속도 배율처럼 범위 안에서 값을 고르는 치트에 쓴다.
-// 값은 지정한 간격으로 맞춰지고, 오른쪽에 "x2.5" 형태로 현재 배율을 보여 준다.
+// 치트 관리 목록에 놓이는 슬라이더 한 줄. 이동속도 배율·Y오프셋처럼 범위 안에서 값을 고르는 치트에 쓴다.
+// 값은 지정한 간격으로 맞춰지고, 오른쪽에 치트마다 정한 형태("x2.5", "+120m" 등)로 현재 값을 보여 준다.
 public class CheatSliderRowUI : MonoBehaviour
 {
     [Header("구성")]
@@ -16,7 +16,10 @@ public class CheatSliderRowUI : MonoBehaviour
     [SerializeField] private TextMeshProUGUI _valueText;
 
     // 슬라이더 값을 맞출 간격. 0 이하면 맞추지 않는다.
-    [SerializeField, Min(0f)] private float _step = 0.5f;
+    private float _step;
+
+    // 현재 값을 오른쪽 표시 문구로 바꾸는 함수
+    private Func<float, string> _formatValue;
 
     // 값이 바뀌었을 때 호출할 콜백. 값을 실제로 적용하는 일은 치트 관리 UI가 한다.
     private Action<float> _onValueChanged;
@@ -26,13 +29,16 @@ public class CheatSliderRowUI : MonoBehaviour
         _slider.onValueChanged.AddListener(HandleSliderValueChanged);
     }
 
-    // 줄에 표시할 문구, 값 범위, 값이 바뀌었을 때 호출할 콜백을 지정한다.
-    public void Setup(string title, string description, float min, float max, Action<float> onValueChanged)
+    // 줄에 표시할 문구, 값 범위와 간격, 값 표시 방식, 값이 바뀌었을 때 호출할 콜백을 지정한다.
+    public void Setup(string title, string description, float min, float max, float step,
+        Func<float, string> formatValue, Action<float> onValueChanged)
     {
         _titleText.text = title;
         _descriptionText.text = description;
         _slider.minValue = min;
         _slider.maxValue = max;
+        _step = step;
+        _formatValue = formatValue;
         _onValueChanged = onValueChanged;
     }
 
@@ -63,9 +69,9 @@ public class CheatSliderRowUI : MonoBehaviour
         return Mathf.Clamp(_slider.minValue + steps * _step, _slider.minValue, _slider.maxValue);
     }
 
-    // 배율 표시 문구를 갱신한다.
+    // 값 표시 문구를 갱신한다. 표시 방식을 받지 않았으면 숫자만 보여 준다.
     private void UpdateValueText(float value)
     {
-        _valueText.text = $"x{value:0.#}";
+        _valueText.text = _formatValue != null ? _formatValue(value) : value.ToString("0.#");
     }
 }

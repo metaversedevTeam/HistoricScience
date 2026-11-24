@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 // 치트 관리 화면(Figma의 cheat-management-ui). 자원 무한처럼 언제든 껐다 켤 수 있는 치트와
-// 모든 아이템·연구 해금처럼 되돌릴 수 없는 일회성 치트, 그리고 슬라이더로 고르는 이동속도 배율을 한 목록에서 다룬다.
+// 모든 아이템·연구 해금처럼 되돌릴 수 없는 일회성 치트, 그리고 슬라이더로 고르는 이동속도 배율·Y오프셋을 한 목록에서 다룬다.
 // 일회성 치트는 실행하고 나면 스위치가 켜진 채로 잠겨 다시 눌리지 않으며,
 // 잠금 여부는 UI가 따로 기억하지 않고 도감·연구 상태에서 그때그때 다시 읽는다. (창을 다시 열거나 저장을 불러와도 그대로 유지된다)
 public class CheatManagementUI : OpenableUIBase<CheatMenuData>
@@ -22,10 +22,23 @@ public class CheatManagementUI : OpenableUIBase<CheatMenuData>
     [SerializeField] private string _moveSpeedTitle = "이동속도 배율 (Move Speed)";
     [SerializeField, TextArea(1, 3)] private string _moveSpeedDescription = "모든 시민의 이동속도를 1배에서 10배까지 높입니다.";
 
+    [Header("Y오프셋")]
+    [SerializeField] private string _heightOffsetTitle = "Y오프셋 (Height Offset)";
+    [SerializeField, TextArea(1, 3)] private string _heightOffsetDescription = "시민을 땅보다 0~500m 위에 띄웁니다. 500이면 높이 Y500에 고정됩니다.";
+
+    // 이동속도 배율 슬라이더 값의 간격
+    private const float k_MoveSpeedStep = 0.5f;
+
+    // Y오프셋 슬라이더 값의 간격(m)
+    private const float k_HeightOffsetStep = 1f;
+
     private ResourceInventory _inventory;
 
     // 스위치 줄들 아래에 만들어 두는 이동속도 배율 슬라이더 줄
     private CheatSliderRowUI _moveSpeedRow;
+
+    // 이동속도 배율 줄 아래에 만들어 두는 Y오프셋 슬라이더 줄
+    private CheatSliderRowUI _heightOffsetRow;
     private ItemCodex _codex;
     private ResearchManager _research;
 
@@ -56,25 +69,41 @@ public class CheatManagementUI : OpenableUIBase<CheatMenuData>
             _rows.Add(row);
         }
 
-        BuildMoveSpeedRow();
+        BuildSliderRows();
     }
 
-    // 스위치 줄들 아래에 이동속도 배율 슬라이더 줄을 만든다.
-    private void BuildMoveSpeedRow()
+    // 스위치 줄들 아래에 이동속도 배율과 Y오프셋 슬라이더 줄을 차례로 만든다.
+    private void BuildSliderRows()
     {
         if (_sliderRowPrefab == null)
         {
-            Debug.LogWarning($"CheatManagementUI({name}): 슬라이더 줄 프리팹이 없어 이동속도 배율 치트를 표시하지 않습니다.", this);
+            Debug.LogWarning($"CheatManagementUI({name}): 슬라이더 줄 프리팹이 없어 슬라이더 치트를 표시하지 않습니다.", this);
             return;
         }
 
         _moveSpeedRow = Instantiate(_sliderRowPrefab, _rowContainer);
         _moveSpeedRow.Setup(_moveSpeedTitle, _moveSpeedDescription,
-            MoveSpeedCheat.MinMultiplier, MoveSpeedCheat.MaxMultiplier, HandleMoveSpeedChanged);
+            MoveSpeedCheat.MinMultiplier, MoveSpeedCheat.MaxMultiplier, k_MoveSpeedStep,
+            FormatMoveSpeed, HandleMoveSpeedChanged);
+
+        _heightOffsetRow = Instantiate(_sliderRowPrefab, _rowContainer);
+        _heightOffsetRow.Setup(_heightOffsetTitle, _heightOffsetDescription,
+            HeightOffsetCheat.MinOffset, HeightOffsetCheat.MaxOffset, k_HeightOffsetStep,
+            FormatHeightOffset, HandleHeightOffsetChanged);
     }
+
+    // 이동속도 배율을 "x2.5" 형태로 표시한다.
+    private static string FormatMoveSpeed(float multiplier) => $"x{multiplier:0.#}";
+
+    // Y오프셋을 "+120m" 형태로, 최댓값이면 고정 높이 "Y500"으로 표시한다.
+    private static string FormatHeightOffset(float offset) =>
+        offset >= HeightOffsetCheat.MaxOffset ? $"Y{HeightOffsetCheat.MaxOffset:0}" : $"+{offset:0}m";
 
     // 슬라이더로 고른 배율을 이동속도 치트에 적용한다.
     private void HandleMoveSpeedChanged(float multiplier) => MoveSpeedCheat.Multiplier = multiplier;
+
+    // 슬라이더로 고른 높이를 Y오프셋 치트에 적용한다.
+    private void HandleHeightOffsetChanged(float offset) => HeightOffsetCheat.Offset = offset;
 
     // 치트를 적용할 대상을 주입받고 목록의 현재 상태를 반영한다.
     protected override void ApplyData(CheatMenuData data)
@@ -99,6 +128,9 @@ public class CheatManagementUI : OpenableUIBase<CheatMenuData>
 
         if (_moveSpeedRow != null)
             _moveSpeedRow.SetValue(MoveSpeedCheat.Multiplier);
+
+        if (_heightOffsetRow != null)
+            _heightOffsetRow.SetValue(HeightOffsetCheat.Offset);
     }
 
     // 해당 치트가 이미 적용된 상태인지 반환한다. 일회성 치트는 전부 해금된 상태를 켜짐으로 본다.

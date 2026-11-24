@@ -104,6 +104,10 @@ public class GroundMover : MonoBehaviour, IMover
     private float   _baseSpeed;
     // 치트 배율을 곱하기 전의 기본 가속도. 빨라진 속도에 금방 도달하도록 치트 배율만큼 함께 키운다.
     private float   _baseAcceleration;
+    // 프리팹에 설정된 에이전트의 기본 높이 오프셋. Y오프셋 치트는 이 값에 더해진다.
+    private float   _defaultBaseOffset;
+    // Y오프셋 치트로 지금 기본 높이 오프셋에 더해 둔 높이(m). 발밑 위치를 구할 때 transform 높이에서 뺀다.
+    private float   _heightOffset;
     // 재생 중인 걷는 소리를 가리키는 손잡이. 발소리를 내고 있지 않으면 null이다.
     private AudioManager.LoopSfxHandle _walkSfxHandle;
     // 기본 재생 속도에 곱해 쓰는 배율. 밖에서 SetWalkSfxPitchScale로 바꾼다.
@@ -128,6 +132,7 @@ public class GroundMover : MonoBehaviour, IMover
         _selfHitable = GetComponent<HitableObject>();
         _baseSpeed   = _agent.speed;
         _baseAcceleration = _agent.acceleration;
+        _defaultBaseOffset = _agent.baseOffset;
         _defaultUpdateRotation = _agent.updateRotation;
 
         HandleResolveGroundLayer();
@@ -216,7 +221,36 @@ public class GroundMover : MonoBehaviour, IMover
     {
         if (_isDirectMoving && _lastDirectMoveFrame != Time.frameCount)
             EndDirectMove(true);
+
+        HandleHeightOffset();
     }
+
+    // Y오프셋 치트 값을 에이전트 높이 오프셋에 반영한다. 최댓값이면 내브메시 위 발밑 높이와 상관없이 월드 Y가 최댓값이 되도록 매 프레임 다시 계산한다.
+    private void HandleHeightOffset()
+    {
+        float offset;
+        if (HeightOffsetCheat.IsPinnedToMax)
+        {
+            // 내브메시 밖이면 발밑 높이를 알 수 없으므로 마지막 오프셋을 그대로 둔다.
+            if (!_agent.isOnNavMesh) return;
+
+            // 에이전트 위치(nextPosition)에는 이미 적용한 오프셋이 섞여 있어, 그 값으로 계산하면 다음 프레임에 오프셋이
+            // 두 값 사이를 번갈아 오가며 위아래로 깜빡인다. 그래서 transform 높이에서 지금 더해 둔 오프셋을 뺀 발밑 높이를 기준으로 삼는다.
+            offset = HeightOffsetCheat.MaxOffset - GroundPosition.y;
+        }
+        else
+        {
+            offset = HeightOffsetCheat.Offset;
+        }
+
+        if (Mathf.Approximately(offset, _heightOffset)) return;
+
+        _heightOffset      = offset;
+        _agent.baseOffset  = _defaultBaseOffset + offset;
+    }
+
+    // Y오프셋 치트로 떠 있는 높이를 뺀 발밑 위치. 내브메시와 지면 질의는 떠 있는 transform 위치 대신 이 위치를 기준으로 한다.
+    private Vector3 GroundPosition => transform.position - Vector3.up * _heightOffset;
 
     // 이번 프레임 동안 월드 XZ 방향으로 직접 걷는다. 걸을 수 없는 지형 쪽은 막힌 축을 빼고 미끄러지듯 걷고, 내브메시 밖으로는 에이전트가 나가지 않는다.
     public void MoveInDirection(Vector2 direction, bool isRunning = false)
@@ -311,7 +345,7 @@ public class GroundMover : MonoBehaviour, IMover
         if (delta.sqrMagnitude <= 0f)
             return false;
 
-        Vector3 probe = transform.position + delta + delta.normalized * _agent.radius;
+        Vector3 probe = GroundPosition + delta + delta.normalized * _agent.radius;
         return IsWalkableWorldPosition(probe);
     }
 
@@ -523,7 +557,7 @@ public class GroundMover : MonoBehaviour, IMover
         if (_agent.isOnNavMesh){
             return true;}
 
-        if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, k_NavMeshWarpSearchRadius, NavMesh.AllAreas))
+        if (NavMesh.SamplePosition(GroundPosition, out NavMeshHit hit, k_NavMeshWarpSearchRadius, NavMesh.AllAreas))
         {
             _agent.Warp(hit.position);
             return true;
@@ -557,7 +591,7 @@ public class GroundMover : MonoBehaviour, IMover
 
         // Raycast는 선이 내브메시 가장자리에서 끊기면 그 지점을, 끝까지 이어지면 매핑된 도착점을 hit에 채운다.
         // 어느 쪽이든 위치가 유한하면 그대로 쓸 수 있고, 무한대면 투영 자체가 실패한 것이다.
-        NavMesh.Raycast(transform.position, desired, out NavMeshHit rayHit, NavMesh.AllAreas);
+        NavMesh.Raycast(GroundPosition, desired, out NavMeshHit rayHit, NavMesh.AllAreas);
         if (!float.IsInfinity(rayHit.position.x))
         {
             resolved = rayHit.position;
@@ -708,12 +742,13 @@ public class GroundMover : MonoBehaviour, IMover
     // 지면을 찾지 못하면 자신의 현재 높이를 쓴다. 자신은 지면 위에 서 있으므로 0보다 실제 지면에 가깝다.
     private float GetGroundHeight(Vector2 targetPos)
     {
-        Vector3 origin = new Vector3(targetPos.x, transform.position.y + k_GroundRaycastUpDistance, targetPos.y);
+        float groundY = GroundPosition.y;
+        Vector3 origin = new Vector3(targetPos.x, groundY + k_GroundRaycastUpDistance, targetPos.y);
 
         if (Physics.Raycast(origin, Vector3.down, out RaycastHit hit, k_GroundRaycastLength, _groundLayer))
             return hit.point.y;
 
-        return transform.position.y;
+        return groundY;
     }
 
     // 지정 위치로 이동; 위치가 내브메시 밖이면 갈 수 있는 가장 가까운 지점까지 이동하고, 이동 자체가 불가능하면 false 반환
