@@ -1,6 +1,7 @@
+using System;
 using UnityEngine;
 
-// 플레이어가 설정 화면에서 바꾸는 값(카메라 수평 감도, 청크 로딩·유지 범위)을 PlayerPrefs에 보관하고 읽어 주는 정적 저장소.
+// 플레이어가 설정 화면에서 바꾸는 값(카메라 수평 감도, 청크 로딩·유지 범위, 흑백 강조 사용 여부)을 PlayerPrefs에 보관하고 읽어 주는 정적 저장소.
 // 메인 메뉴와 인게임이 같은 값을 공유하며, 게임을 다시 켜도 유지된다.
 public static class GameSettings
 {
@@ -49,6 +50,15 @@ public static class GameSettings
     // 청크 유지 범위를 저장하는 PlayerPrefs 키
     private const string k_ChunkKeepRadiusKey = "Settings.ChunkKeepRadius";
 
+    // 흑백 강조의 기본 사용 여부
+    public const bool DefaultMonochromeFocusEnabled = true;
+
+    // 흑백 강조 사용 여부를 저장하는 PlayerPrefs 키
+    private const string k_MonochromeFocusEnabledKey = "Settings.MonochromeFocusEnabled";
+
+    // 흑백 강조 사용 여부가 바뀌면 새 값과 함께 알린다. 흑백 강조 중인 화면을 바로 컬러로 되돌릴 때 쓴다.
+    public static event Action<bool> MonochromeFocusEnabledChanged;
+
     // 설정 화면에 보이는 수평 감도(0.2~2.0)
     public static float HorizontalLookSensitivity
     {
@@ -89,6 +99,20 @@ public static class GameSettings
 
             if (ChunkLoadRadius > keep - MinChunkKeepMargin)
                 PlayerPrefs.SetInt(k_ChunkLoadRadiusKey, keep - MinChunkKeepMargin);
+        }
+    }
+
+    // 명령 목록이 뜰 때 대상과 시민만 남기고 화면을 흑백으로 바꾸는 흑백 강조를 쓸지 여부
+    public static bool MonochromeFocusEnabled
+    {
+        get => PlayerPrefs.GetInt(k_MonochromeFocusEnabledKey, DefaultMonochromeFocusEnabled ? 1 : 0) != 0;
+        set
+        {
+            if (MonochromeFocusEnabled == value)
+                return;
+
+            PlayerPrefs.SetInt(k_MonochromeFocusEnabledKey, value ? 1 : 0);
+            MonochromeFocusEnabledChanged?.Invoke(value);
         }
     }
 

@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 // 설정 화면. 메인 메뉴와 일시정지 화면의 OPTION 버튼이 UIManager로 여는 공용 창이며,
-// 카메라 수평 감도와 청크 로딩·유지 범위를 슬라이더로 바꿔 GameSettings에 바로 반영한다. (수직 감도는 수평의 절반으로 자동으로 맞춰진다)
+// 카메라 수평 감도와 청크 로딩·유지 범위를 슬라이더로, 흑백 강조 사용 여부를 스위치로 바꿔 GameSettings에 바로 반영한다. (수직 감도는 수평의 절반으로 자동으로 맞춰진다)
 // 일시정지 중(Time.timeScale = 0)에도 열리므로 페이드 연출은 실제 경과 시간으로 돈다.
 public class SettingsUI : OpenableUIBase
 {
@@ -16,6 +16,19 @@ public class SettingsUI : OpenableUIBase
     [SerializeField] private TMP_Text _chunkLoadValueText;
     [SerializeField] private Slider _chunkKeepSlider;
     [SerializeField] private TMP_Text _chunkKeepValueText;
+
+    [Header("흑백 강조")]
+    // 줄 전체를 누르면 흑백 강조를 켜고 끈다.
+    [SerializeField] private Button _monochromeFocusButton;
+    [SerializeField] private Image _monochromeFocusTrack;
+    [SerializeField] private RectTransform _monochromeFocusKnob;
+    [SerializeField] private TMP_Text _monochromeFocusValueText;
+    // 손잡이가 트랙 중앙을 기준으로 좌우 끝까지 움직이는 거리
+    [SerializeField] private float _monochromeFocusKnobTravel = 18f;
+    [SerializeField] private Color _switchOnTrackColor = new Color(0.220f, 0.741f, 0.973f, 1f);
+    [SerializeField] private Color _switchOffTrackColor = new Color(1f, 1f, 1f, 0.149f);
+    [SerializeField] private Color _switchOnTextColor = new Color(0.220f, 0.741f, 0.973f, 1f);
+    [SerializeField] private Color _switchOffTextColor = new Color(0.580f, 0.639f, 0.722f, 1f);
 
     [Header("버튼")]
     [SerializeField] private Button _resetButton;
@@ -48,6 +61,7 @@ public class SettingsUI : OpenableUIBase
         _horizontalSlider.onValueChanged.AddListener(HandleHorizontalChanged);
         _chunkLoadSlider.onValueChanged.AddListener(HandleChunkLoadChanged);
         _chunkKeepSlider.onValueChanged.AddListener(HandleChunkKeepChanged);
+        _monochromeFocusButton.onClick.AddListener(HandleMonochromeFocusClick);
         _resetButton.onClick.AddListener(HandleResetClick);
         _closeButton.onClick.AddListener(HandleCloseClick);
     }
@@ -90,7 +104,7 @@ public class SettingsUI : OpenableUIBase
         _canvasGroup.interactable = true;
     }
 
-    // 저장된 수평 감도와 청크 범위를 이벤트 없이 슬라이더와 값 표시에 반영한다.
+    // 저장된 수평 감도, 청크 범위, 흑백 강조 사용 여부를 이벤트 없이 화면에 반영한다.
     private void HandleSyncFromSettings()
     {
         float horizontal = GameSettings.HorizontalLookSensitivity;
@@ -98,6 +112,31 @@ public class SettingsUI : OpenableUIBase
         _horizontalValueText.text = FormatSensitivity(horizontal);
 
         HandleSyncChunkRadii();
+        HandleSyncMonochromeFocus();
+    }
+
+    // 흑백 강조 스위치의 트랙 색, 손잡이 위치, ON/OFF 표시를 저장된 값에 맞춘다.
+    private void HandleSyncMonochromeFocus()
+    {
+        bool isOn = GameSettings.MonochromeFocusEnabled;
+
+        _monochromeFocusTrack.color = isOn ? _switchOnTrackColor : _switchOffTrackColor;
+
+        Vector2 knobPosition = _monochromeFocusKnob.anchoredPosition;
+        knobPosition.x = isOn ? _monochromeFocusKnobTravel : -_monochromeFocusKnobTravel;
+        _monochromeFocusKnob.anchoredPosition = knobPosition;
+
+        _monochromeFocusValueText.text = isOn ? "ON" : "OFF";
+        _monochromeFocusValueText.color = isOn ? _switchOnTextColor : _switchOffTextColor;
+    }
+
+    // 흑백 강조 줄을 누르면 사용 여부를 뒤집어 저장하고 스위치 표시를 갱신한다.
+    private void HandleMonochromeFocusClick()
+    {
+        AudioManager.PlayConfirm();
+
+        GameSettings.MonochromeFocusEnabled = !GameSettings.MonochromeFocusEnabled;
+        HandleSyncMonochromeFocus();
     }
 
     // 저장된 청크 로딩·유지 범위를 이벤트 없이 두 슬라이더와 값 표시에 반영한다.
@@ -135,7 +174,7 @@ public class SettingsUI : OpenableUIBase
         _horizontalValueText.text = FormatSensitivity(snapped);
     }
 
-    // 수평 감도와 청크 범위를 기본값으로 되돌린다.
+    // 수평 감도, 청크 범위, 흑백 강조 사용 여부를 기본값으로 되돌린다.
     private void HandleResetClick()
     {
         AudioManager.PlayConfirm();
@@ -143,6 +182,7 @@ public class SettingsUI : OpenableUIBase
         GameSettings.HorizontalLookSensitivity = GameSettings.DefaultHorizontalLookSensitivity;
         GameSettings.ChunkLoadRadius = GameSettings.DefaultChunkLoadRadius;
         GameSettings.ChunkKeepRadius = GameSettings.DefaultChunkKeepRadius;
+        GameSettings.MonochromeFocusEnabled = GameSettings.DefaultMonochromeFocusEnabled;
         HandleSyncFromSettings();
     }
 

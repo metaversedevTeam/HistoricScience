@@ -2,7 +2,7 @@ using UnityEngine;
 
 // 시민의 상호작용 명령 목록이 떠 있는 동안 MonochromeController로 화면을 흑백으로 바꾸고,
 // 명령 목록이 가리키는 대상과 시민 자신에만 KeepColorTarget을 붙여 둘만 색을 유지하게 하는 컴포넌트.
-// Citizen의 OnInteractionTargetChanged 콜백을 받아 동작한다.
+// Citizen의 OnInteractionTargetChanged 콜백을 받아 동작하며, 설정에서 흑백 강조를 끄면 화면을 흑백으로 바꾸지 않는다.
 [RequireComponent(typeof(Citizen))]
 public class InteractionFocusMonochrome : MonoBehaviour
 {
@@ -39,12 +39,14 @@ public class InteractionFocusMonochrome : MonoBehaviour
     private void OnEnable()
     {
         _citizen.OnInteractionTargetChanged += HandleTargetChanged;
+        GameSettings.MonochromeFocusEnabledChanged += HandleMonochromeFocusSettingChanged;
         HandleTargetChanged(_citizen.InteractionTarget);
     }
 
     private void OnDisable()
     {
         _citizen.OnInteractionTargetChanged -= HandleTargetChanged;
+        GameSettings.MonochromeFocusEnabledChanged -= HandleMonochromeFocusSettingChanged;
 
         // 씬을 내리는 중에는 MonochromeController가 스스로 화면 색을 되돌리므로, 새로 만들어지지 않도록 부르지 않는다.
         if (gameObject.scene.isLoaded)
@@ -62,10 +64,10 @@ public class InteractionFocusMonochrome : MonoBehaviour
         HandlePendingRelease();
     }
 
-    // 대상이 생기면 그 대상과 시민만 색을 남기고 화면을 흑백으로, 대상이 사라지면 화면을 컬러로 되돌린다.
+    // 대상이 생기면 그 대상과 시민만 색을 남기고 화면을 흑백으로, 대상이 사라지거나 흑백 강조가 꺼져 있으면 화면을 컬러로 되돌린다.
     private void HandleTargetChanged(GameObject target)
     {
-        if (target == null)
+        if (target == null || !GameSettings.MonochromeFocusEnabled)
         {
             EndFocus();
             return;
@@ -79,6 +81,12 @@ public class InteractionFocusMonochrome : MonoBehaviour
 
         _isFocusing = true;
         MonochromeController.Instance.SetMonochrome(true, _fadeInDuration);
+    }
+
+    // 설정에서 흑백 강조를 켜거나 끄면 지금 대상 기준으로 흑백 상태를 다시 맞춘다.
+    private void HandleMonochromeFocusSettingChanged(bool isEnabled)
+    {
+        HandleTargetChanged(_citizen.InteractionTarget);
     }
 
     // 화면을 컬러로 되돌린다. 돌아오는 동안 대상이 먼저 흑백으로 바뀌어 보이지 않도록, 색 유지는 전환이 끝난 뒤에 뗀다.
