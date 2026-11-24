@@ -102,6 +102,8 @@ public class GroundMover : MonoBehaviour, IMover
     private int     _moveOrderId;
     // 연구 보너스를 곱하기 전의 기본 이동 속도. 보너스가 바뀔 때마다 이 값에서 다시 계산한다.
     private float   _baseSpeed;
+    // 치트 배율을 곱하기 전의 기본 가속도. 빨라진 속도에 금방 도달하도록 치트 배율만큼 함께 키운다.
+    private float   _baseAcceleration;
     // 재생 중인 걷는 소리를 가리키는 손잡이. 발소리를 내고 있지 않으면 null이다.
     private AudioManager.LoopSfxHandle _walkSfxHandle;
     // 기본 재생 속도에 곱해 쓰는 배율. 밖에서 SetWalkSfxPitchScale로 바꾼다.
@@ -125,6 +127,7 @@ public class GroundMover : MonoBehaviour, IMover
         _agent       = GetComponent<NavMeshAgent>();
         _selfHitable = GetComponent<HitableObject>();
         _baseSpeed   = _agent.speed;
+        _baseAcceleration = _agent.acceleration;
         _defaultUpdateRotation = _agent.updateRotation;
 
         HandleResolveGroundLayer();
@@ -143,22 +146,25 @@ public class GroundMover : MonoBehaviour, IMover
             Debug.LogWarning("[GroundMover] 'Ground' 레이어를 찾을 수 없습니다. Inspector에서 직접 설정해주세요.");
     }
 
-    // 활성화 시 자신을 내브메시 베이커의 추적 대상으로 등록해 주변 내브메시가 구워지게 하고, 연구 보너스를 반영한다
+    // 활성화 시 자신을 내브메시 베이커의 추적 대상으로 등록해 주변 내브메시가 구워지게 하고, 연구 보너스와 치트 배율을 반영한다
     private void OnEnable()
     {
         if (DynamicNavMeshBaker.Instance != null)
             DynamicNavMeshBaker.Instance.AddTarget(transform);
 
         HandleSubscribeMoveSpeedBonus();
+        MoveSpeedCheat.OnMultiplierChanged += ApplyMoveSpeed;
+        ApplyMoveSpeed();
     }
 
-    // 비활성화 시 내브메시 베이커의 추적 대상에서 자신을 제거하고 연구 보너스 구독과 내고 있던 걷는 소리를 정리한다
+    // 비활성화 시 내브메시 베이커의 추적 대상에서 자신을 제거하고 연구 보너스·치트 배율 구독과 내고 있던 걷는 소리를 정리한다
     private void OnDisable()
     {
         if (DynamicNavMeshBaker.Instance != null)
             DynamicNavMeshBaker.Instance.RemoveTarget(transform);
 
         HandleUnsubscribeMoveSpeedBonus();
+        MoveSpeedCheat.OnMultiplierChanged -= ApplyMoveSpeed;
         StopWalkSfx();
     }
 
@@ -168,13 +174,12 @@ public class GroundMover : MonoBehaviour, IMover
         ApplyWalkSfxPitch();
     }
 
-    // 이동 속도 보너스가 지정되어 있으면 갱신 이벤트를 구독하고 현재 합계를 곧바로 반영한다.
+    // 이동 속도 보너스가 지정되어 있으면 갱신 이벤트를 구독한다. 현재 합계는 OnEnable의 ApplyMoveSpeed에서 반영한다.
     private void HandleSubscribeMoveSpeedBonus()
     {
         if (_moveSpeedBonus == null) return;
 
-        ResearchManager.Instance.OnBonusesChanged += ApplyMoveSpeedBonus;
-        ApplyMoveSpeedBonus();
+        ResearchManager.Instance.OnBonusesChanged += ApplyMoveSpeed;
     }
 
     // 구독해 둔 연구 보너스 갱신 이벤트를 해제한다.
@@ -182,13 +187,17 @@ public class GroundMover : MonoBehaviour, IMover
     {
         if (_moveSpeedBonus == null) return;
 
-        ResearchManager.Instance.OnBonusesChanged -= ApplyMoveSpeedBonus;
+        ResearchManager.Instance.OnBonusesChanged -= ApplyMoveSpeed;
     }
 
-    // 합산된 이동 속도 보너스를 기본 속도에 곱해 에이전트에 반영한다.
-    private void ApplyMoveSpeedBonus()
+    // 기본 속도에 연구 보너스와 치트 배율을 곱해 에이전트 속도에 반영하고, 가속도는 치트 배율만큼 키운다.
+    private void ApplyMoveSpeed()
     {
-        _agent.speed = _baseSpeed * ResearchManager.Instance.GetMultiplier(_moveSpeedBonus);
+        float bonus = _moveSpeedBonus != null ? ResearchManager.Instance.GetMultiplier(_moveSpeedBonus) : 1f;
+        float cheat = MoveSpeedCheat.Multiplier;
+
+        _agent.speed        = _baseSpeed * bonus * cheat;
+        _agent.acceleration = _baseAcceleration * cheat;
         ApplyWalkSfxPitch();
     }
 
@@ -649,7 +658,7 @@ public class GroundMover : MonoBehaviour, IMover
         return _walkSfxPitch * _walkSfxPitchScale * MoveSpeedRatio;
     }
 
-    // 프리팹에 설정된 기본 이동 속도 대비 지금 이동 속도의 배율. 연구 보너스와 달리기 배율이 곱해진 값이라, 걸음이 빨라지면
+    // 프리팹에 설정된 기본 이동 속도 대비 지금 이동 속도의 배율. 연구 보너스·치트 배율·달리기 배율이 곱해진 값이라, 걸음이 빨라지면
     // 발소리와 걷는 애니메이션도 이 배율만큼 빨라진다. 기본 속도를 아직 알 수 없으면 배율을 따질 수 없으므로 1로 본다.
     public float MoveSpeedRatio
     {
