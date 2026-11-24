@@ -13,7 +13,8 @@ public class ResourceInventory : MonoBehaviour, ISavable
 
     public ItemDataList ItemDataList => _itemDataList;
 
-    // 켜져 있으면 Has는 무조건 true를 반환하고 Remove는 실제 차감 없이 성공한 것처럼 동작해, 모든 자원이 무한한 것처럼 보이게 한다.
+    // 켜져 있으면 Get은 최소 CheatMinimumCount를 반환하고, Has는 무조건 true를 반환하며 Remove는 실제 차감 없이 성공한 것처럼 동작해,
+    // 모든 자원이 무한한 것처럼 보이게 한다.
     public bool IsCheatModeEnabled
     {
         get => _isCheatModeEnabled;
@@ -23,6 +24,9 @@ public class ResourceInventory : MonoBehaviour, ISavable
     [SerializeField] private ItemDataList _itemDataList;
     [SerializeField] private bool _isCheatModeEnabled;
 
+    // 치트 모드에서 Get이 보장하는 최소 보유 개수
+    private const int CheatMinimumCount = 99;
+
     private Dictionary<int, int> _counts = new();
 
     private void Awake()
@@ -31,8 +35,15 @@ public class ResourceInventory : MonoBehaviour, ISavable
             _counts[item.Id] = 0;
     }
 
-    // 자원의 현재 보유 개수를 반환한다.
-    public int Get(ResourceData data) =>
+    // 자원의 현재 보유 개수를 반환한다. 치트 모드에서는 어떤 자원이든 최소 CheatMinimumCount개가 있는 것으로 반환한다.
+    public int Get(ResourceData data)
+    {
+        int stored = GetStored(data);
+        return _isCheatModeEnabled ? Mathf.Max(stored, CheatMinimumCount) : stored;
+    }
+
+    // 치트 모드와 무관하게 실제로 저장된 보유 개수를 반환한다.
+    public int GetStored(ResourceData data) =>
         _counts.TryGetValue(data.Id, out var count) ? count : 0;
 
     // 자원을 지정한 수량만큼 추가한다. 획득 위치를 알 수 없는 경로(UI 조합 등)에서 쓴다.

@@ -285,7 +285,7 @@ public class WorkbenchUI : OpenableUIBase<WorkbenchData>
     // 일반 모드: 남은 수량이 있는 아이템은 시대와 무관하게 전부. 치트 모드: 보유한 아이템은 전부, 보유하지 않았어도 nature 자원은 전부.
     private bool ShouldShowInOwnedList(ItemData item, bool isInfinite)
     {
-        if (isInfinite) return item.Age == Age.nature || _inventory.Get(item) > 0;
+        if (isInfinite) return item.Age == Age.nature || _inventory.GetStored(item) > 0;
         return GetRemainingCount(item) > 0;
     }
 
