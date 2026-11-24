@@ -235,15 +235,18 @@ public class WorkbenchUI : OpenableUIBase<WorkbenchData>
         if (ReferenceEquals(ui, _openCodexUI)) _openCodexUI = null;
     }
 
-    // 보유 아이템으로 격자를 채우고, 남는 칸은 빈 칸으로 그린다.
+    // 보유 중인 자원(시대가 nature인 아이템)으로 격자를 채우고, 남는 칸은 빈 칸으로 그린다.
     // 조합 격자에 올려둔 재료는 아직 소비되지 않았지만 보유 목록에서는 빠진 것처럼 보여 준다.
-    // 치트 모드에서는 모든 아이템을 끌어 쓸 수 있게 보유량과 무관하게 전부 보여 주고, 차감되지 않는 실제 보유량을 표시한다.
+    // 치트 모드에서는 모든 자원을 끌어 쓸 수 있게 보유량과 무관하게 전부 보여 주고, 차감되지 않는 실제 보유량을 표시한다.
     private void PopulateSlots()
     {
         bool isInfinite = IsInfiniteResources();
         int filledCount = 0;
         foreach (var item in _inventory.ItemDataList.Items)
         {
+            // 보유 목록에는 자연에서 얻는 자원(시대가 nature인 아이템)만 재료로 보여 준다.
+            if (item.Age != Age.nature) continue;
+
             var count = isInfinite ? _inventory.Get(item) : GetRemainingCount(item);
             if (!isInfinite && count <= 0) continue;
 
