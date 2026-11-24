@@ -5,6 +5,8 @@ using UnityEngine.InputSystem;
 
 // 3인칭 카메라 리그의 루트. 플레이어 시민의 위치를 따라가고, 휠 확대 배율을 스케일로 들고 있으며, 카메라 위치를 저장한다.
 // 실제 카메라 배치는 자식 카메라의 ThirdPersonCamera가 이 오브젝트를 기준으로 정한다.
+// 시민 위치는 GroundMover가 LateUpdate에서 최종 확정하는 경우(Y오프셋 고정 높이 등)가 있어, 그보다 늦게 따라가도록 실행 순서를 뒤로 미룬다.
+[DefaultExecutionOrder(100)]
 public class CameraController : MonoBehaviour, ISavable
 {
     // 따라갈 시민이 없을 때 다시 찾아볼 간격(초)

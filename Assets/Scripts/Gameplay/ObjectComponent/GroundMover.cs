@@ -44,6 +44,9 @@ public class GroundMover : MonoBehaviour, IMover
     // 방향 이동 입력을 이동으로 볼 최소 크기의 제곱. 아날로그 입력의 미세한 흔들림으로 걷기가 시작되지 않게 한다.
     private const float k_DirectMoveMinSqrInput = 0.0001f;
 
+    // 벽 무시 이동을 끝내고 내브메시로 돌아올 때 가장 가까운 내브메시를 찾아볼 반경(m). 걸을 수 없는 지형 한가운데서 끝낼 수 있어 넉넉히 잡는다.
+    private const float k_NoclipReturnSearchRadius = 50f;
+
     // 목적지의 지면 높이를 찾을 때 감지할 지면 레이어. 비워두면 Awake에서 "Ground" 레이어를 자동으로 찾는다.
     [SerializeField] private LayerMask _groundLayer;
 
@@ -106,8 +109,10 @@ public class GroundMover : MonoBehaviour, IMover
     private float   _baseAcceleration;
     // 프리팹에 설정된 에이전트의 기본 높이 오프셋. Y오프셋 치트는 이 값에 더해진다.
     private float   _defaultBaseOffset;
-    // Y오프셋 치트로 지금 기본 높이 오프셋에 더해 둔 높이(m). 발밑 위치를 구할 때 transform 높이에서 뺀다.
+    // Y오프셋 치트로 transform이 발밑보다 더 떠 있는 높이(m). 발밑 위치를 구할 때 transform 높이에서 뺀다.
     private float   _heightOffset;
+    // Y오프셋이 최댓값이라 transform을 월드 Y 최댓값에 직접 고정하고 있는지
+    private bool    _isPinnedToMaxHeight;
     // 재생 중인 걷는 소리를 가리키는 손잡이. 발소리를 내고 있지 않으면 null이다.
     private AudioManager.LoopSfxHandle _walkSfxHandle;
     // 기본 재생 속도에 곱해 쓰는 배율. 밖에서 SetWalkSfxPitchScale로 바꾼다.
@@ -124,6 +129,8 @@ public class GroundMover : MonoBehaviour, IMover
     private bool    _defaultUpdateRotation;
     // 방향 이동으로 달리는 중인지. 달리기 배율을 이동량과 MoveSpeedRatio에 반영하는 기준이다.
     private bool    _isRunning;
+    // 벽 무시 치트로 에이전트의 위치 동기화를 끄고 transform을 직접 옮기고 있는지
+    private bool    _isNoclipping;
 
     // NavMeshAgent와 HitableObject 컴포넌트를 캐싱하고 지면 레이어와 기본 이동 속도를 확보
     private void Awake()
@@ -225,28 +232,56 @@ public class GroundMover : MonoBehaviour, IMover
         HandleHeightOffset();
     }
 
-    // Y오프셋 치트 값을 에이전트 높이 오프셋에 반영한다. 최댓값이면 내브메시 위 발밑 높이와 상관없이 월드 Y가 최댓값이 되도록 매 프레임 다시 계산한다.
+    // Y오프셋 치트 값을 반영한다. 0~499는 에이전트 높이 오프셋(baseOffset)으로 띄우고, 최댓값이면 transform을 월드 Y 최댓값에 직접 고정한다.
+    // 최댓값일 때 baseOffset으로 따라가면 땅 높이가 바뀔 때마다 매 프레임 baseOffset을 바꾸게 되는데, 그때마다 에이전트가 다시 배치되며
+    // 그 프레임의 이동이 취소돼 제자리에 묶인다. 그래서 고정 높이는 baseOffset을 건드리지 않고 위치 동기화를 끈 채 직접 배치한다.
     private void HandleHeightOffset()
     {
-        float offset;
-        if (HeightOffsetCheat.IsPinnedToMax)
+        bool pinned = HeightOffsetCheat.IsPinnedToMax;
+        if (pinned != _isPinnedToMaxHeight)
         {
-            // 내브메시 밖이면 발밑 높이를 알 수 없으므로 마지막 오프셋을 그대로 둔다.
-            if (!_agent.isOnNavMesh) return;
-
-            // 에이전트 위치(nextPosition)에는 이미 적용한 오프셋이 섞여 있어, 그 값으로 계산하면 다음 프레임에 오프셋이
-            // 두 값 사이를 번갈아 오가며 위아래로 깜빡인다. 그래서 transform 높이에서 지금 더해 둔 오프셋을 뺀 발밑 높이를 기준으로 삼는다.
-            offset = HeightOffsetCheat.MaxOffset - GroundPosition.y;
-        }
-        else
-        {
-            offset = HeightOffsetCheat.Offset;
+            _isPinnedToMaxHeight = pinned;
+            RefreshUpdatePosition();
         }
 
-        if (Mathf.Approximately(offset, _heightOffset)) return;
+        // 고정 높이에서는 baseOffset을 기본값으로 두고, 아니면 치트 오프셋만큼 더한다. 값이 그대로면 다시 설정하지 않는다.
+        float baseOffset = _defaultBaseOffset + (pinned ? 0f : HeightOffsetCheat.Offset);
+        if (!Mathf.Approximately(_agent.baseOffset, baseOffset))
+            _agent.baseOffset = baseOffset;
 
-        _heightOffset      = offset;
-        _agent.baseOffset  = _defaultBaseOffset + offset;
+        if (_isNoclipping)
+        {
+            // 벽 무시 이동은 transform을 직접 옮기므로, 이번 프레임 발밑 높이 위에 원하는 만큼 다시 띄운다.
+            float footY = GroundPosition.y;
+            _heightOffset = pinned ? HeightOffsetCheat.MaxOffset - footY : HeightOffsetCheat.Offset;
+            SetTransformHeight(footY + _heightOffset);
+            return;
+        }
+
+        if (!pinned)
+        {
+            _heightOffset = HeightOffsetCheat.Offset;
+            return;
+        }
+
+        // 위치 동기화를 끈 동안에도 에이전트는 내브메시 위에서 계속 이동하므로, 그 XZ를 따라가며 높이만 최댓값에 고정한다.
+        Vector3 agentPosition = _agent.nextPosition;
+        _heightOffset = HeightOffsetCheat.MaxOffset - agentPosition.y;
+        transform.position = new Vector3(agentPosition.x, HeightOffsetCheat.MaxOffset, agentPosition.z);
+    }
+
+    // transform의 XZ는 그대로 두고 높이만 바꾼다.
+    private void SetTransformHeight(float y)
+    {
+        Vector3 position = transform.position;
+        position.y = y;
+        transform.position = position;
+    }
+
+    // 벽 무시 이동이나 고정 높이처럼 transform을 직접 배치하는 동안에는 에이전트 위치 동기화를 끄고, 아니면 켠다.
+    private void RefreshUpdatePosition()
+    {
+        _agent.updatePosition = !_isNoclipping && !_isPinnedToMaxHeight;
     }
 
     // Y오프셋 치트로 떠 있는 높이를 뺀 발밑 위치. 내브메시와 지면 질의는 떠 있는 transform 위치 대신 이 위치를 기준으로 한다.
@@ -258,7 +293,11 @@ public class GroundMover : MonoBehaviour, IMover
         if (direction.sqrMagnitude < k_DirectMoveMinSqrInput)
             return;
 
-        if (!EnsureOnNavMesh())
+        bool ignoreWalls = WallIgnoreCheat.IsEnabled;
+        if (!ignoreWalls)
+            EndNoclip();
+
+        if (!ignoreWalls && !EnsureOnNavMesh())
             return;
 
         if (!_isDirectMoving)
@@ -269,10 +308,67 @@ public class GroundMover : MonoBehaviour, IMover
 
         Vector2 clamped = Vector2.ClampMagnitude(direction, 1f);
         Vector3 delta   = new Vector3(clamped.x, 0f, clamped.y) * (_agent.speed * GetRunFactor() * Time.deltaTime);
-        delta = ResolveWalkableDelta(delta);
+
+        if (ignoreWalls)
+        {
+            MoveIgnoringWalls(delta);
+            return;
+        }
+
+        delta = ResolveSlidingDelta(delta, CanStepTo);
 
         if (delta.sqrMagnitude > 0f)
             _agent.Move(delta);
+    }
+
+    // 벽 무시 치트로 걸을 수 없는 지형과 내브메시 경계를 무시하고 transform을 직접 옮긴다. 로딩된 지형 밖으로는 나가지 않으며,
+    // 높이는 그 자리의 지면(물 위라면 수면)에 맞춘다.
+    private void MoveIgnoringWalls(Vector3 delta)
+    {
+        BeginNoclip();
+
+        delta = ResolveSlidingDelta(delta, CanNoclipTo);
+        if (delta.sqrMagnitude <= 0f)
+            return;
+
+        Vector3 next = GroundPosition + delta;
+        if (!TryGetLoadedSurfaceHeight(new Vector2(next.x, next.z), out float surfaceY))
+            return;
+
+        // 고정 높이라면 새 발밑 기준으로 띄울 높이를 곧바로 다시 구해, 이 프레임 중간에도 transform이 최댓값에서 벗어나지 않게 한다.
+        float footY = surfaceY + _defaultBaseOffset;
+        if (_isPinnedToMaxHeight)
+            _heightOffset = HeightOffsetCheat.MaxOffset - footY;
+
+        transform.position = new Vector3(next.x, footY + _heightOffset, next.z);
+
+        // 에이전트 내부 위치도 최대한 따라오게 해, 벽 무시를 끝낼 때 내브메시로 돌아오는 거리를 줄인다. (내브메시 위로 고정된다)
+        if (_agent.isOnNavMesh)
+            _agent.nextPosition = transform.position;
+    }
+
+    // 벽 무시 이동을 시작한다. 에이전트가 transform을 내브메시 위로 끌어당기지 않도록 위치 동기화를 끈다.
+    private void BeginNoclip()
+    {
+        if (_isNoclipping)
+            return;
+
+        _isNoclipping = true;
+        RefreshUpdatePosition();
+    }
+
+    // 벽 무시 이동을 끝내고 내브메시 이동으로 돌아온다. 지금 발밑에서 가장 가까운 내브메시로 옮긴 뒤 위치 동기화를 되돌린다.
+    private void EndNoclip()
+    {
+        if (!_isNoclipping)
+            return;
+
+        _isNoclipping = false;
+
+        if (NavMesh.SamplePosition(GroundPosition, out NavMeshHit hit, k_NoclipReturnSearchRadius, NavMesh.AllAreas))
+            _agent.Warp(hit.position);
+
+        RefreshUpdatePosition();
     }
 
     // 방향 이동을 시작한다. 진행 중이던 경로 이동·추적은 대체된 것이므로 콜백을 버리고 경로를 지운 뒤, 바라보는 방향이 바뀌지 않게 자동 회전을 끈다.
@@ -285,7 +381,9 @@ public class GroundMover : MonoBehaviour, IMover
         _wasStopped           = false;
         _hasStartedMoving     = false;
         _destinationReachable = false;
-        _agent.ResetPath();
+        // 벽 무시 이동으로 시작하면 에이전트가 아직 내브메시에 올라가 있지 않을 수 있다.
+        if (_agent.isOnNavMesh)
+            _agent.ResetPath();
         _agent.updateRotation = false;
 
         _isDirectMoving = true;
@@ -322,21 +420,60 @@ public class GroundMover : MonoBehaviour, IMover
         return _isRunning ? _runSpeedMultiplier : 1f;
     }
 
-    // 이번 프레임 이동량 중 걸을 수 있는 지형으로 가는 부분만 남긴다. 그대로 갈 수 없으면 X·Z 축 하나씩만 따로 시도해 벽을 따라 미끄러지게 하고, 둘 다 막히면 움직이지 않는다.
-    private Vector3 ResolveWalkableDelta(Vector3 delta)
+    // 이번 프레임 이동량 중 canStep이 허락하는 부분만 남긴다. 그대로 갈 수 없으면 X·Z 축 하나씩만 따로 시도해 벽을 따라 미끄러지게 하고, 둘 다 막히면 움직이지 않는다.
+    private static Vector3 ResolveSlidingDelta(Vector3 delta, Func<Vector3, bool> canStep)
     {
-        if (CanStepTo(delta))
+        if (canStep(delta))
             return delta;
 
         Vector3 deltaX = new Vector3(delta.x, 0f, 0f);
-        if (CanStepTo(deltaX))
+        if (canStep(deltaX))
             return deltaX;
 
         Vector3 deltaZ = new Vector3(0f, 0f, delta.z);
-        if (CanStepTo(deltaZ))
+        if (canStep(deltaZ))
             return deltaZ;
 
         return Vector3.zero;
+    }
+
+    // 벽 무시 이동으로 delta만큼 갔을 때 몸 앞쪽 끝이 로딩된 지형 위에 있는지 판정한다. 걸을 수 있는지는 따지지 않는다.
+    private bool CanNoclipTo(Vector3 delta)
+    {
+        if (delta.sqrMagnitude <= 0f)
+            return false;
+
+        Vector3 probe = GroundPosition + delta + delta.normalized * _agent.radius;
+        return TryGetLoadedSurfaceHeight(new Vector2(probe.x, probe.z), out _);
+    }
+
+    // 월드 XZ 아래에 로딩된 지형(청크의 터레인 콜라이더)이 있으면 서 있을 높이를 구한다. 지면이 수면보다 낮으면 수면 높이를 쓴다.
+    // 청크가 로딩되지 않은 곳에는 콜라이더가 없어 레이가 닿지 않으므로, 이 판정이 곧 "로딩된 맵 안인지"가 된다.
+    private bool TryGetLoadedSurfaceHeight(Vector2 worldXZ, out float height)
+    {
+        if (!TryRaycastGround(worldXZ, out height))
+            return false;
+
+        MapData mapData = MapSaveUtil.Instance != null ? MapSaveUtil.Instance.CurrentMapData : null;
+        if (mapData != null)
+            height = Mathf.Max(height, mapData.SeaLevel);
+
+        return true;
+    }
+
+    // 월드 XZ의 지면 높이를 위에서 아래로 레이캐스트해 구한다. 지면이 없으면 false를 반환한다.
+    private bool TryRaycastGround(Vector2 worldXZ, out float height)
+    {
+        Vector3 origin = new Vector3(worldXZ.x, GroundPosition.y + k_GroundRaycastUpDistance, worldXZ.y);
+
+        if (Physics.Raycast(origin, Vector3.down, out RaycastHit hit, k_GroundRaycastLength, _groundLayer))
+        {
+            height = hit.point.y;
+            return true;
+        }
+
+        height = 0f;
+        return false;
     }
 
     // 지금 위치에서 delta만큼 걸었을 때 몸 앞쪽 끝(에이전트 반경만큼 앞)이 걸을 수 있는 지형에 있는지 판정한다.
@@ -742,13 +879,7 @@ public class GroundMover : MonoBehaviour, IMover
     // 지면을 찾지 못하면 자신의 현재 높이를 쓴다. 자신은 지면 위에 서 있으므로 0보다 실제 지면에 가깝다.
     private float GetGroundHeight(Vector2 targetPos)
     {
-        float groundY = GroundPosition.y;
-        Vector3 origin = new Vector3(targetPos.x, groundY + k_GroundRaycastUpDistance, targetPos.y);
-
-        if (Physics.Raycast(origin, Vector3.down, out RaycastHit hit, k_GroundRaycastLength, _groundLayer))
-            return hit.point.y;
-
-        return groundY;
+        return TryRaycastGround(targetPos, out float height) ? height : GroundPosition.y;
     }
 
     // 지정 위치로 이동; 위치가 내브메시 밖이면 갈 수 있는 가장 가까운 지점까지 이동하고, 이동 자체가 불가능하면 false 반환
@@ -759,6 +890,9 @@ public class GroundMover : MonoBehaviour, IMover
         ReplaceMoveOrder();
 
         _followTarget = null;
+
+        // 경로 이동은 내브메시 위에서만 할 수 있으므로 벽 무시 이동 중이었다면 내브메시로 돌아온다.
+        EndNoclip();
 
         if (!EnsureOnNavMesh())
             return false;
@@ -822,6 +956,9 @@ public class GroundMover : MonoBehaviour, IMover
 
         if (IsInFollowChain(targetTransform))
             return false;
+
+        // 추적도 내브메시 경로 이동이므로 벽 무시 이동 중이었다면 내브메시로 돌아온다.
+        EndNoclip();
 
         Transform previousTarget = _followTarget;
         _followTarget = targetTransform;

@@ -139,6 +139,7 @@ public class CheatManagementUI : OpenableUIBase<CheatMenuData>
         CheatKind.InfiniteResources => _inventory != null && _inventory.IsCheatModeEnabled,
         CheatKind.UnlockAllItems => _codex != null && _codex.IsEverythingUnlocked,
         CheatKind.UnlockAllResearch => _research != null && _research.IsEverythingCompleted,
+        CheatKind.IgnoreWalls => WallIgnoreCheat.IsEnabled,
         _ => false,
     };
 
@@ -148,6 +149,7 @@ public class CheatManagementUI : OpenableUIBase<CheatMenuData>
         CheatKind.InfiniteResources => _inventory != null,
         CheatKind.UnlockAllItems => _codex != null && !_codex.IsEverythingUnlocked,
         CheatKind.UnlockAllResearch => _research != null && !_research.IsEverythingCompleted,
+        CheatKind.IgnoreWalls => true,
         _ => false,
     };
 
@@ -169,6 +171,10 @@ public class CheatManagementUI : OpenableUIBase<CheatMenuData>
             case CheatKind.UnlockAllResearch:
                 if (_research != null)
                     _research.UnlockAllResearch();
+                break;
+
+            case CheatKind.IgnoreWalls:
+                WallIgnoreCheat.IsEnabled = !WallIgnoreCheat.IsEnabled;
                 break;
         }
 

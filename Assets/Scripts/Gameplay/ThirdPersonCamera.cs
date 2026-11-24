@@ -3,7 +3,9 @@ using UnityEngine.InputSystem;
 
 // 따라갈 대상(리그 루트) 뒤쪽 일정 거리에 카메라를 두는 3인칭 카메라. 커서를 화면 중앙에 잠그고 마우스 이동으로 방향을 돌리며(Alt를 누르면 커서 해제),
 // 벽이나 지형에 가리면 카메라를 앞으로 당긴다. 리그 루트의 스케일을 확대 배율로 보고 거리에 곱한다.
+// 리그 루트(CameraController)가 시민 위치로 옮겨진 뒤에 배치하도록 그보다 늦게 실행한다.
 [RequireComponent(typeof(Camera))]
+[DefaultExecutionOrder(110)]
 public class ThirdPersonCamera : MonoBehaviour
 {
     // 카메라가 장애물에 너무 붙지 않도록 남겨 두는 여유 거리(m)

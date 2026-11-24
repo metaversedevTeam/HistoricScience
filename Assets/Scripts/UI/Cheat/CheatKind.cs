@@ -9,4 +9,7 @@ public enum CheatKind
 
     // 모든 연구를 비용 없이 완료 처리한다. 되돌릴 수 없는 일회성 치트다.
     UnlockAllResearch,
+
+    // 로딩된 맵 안이라면 걸을 수 없는 지형도 WASD로 통과한다. 언제든 껐다 켤 수 있다.
+    IgnoreWalls,
 }
