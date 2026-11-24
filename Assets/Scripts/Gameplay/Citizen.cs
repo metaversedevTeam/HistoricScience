@@ -130,12 +130,13 @@ public class Citizen : MonoBehaviour, ISavable
     }
 
     // 앞에 IGatherable이나 ICommandable을 가진 대상이 있으면 그 오른쪽에 명령 목록을 띄우고, 없으면 감춘다.
-    // 건물 배치 중에는 F키가 배치 확정으로 쓰이므로 목록을 감추고 쉰다.
+    // 건물 배치 중에는 F키가 배치 확정으로 쓰이므로, 조작을 막는 다른 UI가 열려 있을 때는 그 UI가 앞에 서므로 목록을 감추고 쉰다.
     private void HandleInteractionTarget()
     {
         if (_interactionListUiPrefab == null) return;
 
-        Collider target = IsPlacing ? null : FindFrontInteractionTarget();
+        bool isSuspended = IsPlacing || UIManager.Instance.HasBlockingUI;
+        Collider target = isSuspended ? null : FindFrontInteractionTarget();
         if (target == null)
         {
             if (_interactionListUI != null)
