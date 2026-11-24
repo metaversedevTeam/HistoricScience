@@ -18,5 +18,5 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 91f64ac3ccafd8947a939d5ed25d7307, type: 2}
   m_MinSpawnHeight: 12
   m_MaxSpawnHeight: 100
-  m_SpawnCountPerChunk: 20
+  m_SpawnCountPerChunk: 40
   m_InputSampleMultiplier: 5
