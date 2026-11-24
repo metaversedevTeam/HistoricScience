@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 // 치트 관리 화면(Figma의 cheat-management-ui). 자원 무한처럼 언제든 껐다 켤 수 있는 치트와
-// 모든 아이템·연구 해금처럼 되돌릴 수 없는 일회성 치트, 그리고 슬라이더로 고르는 이동속도 배율·Y오프셋을 한 목록에서 다룬다.
+// 모든 아이템·연구 해금처럼 되돌릴 수 없는 일회성 치트, 그리고 슬라이더로 고르는 이동속도 배율·Y오프셋·시간·시간 진행 속도를 한 목록에서 다룬다.
 // 일회성 치트는 실행하고 나면 스위치가 켜진 채로 잠겨 다시 눌리지 않으며,
 // 잠금 여부는 UI가 따로 기억하지 않고 도감·연구 상태에서 그때그때 다시 읽는다. (창을 다시 열거나 저장을 불러와도 그대로 유지된다)
 public class CheatManagementUI : OpenableUIBase<CheatMenuData>
@@ -26,11 +26,28 @@ public class CheatManagementUI : OpenableUIBase<CheatMenuData>
     [SerializeField] private string _heightOffsetTitle = "Y오프셋 (Height Offset)";
     [SerializeField, TextArea(1, 3)] private string _heightOffsetDescription = "시민을 땅보다 0~500m 위에 띄웁니다. 500이면 높이 Y500에 고정됩니다.";
 
+    [Header("시간")]
+    [SerializeField] private string _timeOfDayTitle = "시간 (Time of Day)";
+    [SerializeField, TextArea(1, 3)] private string _timeOfDayDescription = "하늘과 햇빛의 시간을 0시부터 24시까지 바꿉니다. 바꾼 시간부터 다시 흘러갑니다.";
+
+    [Header("시간 진행 속도")]
+    [SerializeField] private string _timeSpeedTitle = "시간 진행 속도 (Time Speed)";
+    [SerializeField, TextArea(1, 3)] private string _timeSpeedDescription = "하루가 흘러가는 속도를 1배에서 60배까지 높입니다.";
+
     // 이동속도 배율 슬라이더 값의 간격
     private const float k_MoveSpeedStep = 0.5f;
 
     // Y오프셋 슬라이더 값의 간격(m)
     private const float k_HeightOffsetStep = 1f;
+
+    // 하루의 시간 수. 시간 슬라이더는 0~24시로 표시하고 하늘에는 0~1로 바꿔 넘긴다.
+    private const float k_HoursPerDay = 24f;
+
+    // 시간 슬라이더 값의 간격(시간). 0.25면 15분 단위다.
+    private const float k_TimeOfDayStepHours = 0.25f;
+
+    // 시간 진행 속도 배율 슬라이더 값의 간격
+    private const float k_TimeSpeedStep = 1f;
 
     private ResourceInventory _inventory;
 
@@ -39,6 +56,15 @@ public class CheatManagementUI : OpenableUIBase<CheatMenuData>
 
     // 이동속도 배율 줄 아래에 만들어 두는 Y오프셋 슬라이더 줄
     private CheatSliderRowUI _heightOffsetRow;
+
+    // Y오프셋 줄 아래에 만들어 두는 시간 슬라이더 줄
+    private CheatSliderRowUI _timeOfDayRow;
+
+    // 시간 줄 아래에 만들어 두는 시간 진행 속도 배율 슬라이더 줄
+    private CheatSliderRowUI _timeSpeedRow;
+
+    // 시간 슬라이더가 조절하는 현재 씬의 하늘 시간 컴포넌트. 씬에 없으면 시간 줄을 숨긴다.
+    private SkyboxTimeOfDay _skyTime;
     private ItemCodex _codex;
     private ResearchManager _research;
 
@@ -90,6 +116,16 @@ public class CheatManagementUI : OpenableUIBase<CheatMenuData>
         _heightOffsetRow.Setup(_heightOffsetTitle, _heightOffsetDescription,
             HeightOffsetCheat.MinOffset, HeightOffsetCheat.MaxOffset, k_HeightOffsetStep,
             FormatHeightOffset, HandleHeightOffsetChanged);
+
+        _timeOfDayRow = Instantiate(_sliderRowPrefab, _rowContainer);
+        _timeOfDayRow.Setup(_timeOfDayTitle, _timeOfDayDescription,
+            0f, k_HoursPerDay, k_TimeOfDayStepHours,
+            FormatTimeOfDay, HandleTimeOfDayChanged);
+
+        _timeSpeedRow = Instantiate(_sliderRowPrefab, _rowContainer);
+        _timeSpeedRow.Setup(_timeSpeedTitle, _timeSpeedDescription,
+            TimeSpeedCheat.MinMultiplier, TimeSpeedCheat.MaxMultiplier, k_TimeSpeedStep,
+            FormatTimeSpeed, HandleTimeSpeedChanged);
     }
 
     // 이동속도 배율을 "x2.5" 형태로 표시한다.
@@ -105,12 +141,33 @@ public class CheatManagementUI : OpenableUIBase<CheatMenuData>
     // 슬라이더로 고른 높이를 Y오프셋 치트에 적용한다.
     private void HandleHeightOffsetChanged(float offset) => HeightOffsetCheat.Offset = offset;
 
+    // 시간(0~24)을 "07:30" 형태로 표시한다.
+    private static string FormatTimeOfDay(float hours)
+    {
+        int totalMinutes = Mathf.RoundToInt(hours * 60f);
+        return $"{totalMinutes / 60:00}:{totalMinutes % 60:00}";
+    }
+
+    // 시간 진행 속도 배율을 "x12" 형태로 표시한다.
+    private static string FormatTimeSpeed(float multiplier) => $"x{multiplier:0}";
+
+    // 슬라이더로 고른 배율을 시간 진행 속도 치트에 적용한다.
+    private void HandleTimeSpeedChanged(float multiplier) => TimeSpeedCheat.Multiplier = multiplier;
+
+    // 슬라이더로 고른 시간(0~24)을 하늘 시간(0~1)으로 바꿔 적용한다.
+    private void HandleTimeOfDayChanged(float hours)
+    {
+        if (_skyTime != null)
+            _skyTime.SetTimeOfDay(hours / k_HoursPerDay);
+    }
+
     // 치트를 적용할 대상을 주입받고 목록의 현재 상태를 반영한다.
     protected override void ApplyData(CheatMenuData data)
     {
         _inventory = data.Inventory;
         _codex = data.Codex;
         _research = ResearchManager.Instance;
+        _skyTime = FindFirstObjectByType<SkyboxTimeOfDay>();
 
         RefreshRows();
     }
@@ -131,6 +188,20 @@ public class CheatManagementUI : OpenableUIBase<CheatMenuData>
 
         if (_heightOffsetRow != null)
             _heightOffsetRow.SetValue(HeightOffsetCheat.Offset);
+
+        if (_timeOfDayRow != null)
+        {
+            _timeOfDayRow.gameObject.SetActive(_skyTime != null);
+            if (_skyTime != null)
+                _timeOfDayRow.SetValue(_skyTime.TimeOfDay * k_HoursPerDay);
+        }
+
+        // 흘려보낼 하늘이 없는 씬에서는 시간 진행 속도 줄도 숨긴다.
+        if (_timeSpeedRow != null)
+        {
+            _timeSpeedRow.gameObject.SetActive(_skyTime != null);
+            _timeSpeedRow.SetValue(TimeSpeedCheat.Multiplier);
+        }
     }
 
     // 해당 치트가 이미 적용된 상태인지 반환한다. 일회성 치트는 전부 해금된 상태를 켜짐으로 본다.
@@ -188,6 +259,7 @@ public class CheatManagementUI : OpenableUIBase<CheatMenuData>
         _inventory = null;
         _codex = null;
         _research = null;
+        _skyTime = null;
     }
 
     // 닫기 버튼을 누르면 UI를 닫는다. (ESC로 닫는 UIManager 경로와 동일한 동작)
