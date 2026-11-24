@@ -198,6 +198,9 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
         _returnAnglesTime = Time.unscaledTime;
     }
 
+    // 로딩 연출이 이미 시작되었는지 여부. 시작된 뒤에는 메뉴 입력(ESC 뒤로가기 등)을 받지 않는 데 쓴다.
+    public bool IsRunning => _isRunning;
+
     // 지정한 씬을 비동기로 불러오며 로딩 연출을 시작한다. 이미 시작했으면 무시한다.
     public void Begin(string sceneName)
     {

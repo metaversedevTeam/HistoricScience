@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -100,6 +101,25 @@ public class MapSelectUI : MonoBehaviour
     private void Update()
     {
         HandleDeleteArmTimeout();
+        HandleEscapeInput();
+    }
+
+    // ESC를 누르면 새 맵 대화상자가 열려 있을 땐 대화상자를 취소하고, 아니면 뒤로가기처럼 메인 메뉴로 돌아간다.
+    // 관리형 UI(설정 등)가 떠 있거나 그 UI를 닫는 데 쓰인 ESC, 인게임 로딩이 시작된 뒤의 ESC는 무시한다.
+    private void HandleEscapeInput()
+    {
+        if (Keyboard.current == null || !Keyboard.current.escapeKey.wasPressedThisFrame) return;
+        if (_loadingSequence != null && _loadingSequence.IsRunning) return;
+        if (UIManager.Instance.IsEscapeConsumedThisFrame || UIManager.Instance.HasBlockingUI) return;
+
+        if (_createDialog.IsShown)
+        {
+            if (_createDialog.IsOpen)
+                _createDialog.Cancel();
+            return;
+        }
+
+        HandleBackClick();
     }
 
     // 저장 폴더를 다시 훑어 카드 목록을 채운다. 화면을 열 때마다 호출한다.

@@ -36,11 +36,18 @@ public class UIManager : MonoBehaviour
     // 열린 순서를 유지하는 활성(Opening·Open) 인스턴스 큐 — 닫기가 시작되면 순서와 무관하게 자기 자신을 스스로 제거한다
     private readonly LinkedList<IManagedUI> activeQueue = new LinkedList<IManagedUI>();
 
+    // Esc로 UI를 마지막으로 닫은 프레임 번호. 같은 프레임의 Esc를 다른 시스템이 다시 쓰지 않도록 판단하는 데 쓴다.
+    private int escapeClosedFrame = -1;
+
     // 열려 있는 관리형 UI가 하나라도 있는지 여부. 다른 시스템(일시정지 화면 등)이 ESC 우선순위를 판단할 때 쓴다.
     public bool HasOpenUI => activeQueue.Count > 0;
 
     // 조작을 막는(IPassiveUI가 아닌) 관리형 UI가 하나라도 열려 있는지 여부. 커서 잠금 해제와 일시정지 화면 우선순위를 판단할 때 쓴다.
     public bool HasBlockingUI => FindLastBlockingUI() != null;
+
+    // 이번 프레임의 Esc 입력이 관리형 UI를 닫는 데 이미 쓰였는지 여부.
+    // 닫기가 시작되면 UI가 활성 목록에서 바로 빠지므로, Update 실행 순서와 무관하게 같은 Esc로 일시정지 화면 등이 열리지 않게 할 때 쓴다.
+    public bool IsEscapeConsumedThisFrame => escapeClosedFrame == Time.frameCount;
 
     // UI 인스턴스가 붙는 캔버스 루트. 채집 팝업처럼 풀링·개폐 관리를 받지 않는 UI가 부모로 쓴다.
     public Transform UIRoot => uiRoot != null ? uiRoot : transform;
@@ -83,6 +90,7 @@ public class UIManager : MonoBehaviour
         {
             if (!node.Value.ClosesOnEscape || node.Value is IPassiveUI) continue;
 
+            escapeClosedFrame = Time.frameCount;
             node.Value.Close();
             return;
         }

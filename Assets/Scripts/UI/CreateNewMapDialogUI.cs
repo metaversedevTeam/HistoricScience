@@ -31,6 +31,12 @@ public class CreateNewMapDialogUI : MonoBehaviour
     // 퇴장 연출이 재생 중이라 곧 꺼질 상태인지 여부
     private bool _isClosing;
 
+    // 대화상자가 화면에 떠 있는지 여부 (퇴장 연출 중에도 true)
+    public bool IsShown => gameObject.activeSelf;
+
+    // 퇴장 연출 중이 아니라 입력을 받을 수 있는 상태로 열려 있는지 여부
+    public bool IsOpen => gameObject.activeSelf && !_isClosing;
+
     private void Awake()
     {
         _motion = GetComponent<MainMenuIntroSequence>();
@@ -69,6 +75,12 @@ public class CreateNewMapDialogUI : MonoBehaviour
 
         HandleRefreshCreateInteractable();
         _mapNameInput.Select();
+    }
+
+    // 취소 버튼을 누른 것과 똑같이 취소를 요청한다. (ESC 입력 등 바깥에서 취소할 때 쓴다)
+    public void Cancel()
+    {
+        HandleCancelClick();
     }
 
     // 대화상자를 닫는다. 맵을 실제로 만들었든 취소했든 바깥에서 호출한다.
