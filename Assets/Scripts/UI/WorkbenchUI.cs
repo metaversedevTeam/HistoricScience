@@ -101,8 +101,12 @@ public class WorkbenchUI : OpenableUIBase<WorkbenchData>
     private bool CanPlaceInCraftingGrid(ItemData item)
     {
         if (item == null || _inventory == null) return false;
+        if (IsInfiniteResources()) return true;
         return GetRemainingCount(item) > 0;
     }
+
+    // 치트 모드로 자원이 무한한 상태인지 확인한다. 이때는 재료가 실제로 차감되지 않으므로 보유량 제한을 두지 않는다.
+    private bool IsInfiniteResources() => _inventory != null && _inventory.IsCheatModeEnabled;
 
     // 보유 목록에 남아 보이는 수량 — 보유량에서 조합 격자에 이미 올려둔 몫을 뺀 값.
     private int GetRemainingCount(ItemData item)
@@ -233,13 +237,15 @@ public class WorkbenchUI : OpenableUIBase<WorkbenchData>
 
     // 보유 아이템으로 격자를 채우고, 남는 칸은 빈 칸으로 그린다.
     // 조합 격자에 올려둔 재료는 아직 소비되지 않았지만 보유 목록에서는 빠진 것처럼 보여 준다.
+    // 치트 모드에서는 모든 아이템을 끌어 쓸 수 있게 보유량과 무관하게 전부 보여 주고, 차감되지 않는 실제 보유량을 표시한다.
     private void PopulateSlots()
     {
+        bool isInfinite = IsInfiniteResources();
         int filledCount = 0;
         foreach (var item in _inventory.ItemDataList.Items)
         {
-            var count = GetRemainingCount(item);
-            if (count <= 0) continue;
+            var count = isInfinite ? _inventory.Get(item) : GetRemainingCount(item);
+            if (!isInfinite && count <= 0) continue;
 
             GetOrCreateSlot(filledCount).Setup(item, count);
             filledCount++;
