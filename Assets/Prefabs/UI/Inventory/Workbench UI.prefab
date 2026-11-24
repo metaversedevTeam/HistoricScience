@@ -6407,6 +6407,7 @@ MonoBehaviour:
   _warningText: {fileID: 6947803171004084643}
   _codexButton: {fileID: 348569494947374909}
   _codexPrefab: {fileID: 8176979181631312059, guid: 8d7a4c3df53008942b9245402cad8e8b, type: 3}
+  _detailPopupPrefab: {fileID: 4100000003, guid: 5d1c8a63f47b4e0f9c2a71b6d8e30f45, type: 3}
   _closeButton: {fileID: 3369372960904385866}
   _viewHeight: 10
   _introSequence: {fileID: 8778228000456099880}

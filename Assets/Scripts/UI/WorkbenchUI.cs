@@ -28,6 +28,8 @@ public class WorkbenchUI : OpenableUIBase<WorkbenchData>
     [SerializeField] private Button _codexButton;
     // 도감 버튼으로 작업대 위에 띄울 도감 UI
     [SerializeField] private ItemCodexUI _codexPrefab;
+    // 처음 획득한 아이템을 조합했을 때 띄울 아이템 정보 팝업 (도감과 같은 프리팹)
+    [SerializeField] private ItemDetailPopupUI _detailPopupPrefab;
 
     [Header("헤더")]
     [SerializeField] private Button _closeButton;
@@ -50,6 +52,12 @@ public class WorkbenchUI : OpenableUIBase<WorkbenchData>
 
     // 이 작업대가 띄운 도감. 닫히기 전까지 다시 열지 않는다.
     private ItemCodexUI _openCodexUI;
+
+    // 첫 조합 아이템을 알리려고 이 작업대가 띄운 정보 팝업. 닫히기 전까지 새로 띄우지 않는다.
+    private ItemDetailPopupUI _openDetailPopup;
+
+    // 첫 획득 여부와 도감 번호를 조회할 씬의 도감
+    private ItemCodex _itemCodex;
 
     private CraftingSlotUI[] _craftingSlots;
     private readonly List<ItemSlotUI> _slots = new();
@@ -115,6 +123,7 @@ public class WorkbenchUI : OpenableUIBase<WorkbenchData>
         _workbenchWorldPosition = data.WorldPosition;
         _inventory.OnAddItem += HandleInventoryChanged;
         _inventory.OnRemoveItem += HandleInventoryChanged;
+        _itemCodex = FindFirstObjectByType<ItemCodex>();
         PopulateSlots();
         RefreshResultPreview();
         HandleMoveCameraOverLab();
@@ -144,6 +153,14 @@ public class WorkbenchUI : OpenableUIBase<WorkbenchData>
             _openCodexUI.OnFinishClose -= HandleCodexUIClosed;
             _openCodexUI = null;
         }
+
+        if (_openDetailPopup != null)
+        {
+            _openDetailPopup.OnFinishClose -= HandleDetailPopupClosed;
+            _openDetailPopup = null;
+        }
+
+        _itemCodex = null;
 
         if (_inventory != null)
         {
@@ -273,11 +290,41 @@ public class WorkbenchUI : OpenableUIBase<WorkbenchData>
         foreach (var (resource, count) in needed)
             _inventory.Remove(resource, count);
 
+        // 획득하는 순간 도감에 등록되므로, 처음 얻는 아이템인지는 지급하기 전에 확인해 둔다.
+        bool isFirstAcquire = _itemCodex != null && !_itemCodex.IsDiscovered(result);
+
         _inventory.Add(result, 1, _workbenchWorldPosition);
         AudioManager.PlayConfirm();
 
         foreach (var slot in _craftingSlots)
             slot.Clear();
+
+        if (isFirstAcquire) OpenDetailPopup(result);
+    }
+
+    // 처음 조합한 아이템의 정보 팝업을 작업대 위에 띄운다. 도감에서 감춘 아이템이거나 이미 떠 있는 팝업이 있으면 띄우지 않는다.
+    private void OpenDetailPopup(ItemData item)
+    {
+        if (_openDetailPopup != null || State != UIState.Open) return;
+
+        int codexNumber = _itemCodex.GetCodexNumber(item);
+        if (codexNumber <= 0) return;
+
+        if (_detailPopupPrefab == null)
+        {
+            Debug.LogWarning($"WorkbenchUI({name}): 아이템 정보 팝업 프리팹이 설정되지 않아 첫 획득 정보를 띄울 수 없습니다.", this);
+            return;
+        }
+
+        _openDetailPopup = UIManager.Instance.OpenUI(_detailPopupPrefab, new ItemDetailData(item, codexNumber, isNew: true));
+        _openDetailPopup.OnFinishClose += HandleDetailPopupClosed;
+    }
+
+    // 정보 팝업이 닫히면 구독을 해제해 다음 첫 조합 때 다시 띄울 수 있게 한다.
+    private void HandleDetailPopupClosed(IManagedUI ui)
+    {
+        ui.OnFinishClose -= HandleDetailPopupClosed;
+        if (ReferenceEquals(ui, _openDetailPopup)) _openDetailPopup = null;
     }
 
     // 격자의 점유 슬롯에서 현재 배치 패턴을 만든다.

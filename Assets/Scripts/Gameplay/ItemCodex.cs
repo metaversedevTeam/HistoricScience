@@ -42,6 +42,23 @@ public class ItemCodex : MonoBehaviour, ISavable
     // 주어진 아이템을 한 번이라도 획득했는지 반환한다.
     public bool IsDiscovered(ItemData item) => item != null && _discovered.Contains(item.Id);
 
+    // 도감 목록에서 매겨지는 번호(1부터)를 반환한다. 도감에서 감춘 아이템은 번호를 차지하지 않으며, 대상이 아니면 0이다.
+    public int GetCodexNumber(ItemData item)
+    {
+        if (item == null || !item.ShowInCodex) return 0;
+
+        int number = 0;
+        foreach (ItemData candidate in Items)
+        {
+            if (!candidate.ShowInCodex) continue;
+
+            number++;
+            if (candidate == item) return number;
+        }
+
+        return 0;
+    }
+
     // 도감에 표시되는 아이템 기준으로 수집 현황을 센다. age가 null이면 전체, 값이 있으면 그 시대만 집계한다.
     public CodexProgress GetProgress(Age? age = null)
     {

@@ -14,6 +14,8 @@ public class ItemDetailPopupUI : OpenableUIBase<ItemDetailData>
     [SerializeField] private TextMeshProUGUI _codexNumberText;
     // 도감 번호 문구 형식. {0}에 도감 번호가 들어간다.
     [SerializeField] private string _codexNumberFormat = "No. {0:D3}";
+    // 처음 획득한 아이템으로 열렸을 때 이름 뒤에 붙일 작은 표시 (TMP 리치 텍스트)
+    [SerializeField] private string _newTagSuffix = " <size=45%><color=#FB923C>NEW!</color></size>";
 
     [Header("썸네일")]
     [SerializeField] private Image _thumbnail;
@@ -48,15 +50,15 @@ public class ItemDetailPopupUI : OpenableUIBase<ItemDetailData>
             return;
         }
 
-        ApplyHeader(item, data.CodexNumber);
+        ApplyHeader(item, data.CodexNumber, data.IsNew);
         ApplyThumbnail(item);
         ApplyDescription(item);
     }
 
-    // 이름·시대 배지·도감 번호를 표시한다.
-    private void ApplyHeader(ItemData item, int codexNumber)
+    // 이름·시대 배지·도감 번호를 표시한다. 처음 획득한 아이템이면 이름 오른쪽에 NEW! 표시를 붙인다.
+    private void ApplyHeader(ItemData item, int codexNumber, bool isNew)
     {
-        _titleText.text = item.Nmae;
+        _titleText.text = isNew ? item.Nmae + _newTagSuffix : item.Nmae;
         _eraTagText.text = item.Age.ToTabName();
         _codexNumberText.text = string.Format(_codexNumberFormat, codexNumber);
     }
@@ -108,16 +110,18 @@ public class ItemDetailPopupUI : OpenableUIBase<ItemDetailData>
     private void HandleConfirmButtonClick() => Close();
 }
 
-// 아이템 정보 팝업에 전달되는 페이로드 — 보여 줄 아이템과 도감 목록에서 매긴 번호
+// 아이템 정보 팝업에 전달되는 페이로드 — 보여 줄 아이템, 도감 목록에서 매긴 번호, 처음 획득해서 열린 것인지 여부
 public readonly struct ItemDetailData
 {
     public readonly ItemData Item;
     public readonly int CodexNumber;
+    public readonly bool IsNew;
 
-    // 아이템과 도감 번호로 페이로드를 구성한다.
-    public ItemDetailData(ItemData item, int codexNumber)
+    // 아이템과 도감 번호, 첫 획득 여부로 페이로드를 구성한다.
+    public ItemDetailData(ItemData item, int codexNumber, bool isNew = false)
     {
         Item = item;
         CodexNumber = codexNumber;
+        IsNew = isNew;
     }
 }
