@@ -4,7 +4,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-// 인류 문명 도감 UI — 아이템 목록을 시대 필터·이름 검색으로 추려 보여주고, 전체 수집 달성도를 표시하는 관리형 UI.
+// 인류 문명 도감 UI — 작업대·근거지 위에 모달 창으로 떠서, 아이템 목록을 시대 필터로 추려 보여주고, 전체 수집 달성도를 표시하는 관리형 UI.
 // 획득 여부는 씬에 있는 ItemCodex에서 읽으며, ItemCodex가 없으면 전부 미획득으로 표시한다.
 // 힌트 비용을 치를 인벤토리를 페이로드로 받아, 미획득 카드의 힌트 버튼으로 조합법 힌트 팝업을 연다.
 // 이미 획득한 카드의 "수집 완료" 버튼은 같은 팝업을 전체 공개 모드로 열어 조합법 전체를 보여준다.
@@ -32,15 +32,16 @@ public class ItemCodexUI : OpenableUIBase<ResourceInventory>
     [Header("아이템 정보")]
     [SerializeField] private ItemDetailPopupUI _detailPopupPrefab;
 
-    [Header("검색")]
-    [SerializeField] private TMP_InputField _searchInput;
-
     [Header("닫기")]
     [SerializeField] private Button _closeButton;
 
     [Header("달성도")]
     [SerializeField] private RectTransform _progressFill;
     [SerializeField] private TextMeshProUGUI _progressText;
+
+    [Header("연출")]
+    // 열릴 때 창을 들여오고, 닫힐 때 거꾸로 내보내는 연출 (비워 두면 연출 없이 바로 닫힌다)
+    [SerializeField] private MainMenuIntroSequence _introSequence;
 
     // 전체 탭을 나타내는 값. 특정 시대가 선택되면 그 시대가 들어간다.
     private Age? _selectedAge;
@@ -63,7 +64,6 @@ public class ItemCodexUI : OpenableUIBase<ResourceInventory>
     private void Awake()
     {
         BuildTabs();
-        _searchInput.onValueChanged.AddListener(HandleSearchChanged);
         _closeButton.onClick.AddListener(HandleCloseButtonClick);
     }
 
@@ -97,7 +97,19 @@ public class ItemCodexUI : OpenableUIBase<ResourceInventory>
         Refresh();
     }
 
-    // 풀로 돌아가기 전에 검색어·선택 탭·스크롤 위치를 초기 상태로 되돌리고, 열어 둔 팝업들을 정리한다.
+    // 등장 연출을 거꾸로 재생해 창을 내보낸 뒤 닫기를 마무리한다.
+    protected override void PlayCloseTransition()
+    {
+        if (_introSequence == null || !_introSequence.isActiveAndEnabled)
+        {
+            FinishClose();
+            return;
+        }
+
+        _introSequence.PlayReverse(FinishClose);
+    }
+
+    // 풀로 돌아가기 전에 선택 탭·스크롤 위치를 초기 상태로 되돌리고, 열어 둔 팝업들을 정리한다.
     protected override void OnReturnToPool()
     {
         // 도감이 닫히면 도감이 띄운 팝업도 함께 정리한다. (닫히면서 구독 해제까지 이어진다)
@@ -110,7 +122,6 @@ public class ItemCodexUI : OpenableUIBase<ResourceInventory>
         UnsubscribeFromHintPopup();
         UnsubscribeFromDetailPopup();
         _inventory = null;
-        _searchInput.SetTextWithoutNotify(string.Empty);
         SelectAge(null, refresh: false);
 
         if (_scrollRect != null)
@@ -164,8 +175,6 @@ public class ItemCodexUI : OpenableUIBase<ResourceInventory>
     // 닫기 버튼을 누르면 UI를 닫는다. (ESC로 닫는 UIManager 경로와 동일한 동작)
     private void HandleCloseButtonClick() => Close();
 
-    // 검색어가 바뀌면 목록을 다시 추린다.
-    private void HandleSearchChanged(string _) => Refresh();
 
     // 새 아이템이 도감에 등록되면 카드와 달성도를 다시 그린다.
     private void HandleDiscover(ItemData _) => Refresh();
@@ -228,7 +237,7 @@ public class ItemCodexUI : OpenableUIBase<ResourceInventory>
         _openDetailPopup = null;
     }
 
-    // 현재 필터·검색어에 맞는 카드 목록과 달성도를 모두 다시 그린다.
+    // 현재 시대 필터에 맞는 카드 목록과 달성도를 모두 다시 그린다.
     private void Refresh()
     {
         RefreshEntries();
@@ -239,7 +248,6 @@ public class ItemCodexUI : OpenableUIBase<ResourceInventory>
     private void RefreshEntries()
     {
         IReadOnlyList<ItemData> items = _itemDataList.Items;
-        string keyword = _searchInput.text.Trim();
         int codexNumber = 0;
         int visibleCount = 0;
 
@@ -250,7 +258,7 @@ public class ItemCodexUI : OpenableUIBase<ResourceInventory>
             if (!item.ShowInCodex) continue;
 
             codexNumber++;
-            if (!Matches(item, keyword)) continue;
+            if (!Matches(item)) continue;
 
             ItemCodexEntryUI entry = GetOrCreateEntry(visibleCount);
             entry.gameObject.SetActive(true);
@@ -282,17 +290,10 @@ public class ItemCodexUI : OpenableUIBase<ResourceInventory>
         return () => OpenDetailPopup(item, codexNumber);
     }
 
-    // 아이템이 현재 시대 필터와 검색어를 모두 만족하는지 판정한다.
-    private bool Matches(ItemData item, string keyword)
+    // 아이템이 현재 시대 필터를 만족하는지 판정한다.
+    private bool Matches(ItemData item)
     {
-        if (_selectedAge.HasValue && item.Age != _selectedAge.Value)
-            return false;
-
-        if (string.IsNullOrEmpty(keyword))
-            return true;
-
-        return item.Nmae != null &&
-               item.Nmae.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0;
+        return !_selectedAge.HasValue || item.Age == _selectedAge.Value;
     }
 
     // index번째 카드를 반환하고, 아직 없으면 새로 만들어 재사용 목록에 넣는다.
@@ -305,7 +306,7 @@ public class ItemCodexUI : OpenableUIBase<ResourceInventory>
         return _entries[index];
     }
 
-    // 현재 선택된 시대 탭의 수집 현황을 도감에서 받아 게이지 폭과 문구를 갱신한다. (검색어는 달성도에 영향을 주지 않는다)
+    // 현재 선택된 시대 탭의 수집 현황을 도감에서 받아 게이지 폭과 문구를 갱신한다.
     private void RefreshProgress()
     {
         // 도감이 없으면 셀 기준 자체가 없으므로 0/0으로 본다.

@@ -41,6 +41,10 @@ public class CraftingHintPopupUI : OpenableUIBase<CraftingHintData>
     [SerializeField] private Button _hintButton;
     [SerializeField] private TextMeshProUGUI _hintButtonText;
 
+    [Header("연출")]
+    // 열릴 때 창을 들여오고, 닫힐 때 거꾸로 내보내는 연출 (비워 두면 연출 없이 바로 닫힌다)
+    [SerializeField] private MainMenuIntroSequence _introSequence;
+
     private ItemData _item;
     private ResourceInventory _inventory;
     private ItemCodex _codex;
@@ -96,6 +100,18 @@ public class CraftingHintPopupUI : OpenableUIBase<CraftingHintData>
         }
 
         Refresh();
+    }
+
+    // 등장 연출을 거꾸로 재생해 창을 내보낸 뒤 닫기를 마무리한다.
+    protected override void PlayCloseTransition()
+    {
+        if (_introSequence == null || !_introSequence.isActiveAndEnabled)
+        {
+            FinishClose();
+            return;
+        }
+
+        _introSequence.PlayReverse(FinishClose);
     }
 
     // 구독을 해제하고 격자를 비워 다음에 열릴 때 이전 아이템이 남지 않게 한다.

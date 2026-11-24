@@ -1,11 +1,17 @@
+using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 // 작업대 창고 격자의 한 칸. 보유 아이템을 아이콘·수량으로 보여주고, 조합 격자로 드래그해 재료를 옮긴다.
-public class ItemSlotUI : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
+public class ItemSlotUI : MonoBehaviour, IItemHoverSource, IBeginDragHandler, IDragHandler, IEndDragHandler,
+    IPointerEnterHandler, IPointerExitHandler
 {
+    // 마우스가 이 칸에 들어오거나 나갈 때 발행된다. 툴팁을 관리하는 쪽이 구독한다.
+    public event Action<IItemHoverSource> OnHoverEnter;
+    public event Action<IItemHoverSource> OnHoverExit;
+
     [SerializeField] private Image _icon;
     [SerializeField] private TextMeshProUGUI _countText;
 
@@ -49,6 +55,10 @@ public class ItemSlotUI : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDr
         _icon.sprite = null;
         _countText.gameObject.SetActive(false);
     }
+
+    public void OnPointerEnter(PointerEventData eventData) => OnHoverEnter?.Invoke(this);
+
+    public void OnPointerExit(PointerEventData eventData) => OnHoverExit?.Invoke(this);
 
     public void OnBeginDrag(PointerEventData eventData)
     {

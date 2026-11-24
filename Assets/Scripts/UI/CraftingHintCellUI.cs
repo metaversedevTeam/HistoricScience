@@ -5,8 +5,8 @@ using UnityEngine.UI;
 // 조합법 힌트 격자의 한 칸. 아직 공개되지 않았으면 물음표만 보이고, 공개되면 그 칸에 놓이는 재료를 강조해 보여준다.
 public class CraftingHintCellUI : MonoBehaviour
 {
-    [SerializeField] private Image _fill;
-    [SerializeField] private Image _outline;
+    [SerializeField] private Graphic _fill;
+    [SerializeField] private Graphic _outline;
     [SerializeField] private Image _icon;
     [SerializeField] private TextMeshProUGUI _questionText;
 
