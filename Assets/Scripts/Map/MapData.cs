@@ -5,6 +5,8 @@ public sealed class MapData
 {
     // 높이 영향력 계산의 완충값. 가중 거리에 더해져 정점 근처에서 영향력이 발산하는 것을 막고, 클수록 경계의 높이 전환이 넓고 완만해진다.
     private const float k_HeightBlendSoftness = 0.01f;
+    // 바이옴 판정에서 경계 노이즈가 가중 거리를 바꿀 수 있는 최대 폭을 노이즈 세기의 몇 배로 볼지. 이론상 1배지만, 펄린 값이 0~1을 살짝 벗어날 수 있어 넉넉히 2배로 잡는다.
+    private const float k_BoundaryNoiseBoundFactor = 2f;
 
     // 이 맵 데이터를 생성할 때 사용된 랜덤 시드
     private readonly int m_Seed;
@@ -331,12 +333,16 @@ public sealed class MapData
     }
 
     // 후보 정점들 중 가중치 거리(+ 노이즈 보정)가 가장 가까운 정점을 찾는다. 후보가 하나도 없으면 false를 반환한다.
+    // 경계 노이즈는 ±m_BoundaryNoiseStrength 안의 작은 값이라, 노이즈 없는 가중 거리만으로 지금까지의 1등을 이길 수 없는 후보는
+    // 노이즈(펄린) 계산을 건너뛴다. 건너뛴 후보는 원래 계산으로도 1등이 될 수 없으므로 결과는 모든 후보에 노이즈를 더할 때와 같다.
     private bool HandleTryFindNearestRegion(Vector2 position, BiomeRegionMap.RegionEnumerator candidates, out BiomeRegion nearest)
     {
         // 가중치 거리가 모두 비교 불가능한 값(NaN)이어도 첫 후보가 남도록, 예전에 후보 배열의 0번으로 시작하던 것과 같게 첫 후보를 먼저 담아 둔다.
         nearest = default;
         bool hasCandidate = false;
         float nearestWeightedDistanceSqr = float.MaxValue;
+        // 경계 노이즈가 가중 거리를 가장 많이 줄일 수 있는 폭. 펄린 값이 0~1을 살짝 벗어나는 경우까지 덮도록 이론 폭(세기)의 두 배로 넉넉히 잡는다.
+        float maxNoiseReduction = Mathf.Max(m_BoundaryNoiseStrength, 0f) * k_BoundaryNoiseBoundFactor;
 
         foreach (BiomeRegion candidate in candidates)
         {
@@ -351,6 +357,11 @@ public sealed class MapData
             float distanceSqr = dx * dx + dy * dy;
 
             float weightedDistanceSqr = distanceSqr / candidate.Weight;
+
+            // 노이즈가 가장 유리하게 작용해도 지금의 1등보다 작아질 수 없으면 노이즈를 계산하지 않고 넘어간다.
+            if (weightedDistanceSqr - maxNoiseReduction >= nearestWeightedDistanceSqr)
+                continue;
+
             weightedDistanceSqr += HandleGetBoundaryNoise(position, candidate.Index);
 
             if (weightedDistanceSqr < nearestWeightedDistanceSqr)
