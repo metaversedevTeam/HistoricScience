@@ -68,6 +68,7 @@ namespace HistoricScience.Test
         public MapData CurrentMapData => m_MapData;
 
         // 이 터레인에 마지막으로 적용한 품질 단계. Lod1이면 풀과 자원이 없고 알파맵이 블러되지 않았다(LOD0에서 낮춘 경우 블러는 남아 있다).
+        // Lod2면 풀과 자원이 없고 알파맵을 칠하지 않았다(더 높은 LOD에서 낮춘 경우 그때 칠한 알파맵이 남아 있다).
         public ChunkLod CurrentLod => m_CurrentLod;
 
         // 월드 좌표를 이 터레인의 출력 설정 기준 정규화 맵 좌표로 변환한다. HandleMapToWorldPosition의 역함수로, 건축 위치 지정처럼 월드 좌표에서 걷기 가능 여부를 판정해야 할 때 쓴다.
@@ -103,7 +104,7 @@ namespace HistoricScience.Test
         }
 
         // 주입받은 맵 데이터를 보관하고 백그라운드 계산에 필요한 데이터를 모아 반환한다. Unity API를 사용하므로 반드시 메인 스레드에서 호출해야 한다.
-        // lod가 Lod1이면 풀 디테일 프로토타입을 비워 두고, 이후 계산과 적용에서도 풀·자원·알파맵 블러를 건너뛴다.
+        // lod가 Lod1이면 풀 디테일 프로토타입을 비워 두고, 이후 계산과 적용에서도 풀·자원·알파맵 블러를 건너뛴다. Lod2는 여기에 더해 알파맵 계산과 적용도 건너뛴다.
         // Lod0이고 자원 스포너가 있으면 자원 소환 계획도 함께 만들어, 무거운 자리 계산을 ComputePaint(백그라운드)에서 하게 한다.
         public (MapData MapData, MapBiome[] Biomes, TerrainLayer[] Layers, int CliffLayerIndex, int SnowLayerIndex, int AlphamapWidth, int AlphamapHeight, int HeightmapResolution, ChunkGrassLayout GrassLayout, int DetailResolution, ChunkLod Lod, ChunkResourcePlan ResourcePlan)? PrepareForPaint(MapData mapData, ChunkLod lod = ChunkLod.Lod0)
         {
@@ -165,28 +166,35 @@ namespace HistoricScience.Test
 
         // 준비된 데이터로 알파맵과 높이맵을 계산한다. Terrain을 직접 건드리지 않는 순수 계산이라 백그라운드 스레드에서 호출해도 안전하다.
         // 굽는 동안 조회할 보로노이 정점을 먼저 한 번에 계산해 두고 모든 조회에 넘기므로, 같은 정점을 텍셀마다 다시 만들지 않는다.
-        // context.Lod가 Lod1이면 알파맵 블러와 풀 밀도 계산을 건너뛴다. Lod0이면 자원 소환 자리도 여기서 계산해, 메인 스레드는 소환만 하게 한다.
+        // context.Lod가 Lod1이면 알파맵 블러와 풀 밀도 계산을 건너뛰고, Lod2면 알파맵(절벽·눈 포함)을 아예 계산하지 않아 Alphamap이 null이다.
+        // Lod0이면 자원 소환 자리도 여기서 계산해, 메인 스레드는 소환만 하게 한다.
         public (float[,,] Alphamap, float[,] Heightmap, int[][,] GrassLayers, ChunkResourcePlan ResourcePlan, ChunkLod Lod) ComputePaint((MapData MapData, MapBiome[] Biomes, TerrainLayer[] Layers, int CliffLayerIndex, int SnowLayerIndex, int AlphamapWidth, int AlphamapHeight, int HeightmapResolution, ChunkGrassLayout GrassLayout, int DetailResolution, ChunkLod Lod, ChunkResourcePlan ResourcePlan) context)
         {
             bool isFullDetail = context.Lod == ChunkLod.Lod0;
+            bool paintsAlphamap = context.Lod != ChunkLod.Lod2;
 
             // 블러가 터레인 밖(이웃 청크가 칠할 영역)까지 참고할 수 있도록 반경만큼 여백을 두고 계산한 뒤, 블러가 끝나면 여백을 잘라낸다.
-            // 여백이 없으면 가장자리 셀이 자기 청크 안쪽 값만 평균내어, 이웃 청크와 그라데이션이 어긋난 이음매가 생긴다. LOD1은 블러하지 않으므로 여백도 두지 않는다.
+            // 여백이 없으면 가장자리 셀이 자기 청크 안쪽 값만 평균내어, 이웃 청크와 그라데이션이 어긋난 이음매가 생긴다. LOD1·LOD2는 블러하지 않으므로 여백도 두지 않는다.
             int blendRadius = isFullDetail ? m_BlendRadius : 0;
             int padding = Mathf.Max(blendRadius, 0);
 
             ChunkRegionField regionField = HandleCreateRegionField(context.MapData, context.AlphamapWidth, padding);
 
-            float[,,] paddedAlphamap = HandleBuildAlphamap(context.AlphamapWidth, context.AlphamapHeight, padding, context.MapData, context.Biomes, context.Layers, regionField);
-            paddedAlphamap = HandleSmoothAlphamap(paddedAlphamap, blendRadius);
-            float[,,] alphamap = HandleCropAlphamapPadding(paddedAlphamap, context.AlphamapWidth, context.AlphamapHeight, padding);
+            float[,,] alphamap = null;
+            if (paintsAlphamap)
+            {
+                float[,,] paddedAlphamap = HandleBuildAlphamap(context.AlphamapWidth, context.AlphamapHeight, padding, context.MapData, context.Biomes, context.Layers, regionField);
+                paddedAlphamap = HandleSmoothAlphamap(paddedAlphamap, blendRadius);
+                alphamap = HandleCropAlphamapPadding(paddedAlphamap, context.AlphamapWidth, context.AlphamapHeight, padding);
+            }
 
             // 높이맵과 경사 판정이 같은 높이 격자점을 쓰도록 한 번만 계산해 둔다.
             ChunkHeightGrid heightGrid = HandleCreateHeightGrid(context.MapData, regionField);
             float[,] heightmap = HandleBuildHeightmap(context.HeightmapResolution, context.MapData, heightGrid);
 
             // 절벽·눈은 경계를 스스로 부드럽게 섞으므로 블러를 거치지 않고, 잘라낸 최종 알파맵에 바로 덮는다.
-            HandleApplySurfaceOverlay(alphamap, context.Biomes.Length, context.CliffLayerIndex, context.SnowLayerIndex, context.MapData.TerrainConfig.SurfaceOverlay, heightGrid);
+            if (paintsAlphamap)
+                HandleApplySurfaceOverlay(alphamap, context.Biomes.Length, context.CliffLayerIndex, context.SnowLayerIndex, context.MapData.TerrainConfig.SurfaceOverlay, heightGrid);
 
             // 풀 밀도는 블러된 알파맵과 완성된 높이맵을 그대로 읽어, 바이옴 경계의 그라데이션과 지형 표면 높이를 따로 계산하지 않는다.
             int[][,] grassLayers = isFullDetail
@@ -219,13 +227,17 @@ namespace HistoricScience.Test
         }
 
         // 계산된 알파맵과 높이맵을 실제 터레인에 적용하고, LOD0이면 풀과 자원까지 채운다. Unity API를 사용하므로 반드시 메인 스레드에서 호출해야 한다.
-        // applyHeights가 false면 높이맵 적용(콜라이더 재구축 포함)을 건너뛴다. 높이는 LOD와 무관하게 같으므로 LOD1 청크를 LOD0로 올릴 때 쓴다.
+        // applyHeights가 false면 높이맵 적용(콜라이더 재구축 포함)을 건너뛴다. 높이는 LOD와 무관하게 같으므로 이미 구운 청크를 더 높은 LOD로 올릴 때 쓴다.
+        // 알파맵이 없으면(LOD2) 터레인의 알파맵을 건드리지 않는다.
         public void ApplyPaint((float[,,] Alphamap, float[,] Heightmap, int[][,] GrassLayers, ChunkResourcePlan ResourcePlan, ChunkLod Lod) result, bool applyHeights = true)
         {
             TerrainData terrainData = m_Terrain.terrainData;
-            // 알파맵 배열은 [y, x, 레이어] 순서라 1번 차원이 너비다. 새 알파맵을 바로 덮어쓰므로 해상도 변경으로 지워지는 순간이 화면에 보이지 않는다.
-            HandleApplyAlphamapResolution(terrainData, result.Alphamap.GetLength(1));
-            terrainData.SetAlphamaps(0, 0, result.Alphamap);
+            if (result.Alphamap != null)
+            {
+                // 알파맵 배열은 [y, x, 레이어] 순서라 1번 차원이 너비다. 새 알파맵을 바로 덮어쓰므로 해상도 변경으로 지워지는 순간이 화면에 보이지 않는다.
+                HandleApplyAlphamapResolution(terrainData, result.Alphamap.GetLength(1));
+                terrainData.SetAlphamaps(0, 0, result.Alphamap);
+            }
             if (applyHeights)
                 terrainData.SetHeights(0, 0, result.Heightmap);
             HandleApplyGrassLayers(terrainData, result.GrassLayers);
@@ -238,17 +250,22 @@ namespace HistoricScience.Test
             m_CurrentLod = result.Lod;
         }
 
-        // 이미 구워진 LOD0 터레인을 다시 계산하지 않고 LOD1로 낮춘다. 풀과 자원은 지우고, 알파맵은 블러된 그대로 둔다.
-        public void ReduceToLod1()
+        // 이미 구워진 터레인을 다시 계산하지 않고 더 낮은 LOD로 낮춘다. LOD0에서 낮추면 풀과 자원을 지우고, 알파맵은 이미 칠한 그대로 둔다.
+        // 지금 LOD 이하로 낮추라는 요청은 무시한다.
+        public void ReduceTo(ChunkLod lod)
         {
-            if (m_CurrentLod == ChunkLod.Lod1)
+            if (lod <= m_CurrentLod)
                 return;
 
-            if (m_Terrain != null && m_Terrain.terrainData != null)
-                HandleClearGrassDetail(m_Terrain.terrainData);
+            if (m_CurrentLod == ChunkLod.Lod0)
+            {
+                if (m_Terrain != null && m_Terrain.terrainData != null)
+                    HandleClearGrassDetail(m_Terrain.terrainData);
 
-            HandleClearResources();
-            m_CurrentLod = ChunkLod.Lod1;
+                HandleClearResources();
+            }
+
+            m_CurrentLod = lod;
         }
 
         // 터레인의 풀 디테일 프로토타입을 비워, 심어 둔 풀 레이어까지 함께 지운다.

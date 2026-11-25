@@ -11,7 +11,7 @@ public class MapChunkManager : MonoBehaviour
     [SerializeField] private GameObject m_ChunkPrefab;
 
     [Header("LOD Gizmo")]
-    // 소환된 청크마다 LOD0·LOD1 단계를 색으로 구분한 사각형을 씬 뷰에 그릴지 여부. 켜 두면 오브젝트를 선택하지 않아도 항상 표시된다.
+    // 소환된 청크마다 LOD0·LOD1·LOD2 단계를 색으로 구분한 사각형을 씬 뷰에 그릴지 여부. 켜 두면 오브젝트를 선택하지 않아도 항상 표시된다.
     [SerializeField] private bool m_ShowLodGizmos = true;
     // 사각형을 그릴 높이(이 매니저 기준 로컬 Y). 산에 가려지면 값을 높인다.
     [SerializeField] private float m_LodGizmoHeight = 0f;
@@ -19,6 +19,8 @@ public class MapChunkManager : MonoBehaviour
     [SerializeField] private Color m_Lod0GizmoColor = new Color(0.2f, 0.9f, 0.3f, 1f);
     // LOD1 청크 사각형의 색. 테두리는 이 색 그대로, 안쪽 면은 알파를 낮춰 그린다.
     [SerializeField] private Color m_Lod1GizmoColor = new Color(1f, 0.6f, 0.1f, 1f);
+    // LOD2 청크 사각형의 색. 테두리는 이 색 그대로, 안쪽 면은 알파를 낮춰 그린다.
+    [SerializeField] private Color m_Lod2GizmoColor = new Color(0.9f, 0.2f, 0.2f, 1f);
     // 안쪽 면에 곱할 알파. 0이면 테두리만 그린다.
     [SerializeField, Range(0f, 1f)] private float m_LodGizmoFillAlpha = 0.15f;
 
@@ -196,23 +198,23 @@ public class MapChunkManager : MonoBehaviour
         await HandlePaintChunkAsync(chunkCoordinate, lod, false);
     }
 
-    // 이미 LOD1로 구워진 청크를 LOD0로 다시 구워 알파맵 블러, 풀, 자원을 채운다. 높이와 위치, 저장 오브젝트는 그대로라 다시 적용하지 않는다.
-    // 소환되어 있지 않거나 이미 LOD0인 청크는 무시한다.
-    public async Task UpgradeChunkToLod0Async(Vector2Int chunkCoordinate)
+    // 이미 낮은 LOD로 구워진 청크를 더 높은 LOD로 다시 구워 알파맵(LOD0이면 블러, 풀, 자원까지)을 채운다. 높이와 위치, 저장 오브젝트는 그대로라 다시 적용하지 않는다.
+    // 소환되어 있지 않거나 이미 그 LOD 이상인 청크는 무시한다.
+    public async Task UpgradeChunkAsync(Vector2Int chunkCoordinate, ChunkLod lod)
     {
-        if (!TryGetChunkLod(chunkCoordinate, out ChunkLod lod) || lod == ChunkLod.Lod0)
+        if (!TryGetChunkLod(chunkCoordinate, out ChunkLod currentLod) || currentLod <= lod)
             return;
 
-        await HandlePaintChunkAsync(chunkCoordinate, ChunkLod.Lod0, true);
+        await HandlePaintChunkAsync(chunkCoordinate, lod, true);
     }
 
-    // LOD0로 구워진 청크를 다시 계산하지 않고 LOD1로 낮춰 풀과 자원을 지운다. 소환되어 있지 않은 청크는 무시한다.
-    public void ReduceChunkToLod1(Vector2Int chunkCoordinate)
+    // 구워진 청크를 다시 계산하지 않고 더 낮은 LOD로 낮춰 풀과 자원을 지운다. 소환되어 있지 않거나 이미 그 LOD 이하인 청크는 무시한다.
+    public void ReduceChunk(Vector2Int chunkCoordinate, ChunkLod lod)
     {
         if (!m_ActiveChunks.TryGetValue(chunkCoordinate, out GameObject chunkObject))
             return;
 
-        chunkObject.GetComponent<TerrainPainter>().ReduceToLod1();
+        chunkObject.GetComponent<TerrainPainter>().ReduceTo(lod);
     }
 
     // 청크를 지정한 품질로 비동기 굽는다. isRepaint가 true면 이미 구워진 청크를 다시 칠하는 것이므로 높이맵, 위치, 저장 오브젝트 소환을 건너뛴다.
@@ -381,7 +383,7 @@ public class MapChunkManager : MonoBehaviour
         HandleDrawLodGizmos();
     }
 
-    // 소환된 청크마다 현재 LOD 단계 색으로 청크 영역 사각형을 그려, LOD0 범위와 LOD1 범위를 씬 뷰에서 구분해 보여 준다.
+    // 소환된 청크마다 현재 LOD 단계 색으로 청크 영역 사각형을 그려, LOD0·LOD1·LOD2 범위를 씬 뷰에서 구분해 보여 준다.
     // 청크 크기는 맵 데이터에서 오므로, 맵 데이터가 주입되기 전이나 소환된 청크가 없으면 아무것도 그리지 않는다.
     private void HandleDrawLodGizmos()
     {
@@ -401,13 +403,27 @@ public class MapChunkManager : MonoBehaviour
                 continue;
 
             ChunkLod lod = chunk.Value.GetComponent<TerrainPainter>().CurrentLod;
-            Color color = lod == ChunkLod.Lod0 ? m_Lod0GizmoColor : m_Lod1GizmoColor;
+            Color color = HandleGetLodGizmoColor(lod);
             Vector3 center = new Vector3((chunk.Key.x + 0.5f) * chunkSize.x, m_LodGizmoHeight, (chunk.Key.y + 0.5f) * chunkSize.y);
 
             HandleDrawLodGizmoBox(center, boxSize, outlineSize, color);
         }
 
         Gizmos.matrix = Matrix4x4.identity;
+    }
+
+    // LOD 단계에 맞는 기즈모 색을 반환한다.
+    private Color HandleGetLodGizmoColor(ChunkLod lod)
+    {
+        switch (lod)
+        {
+            case ChunkLod.Lod0:
+                return m_Lod0GizmoColor;
+            case ChunkLod.Lod1:
+                return m_Lod1GizmoColor;
+            default:
+                return m_Lod2GizmoColor;
+        }
     }
 
     // 청크 하나의 LOD 사각형을 반투명 면과 진한 테두리로 그린다.

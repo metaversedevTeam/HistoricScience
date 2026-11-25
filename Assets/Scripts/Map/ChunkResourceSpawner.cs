@@ -51,7 +51,7 @@ public class ChunkResourceSpawner : MonoBehaviour
             HandleSpawnSource(plan.GetPrefab(i), plan.GetPlacements(i), container);
     }
 
-    // 소환해 둔 자원을 모두 지운다. 청크를 LOD1로 낮춰 자원을 두지 않을 때 쓴다.
+    // 소환해 둔 자원을 모두 지운다. 청크를 LOD1 이하로 낮춰 자원을 두지 않을 때 쓴다.
     public void ClearResources()
     {
         HandleClearSpawned();

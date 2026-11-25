@@ -5,8 +5,10 @@ using System.Threading.Tasks;
 using UnityEngine;
 
 // MapChunkManager를 이용해 등록된 추적 대상들 주변의 청크만 로딩하고, 모든 대상에게서 멀어진 청크는 메모리에서 해제하는 클래스.
-// 대상에 가까운 LOD0 로딩 범위 안은 풀·자원·알파맵 블러까지 갖춘 LOD0로, 그 바깥 LOD1 로딩 범위까지는 원경용 LOD1로 로딩한다.
-// LOD0 청크는 LOD0 유지 범위(LOD0 로딩 범위 + 1) 밖으로 나가면 LOD1로 낮추고, 모든 청크는 LOD1 유지 범위(LOD1 로딩 범위 + 1) 밖으로 나가면 해제한다.
+// 대상에 가까운 LOD0 로딩 범위 안은 풀·자원·알파맵 블러까지 갖춘 LOD0로, 그 바깥 LOD1 로딩 범위까지는 원경용 LOD1로,
+// 그 바깥 LOD2 로딩 범위까지는 알파맵을 칠하지 않는 최원경용 LOD2로 로딩한다.
+// LOD0 청크는 LOD0 유지 범위(LOD0 로딩 범위 + 1) 밖으로 나가면 LOD1로, LOD0·LOD1 청크는 LOD1 유지 범위(LOD1 로딩 범위 + 1) 밖으로 나가면 LOD2로 낮추고,
+// 모든 청크는 LOD2 유지 범위(LOD2 로딩 범위 + 1) 밖으로 나가면 해제한다.
 // 추적 대상은 인스펙터로 미리 등록하거나 런타임에 AddTarget/RemoveTarget으로 바꿀 수 있다.
 // 스스로 시작하지 않으며, 씬 진입점이 시드 주입을 마친 뒤 BeginLoadingAsync를 호출해야 한다. 초기 로딩이 끝나면
 // 대상 위치를 주기적으로 다시 확인하며 로딩/해제를 이어 간다.
@@ -24,7 +26,7 @@ public class MapChunkLoader : MonoBehaviour
     // 동시에 백그라운드 스레드에서 계산할 최대 청크 개수. 클수록 빨리 채워지지만 CPU 부하가 커진다.
     [SerializeField, Min(1)] private int m_MaxConcurrentLoads = 16;
 
-    // 가장 가까운 대상 순서로 정렬해 둔 로딩 대기열. 아직 없는 청크의 새 로딩과 LOD1 청크의 LOD0 올리기가 함께 들어간다.
+    // 가장 가까운 대상 순서로 정렬해 둔 로딩 대기열. 아직 없는 청크의 새 로딩과 이미 있는 청크의 더 높은 LOD로 올리기가 함께 들어간다.
     private readonly Queue<Vector2Int> m_PendingChunks = new Queue<Vector2Int>();
     // 대기열에 있거나 지금 로딩 중인 좌표. 같은 청크를 중복으로 맡기거나 로딩 도중에 해제하는 것을 막는다.
     private readonly HashSet<Vector2Int> m_ReservedChunks = new HashSet<Vector2Int>();
@@ -42,14 +44,20 @@ public class MapChunkLoader : MonoBehaviour
     // 각 추적 대상이 속한 청크를 중심으로 이 반경(청크 단위) 안의 청크를 LOD0로 로딩한다. 설정 화면에서 바꾼 값을 갱신마다 다시 읽는다.
     private int Lod0LoadRadius => GameSettings.ChunkLod0LoadRadius;
 
-    // 각 추적 대상이 속한 청크를 중심으로 이 반경(청크 단위) 안의 청크까지 로딩하며, LOD0 반경 밖은 LOD1로 로딩한다. 항상 LOD0 반경 이상이다.
+    // 각 추적 대상이 속한 청크를 중심으로 이 반경(청크 단위) 안에서 LOD0 반경 밖의 청크를 LOD1로 로딩한다. 항상 LOD0 반경 이상이다.
     private int Lod1LoadRadius => GameSettings.ChunkLod1LoadRadius;
+
+    // 각 추적 대상이 속한 청크를 중심으로 이 반경(청크 단위) 안의 청크까지 로딩하며, LOD1 반경 밖은 LOD2로 로딩한다. 항상 LOD1 반경보다 1 이상 크다.
+    private int Lod2LoadRadius => GameSettings.ChunkLod2LoadRadius;
 
     // 모든 추적 대상에게서 이 반경(청크 단위) 밖으로 벗어난 LOD0 청크를 LOD1로 낮춘다. LOD0 로딩 반경 + 1이다.
     private int Lod0KeepRadius => GameSettings.ChunkLod0KeepRadius;
 
-    // 모든 추적 대상에게서 이 반경(청크 단위) 밖으로 벗어난 청크를 해제한다. LOD1 로딩 반경 + 1이다.
+    // 모든 추적 대상에게서 이 반경(청크 단위) 밖으로 벗어난 LOD0·LOD1 청크를 LOD2로 낮춘다. LOD1 로딩 반경 + 1이다.
     private int Lod1KeepRadius => GameSettings.ChunkLod1KeepRadius;
+
+    // 모든 추적 대상에게서 이 반경(청크 단위) 밖으로 벗어난 청크를 해제한다. LOD2 로딩 반경 + 1이다.
+    private int Lod2KeepRadius => GameSettings.ChunkLod2KeepRadius;
 
     // 등록된 청크 중 로딩이 끝난 청크의 비율(0~1)이 바뀔 때마다 알린다. 로딩 화면의 프로그래스 바가 이 값을 표시한다.
     public event Action<float> LoadProgressChanged;
@@ -138,7 +146,7 @@ public class MapChunkLoader : MonoBehaviour
 
                 HandleCollectDesiredChunks();
                 HandleUnloadDistantChunks();
-                HandleReduceDistantLod0Chunks();
+                HandleReduceDistantChunks();
                 HandleUnloadDistantObjects();
                 HandleEnqueueMissingChunks();
 
@@ -172,65 +180,78 @@ public class MapChunkLoader : MonoBehaviour
         return m_TargetCoordinates.Count > 0;
     }
 
-    // 각 추적 대상 주변 LOD1 로딩 반경 안의 청크 좌표를 모두 모아, 이번 갱신에 로딩되어 있어야 하는 청크와 품질 단계를 정한다.
-    // 어느 한 대상이라도 LOD0 로딩 반경 안에 두는 청크는 LOD0, 나머지는 LOD1이다.
+    // 각 추적 대상 주변 LOD2 로딩 반경 안의 청크 좌표를 모두 모아, 이번 갱신에 로딩되어 있어야 하는 청크와 품질 단계를 정한다.
+    // 한 청크를 여러 대상이 두면 그중 가장 높은 품질(가장 작은 LOD)을 고른다.
     private void HandleCollectDesiredChunks()
     {
         m_DesiredChunks.Clear();
         int lod0RadiusSqr = Lod0LoadRadius * Lod0LoadRadius;
-        int lod1Radius = Lod1LoadRadius;
-        int lod1RadiusSqr = lod1Radius * lod1Radius;
+        int lod1RadiusSqr = Lod1LoadRadius * Lod1LoadRadius;
+        int lod2Radius = Lod2LoadRadius;
+        int lod2RadiusSqr = lod2Radius * lod2Radius;
 
         foreach (Vector2Int targetCoordinate in m_TargetCoordinates)
         {
-            for (int y = -lod1Radius; y <= lod1Radius; y++)
+            for (int y = -lod2Radius; y <= lod2Radius; y++)
             {
-                for (int x = -lod1Radius; x <= lod1Radius; x++)
+                for (int x = -lod2Radius; x <= lod2Radius; x++)
                 {
                     int distanceSqr = x * x + y * y;
-                    if (distanceSqr > lod1RadiusSqr)
+                    if (distanceSqr > lod2RadiusSqr)
                         continue;
 
+                    ChunkLod lod = HandleGetLodForDistance(distanceSqr, lod0RadiusSqr, lod1RadiusSqr);
                     Vector2Int coordinate = new Vector2Int(targetCoordinate.x + x, targetCoordinate.y + y);
-                    if (distanceSqr <= lod0RadiusSqr)
-                        m_DesiredChunks[coordinate] = ChunkLod.Lod0;
-                    else if (!m_DesiredChunks.ContainsKey(coordinate))
-                        m_DesiredChunks[coordinate] = ChunkLod.Lod1;
+                    if (!m_DesiredChunks.TryGetValue(coordinate, out ChunkLod existingLod) || lod < existingLod)
+                        m_DesiredChunks[coordinate] = lod;
                 }
             }
         }
     }
 
-    // 모든 추적 대상에게서 LOD0 유지 반경 밖으로 벗어난 LOD0 청크를 LOD1로 낮춰 풀과 자원을 지운다. 지금 로딩 중인 청크는 다음 갱신에서 처리한다.
-    private void HandleReduceDistantLod0Chunks()
+    // 추적 대상까지의 거리 제곱이 LOD0·LOD1 반경 제곱 안이면 그 LOD를, 둘 다 벗어나면 LOD2를 반환한다. 로딩 범위와 유지 범위 판정에 함께 쓴다.
+    private static ChunkLod HandleGetLodForDistance(int distanceSqr, int lod0RadiusSqr, int lod1RadiusSqr)
     {
-        m_CoordinateBuffer.Clear();
-        int keepRadius = Lod0KeepRadius;
-        int keepRadiusSqr = keepRadius * keepRadius;
+        if (distanceSqr <= lod0RadiusSqr)
+            return ChunkLod.Lod0;
 
+        if (distanceSqr <= lod1RadiusSqr)
+            return ChunkLod.Lod1;
+
+        return ChunkLod.Lod2;
+    }
+
+    // 모든 추적 대상에게서 LOD0 유지 반경 밖으로 벗어난 LOD0 청크는 LOD1로, LOD1 유지 반경 밖으로 벗어난 LOD0·LOD1 청크는 LOD2로 낮춘다.
+    // 다시 계산하지 않고 풀과 자원만 지운다. 지금 로딩 중인 청크는 다음 갱신에서 처리한다.
+    private void HandleReduceDistantChunks()
+    {
+        int lod0KeepRadiusSqr = Lod0KeepRadius * Lod0KeepRadius;
+        int lod1KeepRadiusSqr = Lod1KeepRadius * Lod1KeepRadius;
+
+        // 순회 중 컬렉션이 바뀌지 않도록 좌표를 먼저 모아 두고, 낮출 단계는 낮출 때 다시 계산한다.
+        m_CoordinateBuffer.Clear();
         foreach (Vector2Int coordinate in m_ChunkManager.ActiveChunkCoordinates)
         {
-            if (m_ReservedChunks.Contains(coordinate))
-                continue;
-
-            if (!m_ChunkManager.TryGetChunkLod(coordinate, out ChunkLod lod) || lod != ChunkLod.Lod0)
-                continue;
-
-            if (HandleGetSquaredDistanceToTargets(coordinate) <= keepRadiusSqr)
-                continue;
-
-            m_CoordinateBuffer.Add(coordinate);
+            if (!m_ReservedChunks.Contains(coordinate))
+                m_CoordinateBuffer.Add(coordinate);
         }
 
         foreach (Vector2Int coordinate in m_CoordinateBuffer)
-            m_ChunkManager.ReduceChunkToLod1(coordinate);
+        {
+            if (!m_ChunkManager.TryGetChunkLod(coordinate, out ChunkLod currentLod))
+                continue;
+
+            ChunkLod allowedLod = HandleGetLodForDistance(HandleGetSquaredDistanceToTargets(coordinate), lod0KeepRadiusSqr, lod1KeepRadiusSqr);
+            if (currentLod < allowedLod)
+                m_ChunkManager.ReduceChunk(coordinate, allowedLod);
+        }
     }
 
-    // 모든 추적 대상에게서 LOD1 유지 반경 밖으로 벗어난 청크를 지운다. 지금 로딩 중인 청크는 계산이 끝난 뒤 다음 갱신에서 처리한다.
+    // 모든 추적 대상에게서 LOD2 유지 반경 밖으로 벗어난 청크를 지운다. 지금 로딩 중인 청크는 계산이 끝난 뒤 다음 갱신에서 처리한다.
     private void HandleUnloadDistantChunks()
     {
         m_CoordinateBuffer.Clear();
-        int keepRadius = Lod1KeepRadius;
+        int keepRadius = Lod2KeepRadius;
         int keepRadiusSqr = keepRadius * keepRadius;
 
         foreach (Vector2Int coordinate in m_ChunkManager.ActiveChunkCoordinates)
@@ -258,7 +279,7 @@ public class MapChunkLoader : MonoBehaviour
         m_ObjectUnloader.UnloadObjectsOutsideActiveChunks();
     }
 
-    // 아직 소환되지 않은 청크와 LOD0여야 하는데 LOD1로 소환되어 있는 청크를, 로딩 중이 아니면 가장 가까운 대상에서 가까운 순서로 대기열에 넣는다.
+    // 아직 소환되지 않은 청크와 정해진 품질보다 낮은 LOD로 소환되어 있는 청크를, 로딩 중이 아니면 가장 가까운 대상에서 가까운 순서로 대기열에 넣는다.
     private void HandleEnqueueMissingChunks()
     {
         m_CoordinateBuffer.Clear();
@@ -268,8 +289,7 @@ public class MapChunkLoader : MonoBehaviour
             if (m_ReservedChunks.Contains(desired.Key))
                 continue;
 
-            if (m_ChunkManager.TryGetChunkLod(desired.Key, out ChunkLod currentLod)
-                && (desired.Value == ChunkLod.Lod1 || currentLod == ChunkLod.Lod0))
+            if (m_ChunkManager.TryGetChunkLod(desired.Key, out ChunkLod currentLod) && currentLod <= desired.Value)
                 continue;
 
             m_CoordinateBuffer.Add(desired.Key);
@@ -352,13 +372,15 @@ public class MapChunkLoader : MonoBehaviour
         }
     }
 
-    // 대기열에서 꺼낸 청크가 이미 소환되어 있으면 LOD0로 올리고, 없으면 이번 갱신에서 정한 품질로 새로 그리기 시작한다.
+    // 대기열에서 꺼낸 청크가 이미 소환되어 있으면 이번 갱신에서 정한 품질로 올리고, 없으면 그 품질로 새로 그리기 시작한다.
+    // 대기 중에 범위에서 빠진 청크는 가장 가벼운 LOD2로 그린다(이미 소환되어 있으면 올리지 않는다).
     private Task HandleStartChunkLoad(Vector2Int coordinate)
     {
-        if (m_ChunkManager.IsChunkActive(coordinate))
-            return m_ChunkManager.UpgradeChunkToLod0Async(coordinate);
+        ChunkLod lod = m_DesiredChunks.TryGetValue(coordinate, out ChunkLod desiredLod) ? desiredLod : ChunkLod.Lod2;
 
-        ChunkLod lod = m_DesiredChunks.TryGetValue(coordinate, out ChunkLod desiredLod) ? desiredLod : ChunkLod.Lod1;
+        if (m_ChunkManager.IsChunkActive(coordinate))
+            return m_ChunkManager.UpgradeChunkAsync(coordinate, lod);
+
         return m_ChunkManager.DrawChunkAsync(coordinate, lod);
     }
 }
