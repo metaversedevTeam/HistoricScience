@@ -7,6 +7,12 @@ public class SkyboxTimeOfDay : MonoBehaviour
     private static readonly int TimeOfDayId = Shader.PropertyToID("_TimeOfDay");
     private static readonly int SunOrbitYawId = Shader.PropertyToID("_SunOrbitYaw");
     private static readonly int SunOrbitTiltId = Shader.PropertyToID("_SunOrbitTilt");
+    private static readonly int DayHorizonColorId = Shader.PropertyToID("_DayHorizonColor");
+    private static readonly int NightHorizonColorId = Shader.PropertyToID("_NightHorizonColor");
+    private static readonly int SunsetColorId = Shader.PropertyToID("_SunsetColor");
+
+    // Skybox.hlsl의 노을 섞기 비율(0.3 + 0.7 * 태양 쪽 가중치)을 지평선 한 바퀴로 평균한 값. 태양 쪽 가중치 pow(cos²(φ/2), 3)의 평균은 5/16이다
+    private const float HorizonSunsetWeight = 0.3f + 0.7f * (5f / 16f);
 
     [Header("Sky")]
     [Tooltip("Skybox 셰이더 그래프를 쓰는 머티리얼. 비워 두면 Lighting 설정의 스카이박스 머티리얼을 사용한다.")]
@@ -52,6 +58,47 @@ public class SkyboxTimeOfDay : MonoBehaviour
         float angle = (time - 0.25f) * Mathf.PI * 2f;
         Vector3 local = new Vector3(Mathf.Cos(angle), Mathf.Sin(angle), 0f);
         return (Quaternion.Euler(0f, orbitYaw, 0f) * (Quaternion.Euler(orbitTilt, 0f, 0f) * local)).normalized;
+    }
+
+    // 지금 시간의 지평선 하늘 색을 구한다. Skybox.hlsl의 SkyGradient를 지평선 높이에서 방위 평균한 값이며 구름·해·달은 넣지 않는다
+    // 스카이박스 머티리얼이 없거나 Skybox 셰이더 그래프가 아니면 false를 반환한다
+    public bool TryGetHorizonSkyColor(out Color color)
+    {
+        color = Color.black;
+        Material sky = GetActiveSkybox();
+        if (sky == null || !sky.HasProperty(DayHorizonColorId))
+        {
+            return false;
+        }
+
+        float sunHeight = GetSunDirection(timeOfDay, sky.GetFloat(SunOrbitYawId), sky.GetFloat(SunOrbitTiltId)).y;
+        float dayAmount = ShaderSmoothStep(-0.15f, 0.2f, sunHeight);
+        float twilight = 1f - ShaderSmoothStep(0f, 0.3f, Mathf.Abs(sunHeight + 0.03f));
+
+        // 셰이더는 선형 색 공간에서 섞으므로 같은 공간에서 계산한 뒤 머티리얼 색과 같은 공간으로 되돌린다
+        bool isLinear = QualitySettings.activeColorSpace == ColorSpace.Linear;
+        Color dayHorizon = ToShaderSpace(sky.GetColor(DayHorizonColorId), isLinear);
+        Color nightHorizon = ToShaderSpace(sky.GetColor(NightHorizonColorId), isLinear);
+        Color sunset = ToShaderSpace(sky.GetColor(SunsetColorId), isLinear);
+
+        Color horizon = Color.Lerp(nightHorizon, dayHorizon, dayAmount);
+        Color mixed = Color.Lerp(horizon, sunset, twilight * HorizonSunsetWeight);
+        mixed.a = 1f;
+        color = isLinear ? mixed.gamma : mixed;
+        return true;
+    }
+
+    // HLSL smoothstep과 같은 식으로 edge0~edge1 사이를 부드럽게 0~1로 바꾼다
+    private static float ShaderSmoothStep(float edge0, float edge1, float x)
+    {
+        float t = Mathf.Clamp01((x - edge0) / (edge1 - edge0));
+        return t * t * (3f - 2f * t);
+    }
+
+    // 선형 색 공간 프로젝트면 머티리얼 색을 셰이더가 받는 선형 값으로 바꾼다
+    private static Color ToShaderSpace(Color color, bool isLinear)
+    {
+        return isLinear ? color.linear : color;
     }
 
     private void OnEnable()
