@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using UnityEngine;
 
 // 보로노이 다이어그램을 기반으로 맵의 바이옴/높이 정보를 계산하는 불변 클래스 (생성 후 상태가 변하지 않아 여러 스레드에서 동시에 읽어도 안전하다)
 public sealed class MapData
@@ -31,6 +32,11 @@ public sealed class MapData
     private readonly MapInlandConfig m_InlandConfig;
     // 산 바이옴 높이에 능선·봉우리 모양을 입히는 능선 노이즈
     private readonly MountainNoise m_MountainNoise;
+    // 굴곡 노이즈 샘플 오프셋을 미리 계산해 둔 바이옴 목록(바이옴 목록 + 대체 바이옴 + 기본 바이옴, 중복 없음). m_BiomeNoiseShifts와 같은 순서다.
+    // 높이 조회마다 바이옴 이름을 해시하지 않도록 생성 시 한 번만 계산한다.
+    private readonly MapBiome[] m_ShiftBiomes;
+    // m_ShiftBiomes의 각 바이옴에 대한 굴곡 노이즈 샘플 오프셋
+    private readonly Vector2[] m_BiomeNoiseShifts;
 
     // 이 맵 데이터를 생성할 때 사용된 랜덤 시드를 반환한다.
     public int Seed => m_Seed;
@@ -64,6 +70,7 @@ public sealed class MapData
         m_Biomes = biomes != null ? (MapBiome[])biomes.Clone() : new MapBiome[0];
 
         m_RegionMap = new BiomeRegionMap(seed, minWeight, maxWeight, biomes, inlandConfig);
+        HandleBuildBiomeNoiseShifts(out m_ShiftBiomes, out m_BiomeNoiseShifts);
 
         HandleWarnIfMountainExceedsMaxHeight();
     }
@@ -397,7 +404,7 @@ public sealed class MapData
     private float HandleSampleBiomeHeight(MapBiome biome, Vector2 position, float inland, ref float mountainBonus)
     {
         // 바이옴마다 샘플 위치를 밀어, 서로 다른 바이옴이 같은 굴곡 패턴을 공유하지 않게 한다.
-        Vector2 shift = HandleGetBiomeNoiseShift(biome);
+        Vector2 shift = HandleFindBiomeNoiseShift(biome);
 
         float noise = Mathf.PerlinNoise(
             position.x * biome.HeightNoiseScale + m_HeightNoiseOffset.x + shift.x,
@@ -425,6 +432,53 @@ public sealed class MapData
             return envelope;
 
         return envelope * m_MountainNoise.SampleShape(position);
+    }
+
+    // 정점에 배정될 수 있는 바이옴(바이옴 목록, 그 대체 바이옴, 기본 바이옴)마다 굴곡 노이즈 샘플 오프셋을 한 번씩 계산해 둔다.
+    private void HandleBuildBiomeNoiseShifts(out MapBiome[] shiftBiomes, out Vector2[] shifts)
+    {
+        List<MapBiome> biomes = new List<MapBiome>(m_Biomes.Length + 1);
+        foreach (MapBiome biome in m_Biomes)
+        {
+            HandleAddShiftBiome(biomes, biome);
+            if (biome != null)
+                HandleAddShiftBiome(biomes, biome.FallbackBiome);
+        }
+        HandleAddShiftBiome(biomes, m_DefaultBiome);
+
+        shiftBiomes = biomes.ToArray();
+        shifts = new Vector2[shiftBiomes.Length];
+        for (int i = 0; i < shiftBiomes.Length; i++)
+            shifts[i] = HandleGetBiomeNoiseShift(shiftBiomes[i]);
+    }
+
+    // 오프셋을 미리 계산할 바이옴 목록에 아직 없는 바이옴만 덧붙인다. null은 건너뛴다.
+    private static void HandleAddShiftBiome(List<MapBiome> biomes, MapBiome biome)
+    {
+        if (ReferenceEquals(biome, null))
+            return;
+
+        foreach (MapBiome existing in biomes)
+        {
+            if (ReferenceEquals(existing, biome))
+                return;
+        }
+
+        biomes.Add(biome);
+    }
+
+    // 미리 계산해 둔 바이옴의 굴곡 노이즈 샘플 오프셋을 찾는다. 바이옴 수가 적어 참조 비교로 훑는 편이 해시보다 빠르고,
+    // 유니티 == 연산자를 쓰지 않아 백그라운드 스레드에서도 안전하다. 목록에 없는 바이옴이면 그 자리에서 계산하므로 결과는 같다.
+    private Vector2 HandleFindBiomeNoiseShift(MapBiome biome)
+    {
+        MapBiome[] shiftBiomes = m_ShiftBiomes;
+        for (int i = 0; i < shiftBiomes.Length; i++)
+        {
+            if (ReferenceEquals(shiftBiomes[i], biome))
+                return m_BiomeNoiseShifts[i];
+        }
+
+        return HandleGetBiomeNoiseShift(biome);
     }
 
     // 바이옴 이름에서 결정론적인 굴곡 노이즈 샘플 오프셋을 계산한다.
