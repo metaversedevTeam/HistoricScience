@@ -1,7 +1,8 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 
-// 청크 터레인이 구워진 뒤, 자원 소스 목록의 각 항목에 연결된 소환 방식이 계산한 자리에 자원 소스 프리팹을 소환하는 컴포넌트
+// 청크 터레인이 구워진 뒤, 자원 소스 목록의 각 항목에 연결된 소환 방식이 계산한 자리에 자원 소스 프리팹을 소환하는 컴포넌트.
+// 자리 계산은 무거워서 CreatePlan으로 만든 계획을 백그라운드에서 계산하게 하고, 이 컴포넌트는 메인 스레드에서 소환만 맡는다.
 public class ChunkResourceSpawner : MonoBehaviour
 {
     // 소환된 자원들을 모아 둘 컨테이너 오브젝트 이름. 다시 굽기 전 이 컨테이너를 통째로 파괴해 중복을 막는다.
@@ -15,26 +16,39 @@ public class ChunkResourceSpawner : MonoBehaviour
     // 마지막으로 만든 컨테이너. 같은 프레임에 파괴가 지연되어도 이전 컨테이너를 다시 찾지 않도록 직접 들고 있는다.
     private Transform m_Container;
 
-    // 청크 정보를 묶어 각 자원 소스의 소환 방식에 넘기고, 돌려받은 자리마다 자원 소스 프리팹을 소환한다.
-    // 터레인 크기는 여기(메인 스레드)에서 값으로 읽어 컨텍스트에 넣으므로, 소환 방식의 위치 계산은 터레인을 건드리지 않는다.
-    // regionField는 이 청크를 굽는 데 쓴 보로노이 정점 필드로, 소환 자리 판정이 같은 정점을 다시 만들지 않게 한다. null이어도 결과는 같다.
-    public void SpawnResources(Vector2 mapViewOrigin, float mapViewSize, MapData mapData, ChunkRegionField regionField)
+    // 유효한 소환 방식과 터레인 크기를 담은 소환 계획을 만든다. 자리 계산은 계획의 ComputePlacements가 백그라운드에서 따로 맡는다.
+    // 소환 방식 유효성 검사와 터레인 크기 읽기는 Unity API라 반드시 메인 스레드에서 호출해야 한다. 소환할 수 없는 상태면 null을 반환한다.
+    public ChunkResourcePlan CreatePlan()
     {
-        if (m_Terrain == null || m_Terrain.terrainData == null || m_ResourceSourceList == null || mapData == null)
-            return;
+        if (m_Terrain == null || m_Terrain.terrainData == null || m_ResourceSourceList == null)
+            return null;
 
-        HandleClearSpawned();
-        Transform container = HandleCreateContainer();
-
-        ResourceSpawnContext context = new ResourceSpawnContext(mapViewOrigin, mapViewSize, mapData, m_Terrain.terrainData.size, regionField);
-
+        List<ResourceSpawnRule> rules = new List<ResourceSpawnRule>(m_ResourceSourceList.Sources.Count);
         foreach (ResourceSpawnRule source in m_ResourceSourceList.Sources)
         {
             if (source == null || !source.IsValid)
                 continue;
 
-            HandleSpawnSource(source, context, container);
+            rules.Add(source);
         }
+
+        return new ChunkResourcePlan(rules.ToArray(), m_Terrain.terrainData.size);
+    }
+
+    // 자리 계산이 끝난 소환 계획대로 이전 자원을 지우고 새 자원 소스 프리팹을 소환한다. Instantiate를 쓰므로 메인 스레드에서 호출해야 한다.
+    public void SpawnPlan(ChunkResourcePlan plan)
+    {
+        if (plan == null || !plan.IsComputed)
+        {
+            Debug.LogError("ChunkResourceSpawner: 자리 계산이 끝나지 않은 소환 계획이라 자원을 소환하지 않습니다.", this);
+            return;
+        }
+
+        HandleClearSpawned();
+        Transform container = HandleCreateContainer();
+
+        for (int i = 0; i < plan.RuleCount; i++)
+            HandleSpawnSource(plan.GetPrefab(i), plan.GetPlacements(i), container);
     }
 
     // 소환해 둔 자원을 모두 지운다. 청크를 LOD1로 낮춰 자원을 두지 않을 때 쓴다.
@@ -43,15 +57,11 @@ public class ChunkResourceSpawner : MonoBehaviour
         HandleClearSpawned();
     }
 
-    // 자원 소스 하나의 소환 방식에게 소환할 자리를 물어보고, 받은 자리마다 자원 소스를 소환한다.
-    private void HandleSpawnSource(ResourceSpawnRule source, in ResourceSpawnContext context, Transform container)
+    // 자원 소스 하나에 대해 미리 계산된 자리마다 자원 소스 프리팹을 소환한다.
+    private void HandleSpawnSource(GameObject sourcePrefab, IReadOnlyList<ResourceSpawnPlacement> placements, Transform container)
     {
-        // 목록을 호출마다 새로 만들어 소스 사이에 상태를 공유하지 않는다. 나중에 소스별 계산을 병렬로 돌려도 서로 간섭하지 않는다.
-        List<ResourceSpawnPlacement> placements = new List<ResourceSpawnPlacement>();
-        source.GetPlacements(context, placements);
-
         for (int i = 0; i < placements.Count; i++)
-            HandleSpawnResource(source.SourcePrefab, container, placements[i]);
+            HandleSpawnResource(sourcePrefab, container, placements[i]);
     }
 
     // 이전에 소환해 둔 자원 컨테이너가 있으면 통째로 파괴한다.

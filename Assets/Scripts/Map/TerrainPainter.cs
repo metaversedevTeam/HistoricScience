@@ -104,7 +104,8 @@ namespace HistoricScience.Test
 
         // 주입받은 맵 데이터를 보관하고 백그라운드 계산에 필요한 데이터를 모아 반환한다. Unity API를 사용하므로 반드시 메인 스레드에서 호출해야 한다.
         // lod가 Lod1이면 풀 디테일 프로토타입을 비워 두고, 이후 계산과 적용에서도 풀·자원·알파맵 블러를 건너뛴다.
-        public (MapData MapData, MapBiome[] Biomes, TerrainLayer[] Layers, int CliffLayerIndex, int SnowLayerIndex, int AlphamapWidth, int AlphamapHeight, int HeightmapResolution, ChunkGrassLayout GrassLayout, int DetailResolution, ChunkLod Lod)? PrepareForPaint(MapData mapData, ChunkLod lod = ChunkLod.Lod0)
+        // Lod0이고 자원 스포너가 있으면 자원 소환 계획도 함께 만들어, 무거운 자리 계산을 ComputePaint(백그라운드)에서 하게 한다.
+        public (MapData MapData, MapBiome[] Biomes, TerrainLayer[] Layers, int CliffLayerIndex, int SnowLayerIndex, int AlphamapWidth, int AlphamapHeight, int HeightmapResolution, ChunkGrassLayout GrassLayout, int DetailResolution, ChunkLod Lod, ChunkResourcePlan ResourcePlan)? PrepareForPaint(MapData mapData, ChunkLod lod = ChunkLod.Lod0)
         {
             if (mapData == null)
             {
@@ -134,23 +135,35 @@ namespace HistoricScience.Test
             // 디테일 레이어 순서도 같은 바이옴 목록에서 정해지므로, 바이옴에 등록된 풀 종류를 여기서 모아 프로토타입으로 할당한다.
             // LOD1은 풀을 심지 않으므로 레이아웃을 만들지 않고 프로토타입을 비운다.
             ChunkGrassLayout grassLayout = null;
+            ChunkResourcePlan resourcePlan = null;
             if (lod == ChunkLod.Lod0)
             {
                 grassLayout = ChunkGrassLayout.Create(biomes);
                 HandleApplyGrassDetailSettings(terrainData, grassLayout, mapData.TerrainConfig);
+                resourcePlan = HandleCreateResourcePlan();
             }
             else
             {
                 HandleClearGrassDetail(terrainData);
             }
 
-            return (mapData, biomes, layers, cliffLayerIndex, snowLayerIndex, terrainData.alphamapWidth, terrainData.alphamapHeight, terrainData.heightmapResolution, grassLayout, terrainData.detailResolution, lod);
+            return (mapData, biomes, layers, cliffLayerIndex, snowLayerIndex, terrainData.alphamapWidth, terrainData.alphamapHeight, terrainData.heightmapResolution, grassLayout, terrainData.detailResolution, lod, resourcePlan);
+        }
+
+        // 같은 오브젝트에 ChunkResourceSpawner가 있으면 자원 소환 계획을 만든다. 스포너는 선택적 구성이라 없으면 null을 반환한다.
+        private ChunkResourcePlan HandleCreateResourcePlan()
+        {
+            ChunkResourceSpawner spawner = GetComponent<ChunkResourceSpawner>();
+            if (spawner == null)
+                return null;
+
+            return spawner.CreatePlan();
         }
 
         // 준비된 데이터로 알파맵과 높이맵을 계산한다. Terrain을 직접 건드리지 않는 순수 계산이라 백그라운드 스레드에서 호출해도 안전하다.
         // 굽는 동안 조회할 보로노이 정점을 먼저 한 번에 계산해 두고 모든 조회에 넘기므로, 같은 정점을 텍셀마다 다시 만들지 않는다.
-        // context.Lod가 Lod1이면 알파맵 블러와 풀 밀도 계산을 건너뛴다.
-        public (float[,,] Alphamap, float[,] Heightmap, int[][,] GrassLayers, ChunkRegionField RegionField, ChunkLod Lod) ComputePaint((MapData MapData, MapBiome[] Biomes, TerrainLayer[] Layers, int CliffLayerIndex, int SnowLayerIndex, int AlphamapWidth, int AlphamapHeight, int HeightmapResolution, ChunkGrassLayout GrassLayout, int DetailResolution, ChunkLod Lod) context)
+        // context.Lod가 Lod1이면 알파맵 블러와 풀 밀도 계산을 건너뛴다. Lod0이면 자원 소환 자리도 여기서 계산해, 메인 스레드는 소환만 하게 한다.
+        public (float[,,] Alphamap, float[,] Heightmap, int[][,] GrassLayers, ChunkResourcePlan ResourcePlan, ChunkLod Lod) ComputePaint((MapData MapData, MapBiome[] Biomes, TerrainLayer[] Layers, int CliffLayerIndex, int SnowLayerIndex, int AlphamapWidth, int AlphamapHeight, int HeightmapResolution, ChunkGrassLayout GrassLayout, int DetailResolution, ChunkLod Lod, ChunkResourcePlan ResourcePlan) context)
         {
             bool isFullDetail = context.Lod == ChunkLod.Lod0;
 
@@ -177,7 +190,11 @@ namespace HistoricScience.Test
                 ? GrassDensityBuilder.Build(context.GrassLayout, alphamap, heightmap, context.DetailResolution, m_MapViewOrigin, m_MapViewSize, context.MapData.TerrainConfig, context.MapData.Seed)
                 : null;
 
-            return (alphamap, heightmap, grassLayers, regionField, context.Lod);
+            // 소환 자리 판정도 같은 청크 영역을 조회하므로, 굽는 데 쓴 정점 필드를 그대로 넘겨 재계산을 피한다.
+            if (isFullDetail && context.ResourcePlan != null)
+                context.ResourcePlan.ComputePlacements(m_MapViewOrigin, m_MapViewSize, context.MapData, regionField);
+
+            return (alphamap, heightmap, grassLayers, context.ResourcePlan, context.Lod);
         }
 
         // 이 청크를 굽는 동안 조회할 맵 영역의 정점 필드를 만든다. 알파맵은 블러 여백만큼, 높이맵은 격자 보간 때문에 한 격자 칸만큼
@@ -200,7 +217,7 @@ namespace HistoricScience.Test
 
         // 계산된 알파맵과 높이맵을 실제 터레인에 적용하고, LOD0이면 풀과 자원까지 채운다. Unity API를 사용하므로 반드시 메인 스레드에서 호출해야 한다.
         // applyHeights가 false면 높이맵 적용(콜라이더 재구축 포함)을 건너뛴다. 높이는 LOD와 무관하게 같으므로 LOD1 청크를 LOD0로 올릴 때 쓴다.
-        public void ApplyPaint((float[,,] Alphamap, float[,] Heightmap, int[][,] GrassLayers, ChunkRegionField RegionField, ChunkLod Lod) result, bool applyHeights = true)
+        public void ApplyPaint((float[,,] Alphamap, float[,] Heightmap, int[][,] GrassLayers, ChunkResourcePlan ResourcePlan, ChunkLod Lod) result, bool applyHeights = true)
         {
             TerrainData terrainData = m_Terrain.terrainData;
             terrainData.SetAlphamaps(0, 0, result.Alphamap);
@@ -209,7 +226,7 @@ namespace HistoricScience.Test
             HandleApplyGrassLayers(terrainData, result.GrassLayers);
 
             if (result.Lod == ChunkLod.Lod0)
-                HandleSpawnResources(result.RegionField);
+                HandleSpawnResources(result.ResourcePlan);
             else
                 HandleClearResources();
 
@@ -270,15 +287,17 @@ namespace HistoricScience.Test
                 terrainData.SetDetailLayer(0, 0, i, grassLayers[i]);
         }
 
-        // 같은 오브젝트에 ChunkResourceSpawner가 있으면 현재 시드와 맵 출력 영역, 맵 데이터로 자원 소환을 요청한다. 스포너는 선택적 구성이라 없으면 아무것도 하지 않는다.
-        // 소환 자리 판정도 같은 청크 영역을 조회하므로, 굽는 데 쓴 정점 필드를 그대로 넘겨 재계산을 피한다.
-        private void HandleSpawnResources(ChunkRegionField regionField)
+        // ComputePaint에서 자리 계산까지 끝낸 소환 계획대로 같은 오브젝트의 ChunkResourceSpawner에 소환을 맡긴다. 스포너나 계획이 없으면 아무것도 하지 않는다.
+        private void HandleSpawnResources(ChunkResourcePlan resourcePlan)
         {
+            if (resourcePlan == null)
+                return;
+
             ChunkResourceSpawner spawner = GetComponent<ChunkResourceSpawner>();
             if (spawner == null)
                 return;
 
-            spawner.SpawnResources(m_MapViewOrigin, m_MapViewSize, m_MapData, regionField);
+            spawner.SpawnPlan(resourcePlan);
         }
 
         // 맵 설정에서 출력 영역 크기를 받아 캐시하고, 청크 좌표가 지정되어 있으면 출력 원점을 그 좌표에 맞춘다.
