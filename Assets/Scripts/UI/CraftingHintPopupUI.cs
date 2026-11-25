@@ -3,7 +3,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-// 조합법 힌트 팝업 UI — 아이템 하나의 조합법을 물음표 격자로 보여주고, 비용을 치를 때마다 한 칸씩 공개한다.
+// 조합법 힌트 팝업 UI — 아이템 하나의 조합법을 물음표 격자로 보여주고, 비용을 치를 때마다 여러 칸(ItemCodex 설정, 기본 3칸)씩 공개한다.
 // 어떤 칸이 공개되는지는 아이템 ID로 정해진 순서(CraftingHintOrder)를 따르고, 몇 번 공개했는지는 ItemCodex가 맵 저장 파일에 기록한다.
 // 이미 수집한 아이템은 전체 공개 모드로 열려, 같은 격자에 조합법 전체를 한 번에 보여주고 비용·힌트 버튼은 감춘다.
 public class CraftingHintPopupUI : OpenableUIBase<CraftingHintData>
@@ -23,7 +23,7 @@ public class CraftingHintPopupUI : OpenableUIBase<CraftingHintData>
 
     [Header("설명")]
     [SerializeField] private TextMeshProUGUI _descText;
-    [SerializeField, TextArea] private string _hintDesc = "미공개 재료 중 무작위 1개의 정보가 도감에 상시 잠금 해제됩니다.";
+    [SerializeField, TextArea] private string _hintDesc = "미공개 재료 중 무작위 3개의 정보가 도감에 상시 잠금 해제됩니다.";
     [SerializeField, TextArea] private string _revealAllDesc = "이미 수집한 아이템 입니다.";
 
     [Header("헤더")]
@@ -143,7 +143,7 @@ public class CraftingHintPopupUI : OpenableUIBase<CraftingHintData>
     // 닫기 버튼을 누르면 UI를 닫는다. (ESC로 닫는 UIManager 경로와 동일한 동작)
     private void HandleCloseButtonClick() => Close();
 
-    // 비용을 차감하고 힌트를 한 칸 공개한다. 남은 칸이 없거나 자원이 모자라면 아무것도 하지 않는다.
+    // 비용을 차감하고 힌트를 공개한다. 남은 칸이 없거나 자원이 모자라면 아무것도 하지 않는다.
     private void HandleHintButtonClick()
     {
         if (_item == null || _codex == null) return;

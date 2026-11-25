@@ -59,7 +59,7 @@ MonoBehaviour:
   _ageLockedFormat: "{0}\uB97C \uC644\uB8CC\uD558\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4."
   _ageLockedButtonText: "\uC774\uC804 \uC2DC\uB300 \uBBF8\uC644\uB8CC"
   _descText: {fileID: 3019792156871}
-  _hintDesc: "\uBBF8\uACF5\uAC1C \uC7AC\uB8CC \uC911 \uBB34\uC791\uC704 1\uAC1C\uC758
+  _hintDesc: "\uBBF8\uACF5\uAC1C \uC7AC\uB8CC \uC911 \uBB34\uC791\uC704 3\uAC1C\uC758
     \uC815\uBCF4\uAC00 \uC7A0\uAE08 \uD574\uC81C\uB429\uB2C8\uB2E4."
   _revealAllDesc: "\uC774\uBBF8 \uC218\uC9D1\uD55C \uC544\uC774\uD15C \uC785\uB2C8\uB2E4."
   _titleText: {fileID: 2994444551296}
@@ -970,7 +970,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\uBBF8\uACF5\uAC1C \uC7AC\uB8CC \uC911 \uBB34\uC791\uC704 1\uAC1C\uC758
+  m_text: "\uBBF8\uACF5\uAC1C \uC7AC\uB8CC \uC911 \uBB34\uC791\uC704 3\uAC1C\uC758
     \uC815\uBCF4\uAC00 \uC7A0\uAE08 \uD574\uC81C\uB429\uB2C8\uB2E4."
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 5b0acf173777d97499f12e14e95b02f0, type: 2}

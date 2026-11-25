@@ -15,10 +15,13 @@ public class ItemCodex : MonoBehaviour, ISavable
     // 획득 이벤트를 구독하고, 도감 대상 아이템 목록을 참조할 인벤토리
     [SerializeField] private ResourceInventory _resourceInventory;
 
+    // 힌트를 한 번 받을 때 공개되는 조합법 칸 수. 남은 칸이 이보다 적으면 남은 칸만 공개한다.
+    [SerializeField, Min(1)] private int _cellsPerHint = 3;
+
     // 지금까지 한 번이라도 획득한 아이템 ID 집합
     private HashSet<int> _discovered = new();
 
-    // 아이템 ID -> 지금까지 공개한 조합법 힌트 횟수. 공개된 칸이 어디인지는 CraftingHintOrder가 ID로 다시 계산한다.
+    // 아이템 ID -> 지금까지 공개한 조합법 칸 수. 공개된 칸이 어디인지는 CraftingHintOrder가 ID로 다시 계산한다.
     private Dictionary<int, int> _hintCounts = new();
 
     // 도감 집계·조회 대상이 되는 아이템 목록. 인벤토리가 연결되지 않았으면 빈 목록으로 본다.
@@ -80,7 +83,7 @@ public class ItemCodex : MonoBehaviour, ISavable
     // 해당 시대의 도감 아이템을 모두 획득했는지 반환한다. 그 시대에 셀 아이템이 없으면 false다.
     public bool IsAgeCompleted(Age age) => GetProgress(age).IsCompleted;
 
-    // 주어진 아이템의 조합법 힌트를 지금까지 몇 번 받았는지 반환한다.
+    // 주어진 아이템의 조합법에서 지금까지 공개된 칸 수를 반환한다.
     public int GetHintCount(ItemData item)
     {
         if (item == null) return 0;
@@ -93,12 +96,12 @@ public class ItemCodex : MonoBehaviour, ISavable
     // 아직 공개할 칸이 남아 있는지 반환한다. 조합법이 없는 아이템은 항상 false다.
     public bool CanRevealHint(ItemData item) => GetHintCount(item) < GetHintTotal(item);
 
-    // 조합법 힌트를 한 칸 더 공개한다. 더 공개할 칸이 없으면 아무것도 하지 않고 false를 반환한다. (비용 차감은 호출하는 쪽의 책임)
+    // 조합법 힌트를 최대 _cellsPerHint칸 더 공개한다. 더 공개할 칸이 없으면 아무것도 하지 않고 false를 반환한다. (비용 차감은 호출하는 쪽의 책임)
     public bool TryRevealHint(ItemData item)
     {
         if (!CanRevealHint(item)) return false;
 
-        _hintCounts[item.Id] = GetHintCount(item) + 1;
+        _hintCounts[item.Id] = Mathf.Min(GetHintCount(item) + _cellsPerHint, GetHintTotal(item));
         OnHintRevealed?.Invoke(item);
         return true;
     }
@@ -149,8 +152,9 @@ public class ItemCodex : MonoBehaviour, ISavable
                 unlocked++;
             }
 
-            while (TryRevealHint(item))
-                hintsRevealed++;
+            int before = GetHintCount(item);
+            while (TryRevealHint(item)) { }
+            hintsRevealed += GetHintCount(item) - before;
         }
 
         Debug.Log($"ItemCodex: 아이템 {unlocked}개를 새로 해금했습니다. (전체 {Items.Count}개), 힌트 {hintsRevealed}칸을 새로 공개했습니다.");
