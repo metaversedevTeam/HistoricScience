@@ -8,11 +8,11 @@ public abstract class TutorialStep
     // 씬 참조를 제공하는 문맥
     protected TutorialContext Context => Runner.Context;
 
-    // 카메라 이동·아이템 획득 등 게임 쪽 변화를 지켜보는 감시자
+    // 시점 회전·이동·아이템 획득 등 게임 쪽 변화를 지켜보는 감시자
     protected TutorialProgressWatcher Progress => Runner.Progress;
 
-    // 명령 버튼을 지켜보는 감시자
-    protected TutorialCommandWatcher Commands => Runner.Commands;
+    // 시민 앞 상호작용 명령 목록을 지켜보는 감시자
+    protected TutorialInteractionWatcher Interaction => Runner.Interaction;
 
     // 이 단계가 시작될 때 호출된다. 재정의할 때는 반드시 base를 먼저 호출할 것.
     public virtual void Enter(TutorialRunner runner)
@@ -36,18 +36,12 @@ public abstract class TutorialStep
     // 지금 대화창에 표시할 내용을 만든다.
     public abstract TutorialDialogueContent BuildContent();
 
-    // 지금 강조할 대상을 만든다. null이면 강조 표시를 띄우지 않는다.
-    public virtual TutorialHighlightRequest? BuildHighlight()
-    {
-        return null;
-    }
-
-    // 대화창을 클릭해 다음으로 넘기려 할 때 호출된다.
+    // 대화창을 클릭하거나 Space·Enter로 다음으로 넘기려 할 때 호출된다.
     public virtual void HandleAdvance()
     {
     }
 
-    // 대화창의 예·아니요 버튼을 눌렀을 때 호출된다.
+    // 대화창의 예·아니요 버튼을 누르거나 1·2 키로 답했을 때 호출된다.
     public virtual void HandleChoice(bool isYes)
     {
     }

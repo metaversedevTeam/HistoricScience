@@ -3,7 +3,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 // 튜토리얼 진행 판정에 필요한 게임 쪽 변화를 한곳에서 지켜보는 감시자.
-// 카메라 이동 거리, 시민 이동 명령, 아이템 획득량, 조합법 힌트 공개를 모아 두며, 단계가 바뀔 때 기록을 초기화한다.
+// 마우스로 돌린 시점 각도, WASD로 걸은 거리와 Shift로 달린 거리, 휠 확대 변화, 아이템 획득량, 조합법 힌트 공개를 모아 두며,
+// 단계가 바뀔 때 기록을 초기화한다.
 public class TutorialProgressWatcher : IDisposable
 {
     // 씬 참조를 제공하는 문맥
@@ -12,14 +13,20 @@ public class TutorialProgressWatcher : IDisposable
     // 아이템 ID별로 이번 단계에서 새로 얻은 개수
     private readonly Dictionary<int, int> _gained = new Dictionary<int, int>();
 
-    // 이동 명령을 구독 중인 시민의 이동 컴포넌트
-    private IMover _subscribedMover;
+    // 직전 프레임에 카메라가 바라보던 수평 방위각(도). 시점 회전량을 누적하는 기준이다.
+    private float _lastYaw;
 
-    // 직전 프레임의 카메라 위치. 이동 거리를 누적하는 기준이다.
-    private Vector3 _lastCameraPosition;
+    // 직전 프레임에 카메라가 내려다보던 각도(도). 위아래 시점 회전량을 누적하는 기준이다.
+    private float _lastPitch;
 
-    // 카메라 위치를 아직 한 번도 재지 않았는지 여부
-    private bool _hasCameraSample;
+    // 시점 각도를 아직 한 번도 재지 않았는지 여부
+    private bool _hasLookSample;
+
+    // 직전 프레임의 플레이어 시민 위치. 걸은 거리를 누적하는 기준이다.
+    private Vector3 _lastCitizenPosition;
+
+    // 시민 위치를 아직 한 번도 재지 않았는지 여부
+    private bool _hasCitizenSample;
 
     // 직전 프레임의 확대 배율. 배율 변화를 누적하는 기준이다.
     private float _lastZoomScale;
@@ -27,14 +34,17 @@ public class TutorialProgressWatcher : IDisposable
     // 확대 배율을 아직 한 번도 재지 않았는지 여부
     private bool _hasZoomSample;
 
-    // 이번 단계에서 카메라가 XZ 평면에서 움직인 누적 거리
-    public float CameraTravel { get; private set; }
+    // 이번 단계에서 마우스로 돌린 시점 각도의 누적량(도). 좌우와 위아래를 모두 센다.
+    public float LookAngle { get; private set; }
+
+    // 이번 단계에서 WASD로 직접 걸은 XZ 거리의 누적량(m). 달린 거리도 포함한다.
+    public float WalkDistance { get; private set; }
+
+    // 이번 단계에서 Shift를 누른 채 달린 XZ 거리의 누적량(m)
+    public float RunDistance { get; private set; }
 
     // 이번 단계에서 휠로 바뀐 확대 배율의 누적 변화량
     public float ZoomChange { get; private set; }
-
-    // 이번 단계에서 카메라가 따라가는 시민에게 이동 명령이 내려졌는지 여부
-    public bool MoveOrdered { get; private set; }
 
     // 이번 단계에서 조합법 힌트가 공개되었는지 여부
     public bool HintRevealed { get; private set; }
@@ -51,12 +61,12 @@ public class TutorialProgressWatcher : IDisposable
             _context.Codex.OnHintRevealed += HandleHintRevealed;
     }
 
-    // 카메라 이동 거리와 확대 배율 변화를 누적하고, 선택이 바뀌었으면 이동 명령 구독을 새 시민으로 옮긴다.
+    // 시점 회전, 걸은 거리, 확대 배율 변화를 누적한다.
     public void Tick()
     {
-        HandleTrackCamera();
+        HandleTrackLook();
+        HandleTrackWalk();
         HandleTrackZoom();
-        HandleTrackFollowedMover();
     }
 
     // 이번 단계에서 지정한 아이템을 새로 몇 개 얻었는지 돌려준다.
@@ -70,11 +80,13 @@ public class TutorialProgressWatcher : IDisposable
     public void Reset()
     {
         _gained.Clear();
-        CameraTravel = 0f;
+        LookAngle = 0f;
+        WalkDistance = 0f;
+        RunDistance = 0f;
         ZoomChange = 0f;
-        MoveOrdered = false;
         HintRevealed = false;
-        _hasCameraSample = false;
+        _hasLookSample = false;
+        _hasCitizenSample = false;
         _hasZoomSample = false;
     }
 
@@ -86,28 +98,57 @@ public class TutorialProgressWatcher : IDisposable
 
         if (_context.Codex != null)
             _context.Codex.OnHintRevealed -= HandleHintRevealed;
-
-        UnsubscribeMover();
     }
 
-    // 카메라가 이번 프레임에 움직인 XZ 거리를 누적한다.
-    private void HandleTrackCamera()
+    // 카메라가 이번 프레임에 좌우·위아래로 돈 각도를 누적한다. 작업대처럼 고정 시점이 걸린 동안에도 세지만,
+    // 이 값을 쓰는 단계는 튜토리얼 맨 앞이라 다른 UI가 열려 있을 일이 없다.
+    private void HandleTrackLook()
     {
         if (_context.WorldCamera == null) return;
 
-        Vector3 position = _context.WorldCamera.transform.position;
+        Vector3 euler = _context.WorldCamera.transform.eulerAngles;
 
-        if (!_hasCameraSample)
+        if (!_hasLookSample)
         {
-            _lastCameraPosition = position;
-            _hasCameraSample = true;
+            _lastYaw = euler.y;
+            _lastPitch = euler.x;
+            _hasLookSample = true;
             return;
         }
 
-        float dx = position.x - _lastCameraPosition.x;
-        float dz = position.z - _lastCameraPosition.z;
-        CameraTravel += Mathf.Sqrt(dx * dx + dz * dz);
-        _lastCameraPosition = position;
+        LookAngle += Mathf.Abs(Mathf.DeltaAngle(_lastYaw, euler.y)) + Mathf.Abs(Mathf.DeltaAngle(_lastPitch, euler.x));
+        _lastYaw = euler.y;
+        _lastPitch = euler.x;
+    }
+
+    // 플레이어가 WASD를 누르고 있는 동안 시민이 움직인 XZ 거리를 누적하고, Shift도 누르고 있었다면 달린 거리에도 더한다.
+    // 채집하러 대상에게 저절로 걸어가는 이동은 세지 않는다.
+    private void HandleTrackWalk()
+    {
+        Citizen citizen = _context.FollowedCitizen;
+        if (citizen == null) return;
+
+        Vector3 position = citizen.transform.position;
+
+        if (!_hasCitizenSample)
+        {
+            _lastCitizenPosition = position;
+            _hasCitizenSample = true;
+            return;
+        }
+
+        float dx = position.x - _lastCitizenPosition.x;
+        float dz = position.z - _lastCitizenPosition.z;
+        _lastCitizenPosition = position;
+
+        PlayerManager player = _context.PlayerManager;
+        if (player == null || player.MoveDirection == Vector2.zero) return;
+
+        float distance = Mathf.Sqrt(dx * dx + dz * dz);
+        WalkDistance += distance;
+
+        if (player.IsRunning)
+            RunDistance += distance;
     }
 
     // 휠로 바뀐 확대 배율의 변화량을 누적한다. 확대와 축소 어느 쪽이든 움직인 만큼 세므로,
@@ -128,45 +169,6 @@ public class TutorialProgressWatcher : IDisposable
 
         ZoomChange += Mathf.Abs(scale - _lastZoomScale);
         _lastZoomScale = scale;
-    }
-
-    // 카메라가 따라가는 시민의 이동 컴포넌트로 구독을 옮긴다. 따라가는 시민이 없으면 구독을 끊는다.
-    private void HandleTrackFollowedMover()
-    {
-        Citizen citizen = _context.FollowedCitizen;
-        IMover mover = citizen != null ? citizen.GetComponent<IMover>() : null;
-
-        if (ReferenceEquals(mover, _subscribedMover) && !IsSubscribedMoverDestroyed())
-            return;
-
-        UnsubscribeMover();
-
-        _subscribedMover = mover;
-        if (_subscribedMover != null)
-            _subscribedMover.OnMoveOrdered += HandleMoveOrdered;
-    }
-
-    // 구독해 둔 이동 컴포넌트가 이미 파괴되었는지 확인한다.
-    private bool IsSubscribedMoverDestroyed()
-    {
-        return _subscribedMover is Component component && component == null;
-    }
-
-    // 구독 중인 이동 명령 이벤트를 해제하고 참조를 비운다.
-    private void UnsubscribeMover()
-    {
-        if (_subscribedMover == null) return;
-
-        if (!IsSubscribedMoverDestroyed())
-            _subscribedMover.OnMoveOrdered -= HandleMoveOrdered;
-
-        _subscribedMover = null;
-    }
-
-    // 카메라가 따라가는 시민에게 이동 명령이 내려졌음을 기록한다.
-    private void HandleMoveOrdered()
-    {
-        MoveOrdered = true;
     }
 
     // 새로 얻은 아이템 개수를 종류별로 누적한다.

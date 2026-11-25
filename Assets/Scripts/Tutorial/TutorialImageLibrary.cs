@@ -12,9 +12,6 @@ public class TutorialImageLibrary : ScriptableObject
     // 채집 안내에서 "이렇게 생긴 것을 캐라"고 보여 줄 돌 자원 소스의 모습
     [SerializeField] private Sprite _stoneSource;
 
-    // 대사창 왼쪽에 띄울 안내자 얼굴. 비워 두면 이름 첫 글자로 된 자리표시자를 그린다.
-    [SerializeField] private Sprite _guideAvatar;
-
     // 한 번 읽어 둔 에셋
     private static TutorialImageLibrary _instance;
 
@@ -24,7 +21,4 @@ public class TutorialImageLibrary : ScriptableObject
 
     // 돌 자원 소스의 모습. 등록되지 않았으면 null이다.
     public static Sprite StoneSource => Instance != null ? Instance._stoneSource : null;
-
-    // 안내자 얼굴. 등록되지 않았으면 null이다.
-    public static Sprite GuideAvatar => Instance != null ? Instance._guideAvatar : null;
 }
