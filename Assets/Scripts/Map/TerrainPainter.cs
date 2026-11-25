@@ -130,7 +130,9 @@ namespace HistoricScience.Test
             TerrainLayer[] layers = HandleCollectTerrainLayers(biomes, mapData.TerrainConfig.SurfaceOverlay, out int cliffLayerIndex, out int snowLayerIndex);
 
             TerrainData terrainData = m_Terrain.terrainData;
-            HandleApplyAlphamapResolution(terrainData, mapData.TerrainConfig.GetAlphamapResolution(lod));
+            // 해상도를 여기서 바꾸면 기존 알파맵이 곧바로 지워져, 백그라운드 계산이 끝날 때까지 청크 텍스처가 사라진다.
+            // 그래서 계산할 해상도만 정해 두고, 실제 터레인 해상도는 계산 결과를 적용하는 ApplyPaint에서 바꾼다.
+            int alphamapResolution = mapData.TerrainConfig.GetAlphamapResolution(lod);
             terrainData.terrainLayers = layers;
 
             // 디테일 레이어 순서도 같은 바이옴 목록에서 정해지므로, 바이옴에 등록된 풀 종류를 여기서 모아 프로토타입으로 할당한다.
@@ -148,7 +150,7 @@ namespace HistoricScience.Test
                 HandleClearGrassDetail(terrainData);
             }
 
-            return (mapData, biomes, layers, cliffLayerIndex, snowLayerIndex, terrainData.alphamapWidth, terrainData.alphamapHeight, terrainData.heightmapResolution, grassLayout, terrainData.detailResolution, lod, resourcePlan);
+            return (mapData, biomes, layers, cliffLayerIndex, snowLayerIndex, alphamapResolution, alphamapResolution, terrainData.heightmapResolution, grassLayout, terrainData.detailResolution, lod, resourcePlan);
         }
 
         // 같은 오브젝트에 ChunkResourceSpawner가 있으면 자원 소환 계획을 만든다. 스포너는 선택적 구성이라 없으면 null을 반환한다.
@@ -221,6 +223,8 @@ namespace HistoricScience.Test
         public void ApplyPaint((float[,,] Alphamap, float[,] Heightmap, int[][,] GrassLayers, ChunkResourcePlan ResourcePlan, ChunkLod Lod) result, bool applyHeights = true)
         {
             TerrainData terrainData = m_Terrain.terrainData;
+            // 알파맵 배열은 [y, x, 레이어] 순서라 1번 차원이 너비다. 새 알파맵을 바로 덮어쓰므로 해상도 변경으로 지워지는 순간이 화면에 보이지 않는다.
+            HandleApplyAlphamapResolution(terrainData, result.Alphamap.GetLength(1));
             terrainData.SetAlphamaps(0, 0, result.Alphamap);
             if (applyHeights)
                 terrainData.SetHeights(0, 0, result.Heightmap);
@@ -335,8 +339,8 @@ namespace HistoricScience.Test
             }
         }
 
-        // 터레인의 알파맵 해상도를 이번에 굽는 품질 단계의 해상도로 맞춘다. 해상도를 바꾸면 기존 알파맵이 지워지므로 값이 다를 때만 바꾼다.
-        // LOD1은 낮은 해상도로 계산해 로딩을 줄이고, LOD0로 올릴 때 원래 해상도로 되돌린다. LOD0에서 낮춘 청크는 높은 해상도를 그대로 둔다.
+        // 터레인의 알파맵 해상도를 계산된 알파맵의 해상도로 맞춘다. 해상도를 바꾸면 기존 알파맵이 지워지므로 값이 다를 때만, 새 알파맵을 적용하기 직전에 바꾼다.
+        // LOD1은 낮은 해상도로 계산해 로딩을 줄이고, LOD0로 올릴 때 원래 해상도로 되돌린다. LOD0에서 낮춘 청크는 다시 계산하지 않으므로 높은 해상도를 그대로 둔다.
         private void HandleApplyAlphamapResolution(TerrainData terrainData, int resolution)
         {
             if (terrainData.alphamapResolution == resolution)
