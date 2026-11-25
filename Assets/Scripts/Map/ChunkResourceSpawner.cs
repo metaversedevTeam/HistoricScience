@@ -37,6 +37,12 @@ public class ChunkResourceSpawner : MonoBehaviour
         }
     }
 
+    // 소환해 둔 자원을 모두 지운다. 청크를 LOD1로 낮춰 자원을 두지 않을 때 쓴다.
+    public void ClearResources()
+    {
+        HandleClearSpawned();
+    }
+
     // 자원 소스 하나의 소환 방식에게 소환할 자리를 물어보고, 받은 자리마다 자원 소스를 소환한다.
     private void HandleSpawnSource(ResourceSpawnRule source, in ResourceSpawnContext context, Transform container)
     {

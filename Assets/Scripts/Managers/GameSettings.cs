@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-// 플레이어가 설정 화면에서 바꾸는 값(카메라 수평 감도, 청크 로딩·유지 범위, 흑백 강조 사용 여부)을 PlayerPrefs에 보관하고 읽어 주는 정적 저장소.
+// 플레이어가 설정 화면에서 바꾸는 값(카메라 수평 감도, 청크 LOD0·LOD1 로딩 범위, 흑백 강조 사용 여부)을 PlayerPrefs에 보관하고 읽어 주는 정적 저장소.
 // 메인 메뉴와 인게임이 같은 값을 공유하며, 게임을 다시 켜도 유지된다.
 public static class GameSettings
 {
@@ -23,32 +23,29 @@ public static class GameSettings
     // 수평 감도를 저장하는 PlayerPrefs 키
     private const string k_HorizontalLookSensitivityKey = "Settings.HorizontalLookSensitivity";
 
-    // 청크 로딩 범위(청크 단위)의 최솟값
+    // LOD0·LOD1 로딩 범위(청크 단위)의 최솟값
     public const int MinChunkLoadRadius = 1;
 
-    // 청크 로딩 범위(청크 단위)의 최댓값
-    public const int MaxChunkLoadRadius = 10;
+    // LOD0 로딩 범위(청크 단위)의 최댓값
+    public const int MaxChunkLod0LoadRadius = 10;
 
-    // 청크 로딩 범위(청크 단위)의 기본값
-    public const int DefaultChunkLoadRadius = 2;
+    // LOD0 로딩 범위(청크 단위)의 기본값
+    public const int DefaultChunkLod0LoadRadius = 2;
 
-    // 청크 유지 범위(청크 단위)의 최솟값
-    public const int MinChunkKeepRadius = 2;
+    // LOD1 로딩 범위(청크 단위)의 최댓값
+    public const int MaxChunkLod1LoadRadius = 16;
 
-    // 청크 유지 범위(청크 단위)의 최댓값
-    public const int MaxChunkKeepRadius = 14;
+    // LOD1 로딩 범위(청크 단위)의 기본값
+    public const int DefaultChunkLod1LoadRadius = 5;
 
-    // 청크 유지 범위(청크 단위)의 기본값
-    public const int DefaultChunkKeepRadius = 4;
+    // 유지 범위는 로딩 범위보다 이만큼 크게 잡아, 경계에서 로딩과 해제(또는 LOD 전환)가 반복되지 않게 한다.
+    private const int k_ChunkKeepMargin = 1;
 
-    // 유지 범위가 로딩 범위보다 최소한 이만큼 커야 경계에서 로딩과 해제가 반복되지 않는다.
-    public const int MinChunkKeepMargin = 1;
+    // LOD0 로딩 범위를 저장하는 PlayerPrefs 키. 예전 단일 로딩 범위 키를 그대로 써서 기존 설정값을 이어받는다.
+    private const string k_ChunkLod0LoadRadiusKey = "Settings.ChunkLoadRadius";
 
-    // 청크 로딩 범위를 저장하는 PlayerPrefs 키
-    private const string k_ChunkLoadRadiusKey = "Settings.ChunkLoadRadius";
-
-    // 청크 유지 범위를 저장하는 PlayerPrefs 키
-    private const string k_ChunkKeepRadiusKey = "Settings.ChunkKeepRadius";
+    // LOD1 로딩 범위를 저장하는 PlayerPrefs 키
+    private const string k_ChunkLod1LoadRadiusKey = "Settings.ChunkLod1LoadRadius";
 
     // 흑백 강조의 기본 사용 여부
     public const bool DefaultMonochromeFocusEnabled = true;
@@ -72,35 +69,41 @@ public static class GameSettings
     // 카메라 위아래 회전에 실제로 곱하는 배율. 실제 수평 배율의 절반이다.
     public static float AppliedVerticalLookSensitivity => AppliedHorizontalLookSensitivity * k_VerticalToHorizontalRatio;
 
-    // 추적 대상 주변 이 반경(청크 단위) 안의 청크를 로딩한다(1~10).
-    // 값을 바꿀 때 유지 범위가 로딩 범위 + 1보다 작아지면 유지 범위를 함께 늘린다.
-    public static int ChunkLoadRadius
+    // 추적 대상 주변 이 반경(청크 단위) 안의 청크를 풀·자원·알파맵 블러까지 갖춘 LOD0로 로딩한다(1~10).
+    // 값을 바꿀 때 LOD1 로딩 범위가 이보다 작아지면 LOD1 로딩 범위를 함께 늘린다.
+    public static int ChunkLod0LoadRadius
     {
-        get => Mathf.Clamp(PlayerPrefs.GetInt(k_ChunkLoadRadiusKey, DefaultChunkLoadRadius), MinChunkLoadRadius, MaxChunkLoadRadius);
+        get => ReadStoredLod0LoadRadius();
         set
         {
-            int load = Mathf.Clamp(value, MinChunkLoadRadius, MaxChunkLoadRadius);
-            PlayerPrefs.SetInt(k_ChunkLoadRadiusKey, load);
+            int lod0 = Mathf.Clamp(value, MinChunkLoadRadius, MaxChunkLod0LoadRadius);
+            PlayerPrefs.SetInt(k_ChunkLod0LoadRadiusKey, lod0);
 
-            if (ReadStoredKeepRadius() < load + MinChunkKeepMargin)
-                PlayerPrefs.SetInt(k_ChunkKeepRadiusKey, load + MinChunkKeepMargin);
+            if (ReadStoredLod1LoadRadius() < lod0)
+                PlayerPrefs.SetInt(k_ChunkLod1LoadRadiusKey, lod0);
         }
     }
 
-    // 모든 추적 대상에게서 이 반경(청크 단위) 밖으로 벗어난 청크만 해제한다(2~14). 항상 로딩 범위 + 1 이상이다.
-    // 값을 바꿀 때 로딩 범위가 유지 범위 - 1보다 커지면 로딩 범위를 함께 줄인다.
-    public static int ChunkKeepRadius
+    // 추적 대상 주변 이 반경(청크 단위) 안에서 LOD0 범위 밖의 청크를 풀·자원·알파맵 블러 없는 LOD1로 로딩한다(1~16). 항상 LOD0 로딩 범위 이상이다.
+    // 값을 바꿀 때 LOD0 로딩 범위가 이보다 커지면 LOD0 로딩 범위를 함께 줄인다.
+    public static int ChunkLod1LoadRadius
     {
-        get => Mathf.Max(ReadStoredKeepRadius(), ChunkLoadRadius + MinChunkKeepMargin);
+        get => Mathf.Max(ReadStoredLod1LoadRadius(), ReadStoredLod0LoadRadius());
         set
         {
-            int keep = Mathf.Clamp(value, MinChunkKeepRadius, MaxChunkKeepRadius);
-            PlayerPrefs.SetInt(k_ChunkKeepRadiusKey, keep);
+            int lod1 = Mathf.Clamp(value, MinChunkLoadRadius, MaxChunkLod1LoadRadius);
+            PlayerPrefs.SetInt(k_ChunkLod1LoadRadiusKey, lod1);
 
-            if (ChunkLoadRadius > keep - MinChunkKeepMargin)
-                PlayerPrefs.SetInt(k_ChunkLoadRadiusKey, keep - MinChunkKeepMargin);
+            if (ReadStoredLod0LoadRadius() > lod1)
+                PlayerPrefs.SetInt(k_ChunkLod0LoadRadiusKey, lod1);
         }
     }
+
+    // 모든 추적 대상에게서 이 반경(청크 단위) 밖으로 벗어난 LOD0 청크를 LOD1로 낮춘다. 항상 LOD0 로딩 범위 + 1이다.
+    public static int ChunkLod0KeepRadius => ChunkLod0LoadRadius + k_ChunkKeepMargin;
+
+    // 모든 추적 대상에게서 이 반경(청크 단위) 밖으로 벗어난 청크를 해제한다. 항상 LOD1 로딩 범위 + 1이다.
+    public static int ChunkLod1KeepRadius => ChunkLod1LoadRadius + k_ChunkKeepMargin;
 
     // 명령 목록이 뜰 때 대상과 시민만 남기고 화면을 흑백으로 바꾸는 흑백 강조를 쓸지 여부
     public static bool MonochromeFocusEnabled
@@ -128,9 +131,15 @@ public static class GameSettings
         return Mathf.Clamp(value, MinHorizontalLookSensitivity, MaxHorizontalLookSensitivity);
     }
 
-    // 저장된 유지 범위를 최솟값~최댓값 사이로 잘라 읽는다. 로딩 범위와의 차이는 따지지 않는다.
-    private static int ReadStoredKeepRadius()
+    // 저장된 LOD0 로딩 범위를 최솟값~최댓값 사이로 잘라 읽는다.
+    private static int ReadStoredLod0LoadRadius()
     {
-        return Mathf.Clamp(PlayerPrefs.GetInt(k_ChunkKeepRadiusKey, DefaultChunkKeepRadius), MinChunkKeepRadius, MaxChunkKeepRadius);
+        return Mathf.Clamp(PlayerPrefs.GetInt(k_ChunkLod0LoadRadiusKey, DefaultChunkLod0LoadRadius), MinChunkLoadRadius, MaxChunkLod0LoadRadius);
+    }
+
+    // 저장된 LOD1 로딩 범위를 최솟값~최댓값 사이로 잘라 읽는다. LOD0 로딩 범위와의 대소는 따지지 않는다.
+    private static int ReadStoredLod1LoadRadius()
+    {
+        return Mathf.Clamp(PlayerPrefs.GetInt(k_ChunkLod1LoadRadiusKey, DefaultChunkLod1LoadRadius), MinChunkLoadRadius, MaxChunkLod1LoadRadius);
     }
 }

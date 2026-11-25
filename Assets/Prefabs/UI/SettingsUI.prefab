@@ -1538,7 +1538,7 @@ GameObject:
   - component: {fileID: 3338313963795982252}
   - component: {fileID: 6979491407543970852}
   m_Layer: 0
-  m_Name: Row-ChunkKeep
+  m_Name: Row-ChunkLod1
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2335,10 +2335,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _horizontalSlider: {fileID: 1332889884116522124}
   _horizontalValueText: {fileID: 2806027059120034595}
-  _chunkLoadSlider: {fileID: 3100758394676778698}
-  _chunkLoadValueText: {fileID: 8404163206774814214}
-  _chunkKeepSlider: {fileID: 3800250396956251018}
-  _chunkKeepValueText: {fileID: 3623996805602428843}
+  _chunkLod0Slider: {fileID: 3100758394676778698}
+  _chunkLod0ValueText: {fileID: 8404163206774814214}
+  _chunkLod1Slider: {fileID: 3800250396956251018}
+  _chunkLod1ValueText: {fileID: 3623996805602428843}
   _monochromeFocusButton: {fileID: 1091380408423139822}
   _monochromeFocusTrack: {fileID: 9164940533718936436}
   _monochromeFocusKnob: {fileID: 7792948281171014935}
@@ -3026,7 +3026,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\uC720\uC9C0 \uBC94\uC704"
+  m_text: "LOD1 \uB85C\uB529 \uBC94\uC704"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 5b0acf173777d97499f12e14e95b02f0, type: 2}
   m_sharedMaterial: {fileID: -1516042765284056101, guid: 5b0acf173777d97499f12e14e95b02f0, type: 2}
@@ -3373,7 +3373,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\uB85C\uB529 \uBC94\uC704"
+  m_text: "LOD0 \uB85C\uB529 \uBC94\uC704"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 5b0acf173777d97499f12e14e95b02f0, type: 2}
   m_sharedMaterial: {fileID: -1516042765284056101, guid: 5b0acf173777d97499f12e14e95b02f0, type: 2}
@@ -4880,7 +4880,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: KEEP RANGE
+  m_text: LOD1 RANGE
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -5140,7 +5140,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: LOAD RANGE
+  m_text: LOD0 RANGE
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -5847,7 +5847,7 @@ GameObject:
   - component: {fileID: 2186116789084595635}
   - component: {fileID: 5485401854496117933}
   m_Layer: 0
-  m_Name: Row-ChunkLoad
+  m_Name: Row-ChunkLod0
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
