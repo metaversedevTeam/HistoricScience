@@ -1,5 +1,8 @@
+using System;
 using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 // 맵을 연 뒤 등록된 청크가 전부 로딩될 때까지 화면 전체를 덮는 로딩 화면.
 // 가운데의 지구 아이콘을 천천히 회전시키고, 아래쪽 프로그래스 바로 로딩 진행도를 보여 주며, 로딩이 끝날 때까지 아래쪽 UI로 가는 입력을 막는다.
@@ -33,6 +36,9 @@ public class LoadingScreenUI : OpenableUIBase
     // 표시 중인 진행도가 목표 진행도를 따라가는 속도(초당 비율). 0이면 즉시 따라간다.
     [SerializeField, Min(0f)] private float _progressFillSpeed = 1.5f;
 
+    // 누르면 로딩을 취소하고 메인 메뉴로 돌아가는 버튼. 비워 두면 취소할 수 없다.
+    [SerializeField] private Button _cancelButton;
+
     // 지금 페이드 아웃 중인지 여부
     private bool _isFadingOut;
 
@@ -45,10 +51,22 @@ public class LoadingScreenUI : OpenableUIBase
     // 지금 화면에 표시 중인 진행도(0~1). 목표 진행도를 부드럽게 따라간다.
     private float _displayedProgress;
 
+    // 플레이어가 로딩 취소를 눌렀을 때 알린다. 실제로 로딩을 멈추고 씬을 넘기는 일은 받는 쪽이 맡는다.
+    public event Action CancelRequested;
+
     private void Awake()
     {
         if (_canvasGroup == null)
             _canvasGroup = GetComponent<CanvasGroup>();
+
+        if (_cancelButton != null)
+            _cancelButton.onClick.AddListener(HandleCancelClick);
+    }
+
+    private void OnDestroy()
+    {
+        if (_cancelButton != null)
+            _cancelButton.onClick.RemoveListener(HandleCancelClick);
     }
 
     private void Update()
@@ -56,6 +74,7 @@ public class LoadingScreenUI : OpenableUIBase
         HandleRotateGlobe();
         HandleFillProgress();
         HandleFadeOut();
+        HandleEscapeInput();
     }
 
     // 열기 연출 훅 — 진행도를 0으로 되돌리고 연출 없이 바로 완전히 불투명한 상태로 띄운다.
@@ -67,6 +86,9 @@ public class LoadingScreenUI : OpenableUIBase
         _targetProgress = 0f;
         _displayedProgress = 0f;
         HandleApplyProgress();
+
+        if (_cancelButton != null)
+            _cancelButton.interactable = true;
 
         if (_canvasGroup != null)
         {
@@ -81,6 +103,26 @@ public class LoadingScreenUI : OpenableUIBase
     public void SetProgress(float progress)
     {
         _targetProgress = Mathf.Clamp01(progress);
+    }
+
+    // 취소 버튼이 눌릴 수 있는 동안 ESC를 누르면 취소 버튼을 누른 것과 같이 처리한다. (이 화면은 ESC로 닫히지 않으므로 UIManager가 ESC를 쓰지 않는다)
+    private void HandleEscapeInput()
+    {
+        if (Keyboard.current == null || !Keyboard.current.escapeKey.wasPressedThisFrame) return;
+        if (_cancelButton == null || !_cancelButton.interactable) return;
+
+        HandleCancelClick();
+    }
+
+    // 취소 버튼을 누르면 다시 눌리지 않게 막고 취소 요청을 알린다. 사라지는 중에는 무시한다.
+    private void HandleCancelClick()
+    {
+        if (State != UIState.Open || _isFadingOut)
+            return;
+
+        AudioManager.PlayCancel();
+        _cancelButton.interactable = false;
+        CancelRequested?.Invoke();
     }
 
     // 닫기 연출 훅 — 페이드 아웃 시간 동안 서서히 사라진 뒤 닫기를 완료한다. (Close(true)는 이 연출 없이 즉시 닫힌다)

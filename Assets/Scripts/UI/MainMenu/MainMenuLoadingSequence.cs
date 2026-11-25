@@ -2,7 +2,9 @@ using System;
 using System.Collections;
 using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 // 메인 메뉴에서 인게임 씬으로 넘어가는 로딩 연출. 씬을 비동기로 불러오는 동안 왼쪽의 조작 UI를 흐리며 왼쪽으로 밀어내고
 // 오른쪽 장식을 화면 가운데로 옮긴 뒤, 메뉴 캔버스를 씬 전환 너머로 넘겨 인게임 씬의 로딩 화면으로 그대로 이어 쓴다.
@@ -107,6 +109,17 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
     // 프레임이 끝내 안정되지 않아도 역재생을 시작할 때까지 기다리는 최대 시간(초)
     [SerializeField, Min(0f)] private float _returnStableTimeout = 1f;
 
+    [Header("로딩 취소")]
+    // 로딩 중 진행도 아래에 나타나, 누르면 로딩을 취소하고 메인 메뉴로 돌아가는 버튼. 비워 두면 취소할 수 없다.
+    // 조작 UI가 막혀 있는 동안에도 눌려야 하므로, 버튼의 투명도 그룹은 부모 그룹을 무시하고 이 연출이 직접 다룬다.
+    [SerializeField] private Button _cancelButton;
+
+    // 취소한 뒤 진행도 막대가 100%에서 0%까지 비워지는 데 걸리는 가장 짧은 시간(초). 씬 불러오기가 더 오래 걸리면 그에 맞춰 늦춰진다.
+    [SerializeField, Min(0.01f)] private float _cancelDrainDuration = 0.6f;
+
+    // 진행도가 0%까지 비워지고 메인 메뉴 씬도 다 불러온 뒤, 씬을 활성화하기 전에 잠시 머무는 시간(초)
+    [SerializeField, Min(0f)] private float _holdBeforeReturn = 0.3f;
+
     [Header("인게임에서 돌아올 때")]
     // 돌아올 때는 로딩 연출을 거꾸로 재생하므로, 그 대신 건너뛸 메인 메뉴 등장 연출
     [SerializeField] private MainMenuIntroSequence _skippedIntroOnReturn;
@@ -165,6 +178,18 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
     // 사라지기 시작한 뒤 지난 시간(초)
     private float _fadeElapsed;
 
+    // 취소 버튼의 투명도·입력을 다룰 그룹(부모 그룹을 무시한다)
+    private CanvasGroup _cancelGroup;
+
+    // 플레이어가 로딩 취소를 눌렀는지 여부
+    private bool _isCancelRequested;
+
+    // 플레이어가 로딩 취소를 눌렀을 때 알린다.
+    public event Action CancelRequested;
+
+    // 플레이어가 이미 로딩 취소를 눌렀는지 여부
+    public bool IsCancelRequested => _isCancelRequested;
+
     private void Awake()
     {
         _canvas = GetComponent<Canvas>();
@@ -175,7 +200,14 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
         if (_progressGroup != null)
             _progressGroup.alpha = 0f;
 
+        HandleSetupCancelButton();
         HandleApplyProgress();
+    }
+
+    private void OnDestroy()
+    {
+        if (_cancelButton != null)
+            _cancelButton.onClick.RemoveListener(HandleCancelClick);
     }
 
     private void Start()
@@ -187,6 +219,8 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
     {
         HandleFillProgress();
         HandleFadeOut();
+        HandleApplyCancelButton();
+        HandleEscapeInput();
     }
 
     // 다음에 메인 메뉴 씬이 시작될 때 로딩 연출을 거꾸로 재생하도록 요청한다. (인게임에서 메인 메뉴로 돌아갈 때 쓴다)
@@ -226,6 +260,130 @@ public class MainMenuLoadingSequence : MonoBehaviour, ISceneLoadingScreen
         _isFinishing = true;
         HandleSetTargetProgress(1f);
         StartCoroutine(HandleFinishRoutine());
+    }
+
+    // 로딩을 취소했으므로 화면을 걷지 않은 채 진행도를 0%까지 비우며 지정한 씬(메인 메뉴)을 불러오고,
+    // 그 씬의 로딩 연출에 역재생을 맡긴 뒤 넘어가면 스스로 파괴된다. 이미 끝내는 중이면 무시한다.
+    public void ReturnTo(string sceneName)
+    {
+        if (_isFinishing)
+            return;
+
+        _isFinishing = true;
+        StartCoroutine(HandleReturnToRoutine(sceneName));
+    }
+
+    // 취소 버튼에 투명도 그룹을 붙여 부모 그룹을 무시하게 하고, 처음에는 숨겨 둔다.
+    private void HandleSetupCancelButton()
+    {
+        if (_cancelButton == null)
+            return;
+
+        _cancelGroup = _cancelButton.GetComponent<CanvasGroup>();
+        if (_cancelGroup == null)
+            _cancelGroup = _cancelButton.gameObject.AddComponent<CanvasGroup>();
+
+        _cancelGroup.ignoreParentGroups = true;
+        _cancelButton.onClick.AddListener(HandleCancelClick);
+        HandleApplyCancelButton();
+    }
+
+    // 지금 로딩을 취소할 수 있는지 여부. 메인 메뉴→인게임 로딩이 진행 중이고, 끝내기·취소·돌아오기 연출이 시작되지 않았을 때만 취소할 수 있다.
+    private bool HandleCanCancel()
+    {
+        return _isRunning && !_isReturning && !_isFinishing && !_isCancelRequested;
+    }
+
+    // 취소할 수 있는 동안에는 진행도 표시와 함께 버튼을 드러내 누를 수 있게 하고, 그 밖에는 숨긴다.
+    private void HandleApplyCancelButton()
+    {
+        if (_cancelGroup == null)
+            return;
+
+        bool canCancel = HandleCanCancel();
+        float alpha = canCancel ? (_progressGroup != null ? _progressGroup.alpha : 1f) : 0f;
+
+        _cancelGroup.alpha = alpha;
+        _cancelGroup.interactable = canCancel && alpha > 0f;
+        _cancelGroup.blocksRaycasts = canCancel && alpha > 0f;
+    }
+
+    // 취소 버튼이 보여 눌릴 수 있는 동안 ESC를 누르면 취소 버튼을 누른 것과 같이 처리한다.
+    private void HandleEscapeInput()
+    {
+        if (Keyboard.current == null || !Keyboard.current.escapeKey.wasPressedThisFrame) return;
+        if (_cancelGroup == null || !_cancelGroup.interactable) return;
+
+        HandleCancelClick();
+    }
+
+    // 취소 버튼을 누르면 취소 요청을 남기고 알린다. 인게임 씬이 화면을 꺼내 가기 전이면 인게임 씬이 진입하자마자 이 요청을 확인한다.
+    private void HandleCancelClick()
+    {
+        if (!HandleCanCancel())
+            return;
+
+        AudioManager.PlayCancel();
+        _isCancelRequested = true;
+        HandleApplyCancelButton();
+        CancelRequested?.Invoke();
+    }
+
+    // 돌아갈 씬을 미리 불러오면서 진행도를 지금 값에서 0%까지 비우고, 둘 다 끝나면 그 씬에 역재생과 장식 회전 각도를 맡긴 뒤 넘어가 스스로 파괴된다.
+    private IEnumerator HandleReturnToRoutine(string sceneName)
+    {
+        AsyncOperation operation = SceneManager.LoadSceneAsync(sceneName);
+        if (operation == null)
+        {
+            // 돌아갈 수 없으면 로딩 화면을 그대로 둔 채 멈추지 않도록, 원래대로 걷어 내 지금 씬을 보여 준다.
+            Debug.LogError($"MainMenuLoadingSequence: '{sceneName}' 씬을 불러오지 못해 로딩 화면을 걷습니다. 빌드 설정에 등록되어 있는지 확인하세요.", this);
+            _isFinishing = false;
+            Finish();
+            yield break;
+        }
+
+        operation.allowSceneActivation = false;
+
+        float startProgress = _displayedProgress;
+        float displayed = startProgress;
+        while (displayed > 0f || operation.progress < 0.9f)
+        {
+            // allowSceneActivation이 꺼져 있으면 진행도는 0.9에서 멈추므로, 0.9를 씬 불러오기 완료로 본다.
+            float loadRemaining = startProgress * (1f - Mathf.Clamp01(operation.progress / 0.9f));
+            displayed = Mathf.Max(loadRemaining, displayed - Time.unscaledDeltaTime / _cancelDrainDuration);
+            HandleForceProgress(displayed);
+            yield return null;
+        }
+
+        HandleForceProgress(0f);
+
+        // 이미 다 불러왔더라도 0%에서 잠시 머문 뒤 넘어가, 메인 메뉴의 역재생 연출과 자연스럽게 이어지게 한다.
+        yield return new WaitForSecondsRealtime(_holdBeforeReturn);
+
+        RequestReturnSequence(HandleGetSettleFloats());
+        Time.timeScale = 1f;
+        operation.allowSceneActivation = true;
+
+        while (!operation.isDone)
+            yield return null;
+
+        // 새 메인 메뉴가 같은 로딩 끝 상태에서 역재생을 이어받았으므로, 덮고 있던 이 화면은 걷어 낸다.
+        Destroy(gameObject);
+    }
+
+    // 장식 사각형들의 떠다니기 모션을 계층 순서대로 모은다. 묶음이 없으면 빈 배열을 돌려준다.
+    private UIRectFloatMotion[] HandleGetSettleFloats()
+    {
+        RectTransform settleRoot = _centerTarget != null ? _centerTarget : _revealCore;
+        return settleRoot != null ? settleRoot.GetComponentsInChildren<UIRectFloatMotion>() : Array.Empty<UIRectFloatMotion>();
+    }
+
+    // 표시 중인 진행도와 목표 진행도를 함께 지정한 값으로 맞춘다. 진행도를 거꾸로 비울 때 쓴다.
+    private void HandleForceProgress(float progress)
+    {
+        _targetProgress = Mathf.Clamp01(progress);
+        _displayedProgress = _targetProgress;
+        HandleApplyProgress();
     }
 
     // 진행도 표시가 100%에 닿고 정해 둔 시간만큼 머물 때까지 기다린 뒤, 지우기 연출(또는 서서히 사라지기)을 시작한다.

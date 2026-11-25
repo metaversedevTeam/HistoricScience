@@ -57,8 +57,13 @@ public class MapChunkLoader : MonoBehaviour
     // 등록된 청크(추적 대상 주변에 로딩되어 있어야 하는 청크) 중 로딩이 끝난 청크의 비율(0~1)
     public float LoadProgress => m_LoadProgress;
 
-    // 추적 루프와 진행 중인 로딩을 멈춘다.
     private void OnDestroy()
+    {
+        StopLoading();
+    }
+
+    // 추적 루프와 진행 중인 로딩을 멈춘다. 이미 백그라운드에 맡긴 청크는 끝까지 돌지만 그 뒤로 새 청크는 맡기지 않는다. (로딩 취소 시에도 쓴다)
+    public void StopLoading()
     {
         if (m_Cancellation == null)
             return;

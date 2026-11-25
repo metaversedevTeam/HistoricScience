@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 // 인게임 씬의 진입점. 이전 씬이 지정한 맵 파일을 열어 MapData를 만들고, 맵 데이터 주입과 청크 로딩,
 // 인벤토리/Savable 복원까지 마친 뒤에는 현재 맵 상태를 다시 파일로 저장하는 역할도 맡는다.
@@ -29,6 +30,8 @@ public class IngameSceneManager : MonoBehaviour
     [SerializeField] private CameraController _cameraController;
     // 맵을 연 뒤 청크 초기 로딩이 끝날 때까지 띄울 로딩 화면 프리팹. 비어 있으면 로딩 화면 없이 씬에 진입한다.
     [SerializeField] private LoadingScreenUI _loadingScreenUIPrefab;
+    // 로딩 화면에서 로딩을 취소했을 때 돌아갈 메인 메뉴 씬 이름
+    [SerializeField] private string _mainMenuSceneName = "MainMenu";
 
     // 이번 씬에서 열린 맵 파일의 원본 데이터
     private MapSaveData _saveData;
@@ -42,6 +45,13 @@ public class IngameSceneManager : MonoBehaviour
     private LoadingScreenUI _loadingScreen;
     // 이전 씬(메인 메뉴)이 씬 전환 너머로 넘겨준 로딩 화면. 있으면 자기 로딩 화면 대신 이것을 쓴다.
     private ISceneLoadingScreen _handedLoadingScreen;
+    // 플레이어가 로딩 화면에서 로딩을 취소해 메인 메뉴로 돌아가는 중인지 여부. 그 뒤로는 씬 진입을 이어 가지 않는다.
+    private bool _isLoadCancelled;
+    // 로딩 화면을 걷고 맵에 들어간 뒤인지 여부
+    private bool _isEntered;
+
+    // 아직 맵 진입(로딩)이 끝나지 않았거나 로딩을 취소해 나가는 중인지 여부. 이 동안에는 ESC가 로딩 취소에 쓰이므로 일시정지 화면을 열지 않는 데 쓴다.
+    public bool IsLoading => !_isEntered;
 
     // 이번 씬의 맵 데이터를 반환한다. 씬 진입이 끝나기 전에는 null이다.
     public MapData MapData => _mapData;
@@ -52,8 +62,13 @@ public class IngameSceneManager : MonoBehaviour
     private async void Start()
     {
         HandleShowLoadingScreen();
+        if (_isLoadCancelled) return;
+
         await HandleEnterMapAsync();
+        if (_isLoadCancelled) return;
+
         HandleHideLoadingScreen();
+        _isEntered = true;
     }
 
     // 맵 파일을 열어 저장 상태를 복원하고, 등록된 청크의 초기 로딩이 끝날 때까지 기다린다. 도중에 실패하면 그 자리에서 중단한다.
@@ -79,6 +94,7 @@ public class IngameSceneManager : MonoBehaviour
         // 청크 로더가 카메라를 추적 대상으로 삼으므로, 저장된 위치 주변부터 로딩되도록 XZ를 먼저 복원한다.
         HandleRestoreCameraPosition();
         await _chunkLoader.BeginLoadingAsync();
+        if (_isLoadCancelled) return;
 
         // 카메라 고도는 그 자리의 지형 높이로 정해지므로, 주변 지형이 실제로 존재하게 된 뒤 한 번 더 복원해 고도를 맞춘다.
         HandleRestoreCameraPosition();
@@ -91,6 +107,14 @@ public class IngameSceneManager : MonoBehaviour
         _handedLoadingScreen = SceneLoadingHandoff.Take();
         if (_handedLoadingScreen != null)
         {
+            // 메인 메뉴에서 씬을 불러오는 동안 이미 취소를 눌렀다면 맵을 열지 않고 바로 돌아간다.
+            if (_handedLoadingScreen.IsCancelRequested)
+            {
+                HandleCancelLoading();
+                return;
+            }
+
+            _handedLoadingScreen.CancelRequested += HandleCancelLoading;
             HandleSubscribeChunkLoadProgress();
             return;
         }
@@ -102,7 +126,46 @@ public class IngameSceneManager : MonoBehaviour
         }
 
         _loadingScreen = UIManager.Instance.OpenUI(_loadingScreenUIPrefab);
+        _loadingScreen.CancelRequested += HandleCancelLoading;
         HandleSubscribeChunkLoadProgress();
+    }
+
+    // 로딩 화면에서 취소를 누르면 청크 로딩을 멈추고, 로딩 화면을 덮어 둔 채 메인 메뉴로 돌아간다. 저장은 하지 않는다.
+    private void HandleCancelLoading()
+    {
+        if (_isLoadCancelled)
+            return;
+
+        _isLoadCancelled = true;
+        HandleUnsubscribeLoadingScreen();
+
+        if (_chunkLoader != null)
+            _chunkLoader.StopLoading();
+
+        // 메인 메뉴가 넘겨준 화면은 로딩 연출을 거꾸로 이어 가며 스스로 메인 메뉴로 넘어간다.
+        if (_handedLoadingScreen != null)
+        {
+            _handedLoadingScreen.ReturnTo(_mainMenuSceneName);
+            _handedLoadingScreen = null;
+            return;
+        }
+
+        // 자기 로딩 화면은 이 씬의 UI이므로, 씬이 바뀔 때까지 화면을 가린 채 함께 정리된다.
+        Time.timeScale = 1f;
+        SceneManager.LoadSceneAsync(_mainMenuSceneName);
+    }
+
+    // 로딩 화면의 취소 요청과 청크 로딩 진행도 연결을 끊는다.
+    private void HandleUnsubscribeLoadingScreen()
+    {
+        if (_handedLoadingScreen != null)
+            _handedLoadingScreen.CancelRequested -= HandleCancelLoading;
+
+        if (_loadingScreen != null)
+            _loadingScreen.CancelRequested -= HandleCancelLoading;
+
+        if (_chunkLoader != null)
+            _chunkLoader.LoadProgressChanged -= HandleReportChunkLoadProgress;
     }
 
     // 청크가 하나씩 로딩될 때마다 등록된 청크 대비 비율을 받아 로딩 화면의 진행도에 반영하도록 연결한다.
@@ -118,9 +181,8 @@ public class IngameSceneManager : MonoBehaviour
         if (_loadingScreen == null && _handedLoadingScreen == null)
             return;
 
-        // 로딩 화면이 사라진 뒤에도 추적 루프가 진행도를 계속 알리므로 여기서 연결을 끊는다.
-        if (_chunkLoader != null)
-            _chunkLoader.LoadProgressChanged -= HandleReportChunkLoadProgress;
+        // 로딩 화면이 사라진 뒤에도 추적 루프가 진행도를 계속 알리므로 여기서 연결을 끊는다. 다 끝났으니 취소도 더는 받지 않는다.
+        HandleUnsubscribeLoadingScreen();
 
         if (_handedLoadingScreen != null)
         {
