@@ -4,13 +4,13 @@ using UnityEngine;
 using UnityEngine.UI;
 
 // 창고 격자에 놓이는 슬롯 하나. 아이템이 담기면 아이콘·이름·수량을 보여주고, 비었으면 빈 칸 테두리만 남는다.
-// 테두리와 수량 글자색은 아이템의 시대에 따라 달라진다.
+// 테두리와 수량 글자색은 아이템의 시대에 따라 달라진다. (일시정지 화면과 같은 각진 테두리·강조색 체계)
 public class WarehouseSlotUI : MonoBehaviour
 {
     [Header("슬롯")]
     [SerializeField] private Button _button;
-    [SerializeField] private Image _outline;
-    [SerializeField] private Image _selectedOutline;
+    [SerializeField] private Graphic _outline;
+    [SerializeField] private Graphic _selectedOutline;
 
     [Header("아이콘")]
     [SerializeField] private RectTransform _iconArea;
@@ -23,15 +23,15 @@ public class WarehouseSlotUI : MonoBehaviour
     [SerializeField] private TextMeshProUGUI _countText;
 
     [Header("빈 칸 색상")]
-    [SerializeField] private Color _emptyOutline = new Color32(0x33, 0x33, 0x33, 0xFF);
+    [SerializeField] private Color _emptyOutline = new Color32(0xFF, 0xFF, 0xFF, 0x14);
 
     [Header("시대 색상")]
     [SerializeField] private AgePalette[] _palettes =
     {
-        new AgePalette(Age.nature, new Color32(0x33, 0x33, 0x33, 0xFF), new Color32(0x16, 0xA3, 0x4A, 0xFF)),
-        new AgePalette(Age.Paleolithic, new Color32(0x0F, 0x76, 0x6E, 0xFF), new Color32(0xFF, 0xFF, 0xFF, 0xFF)),
-        new AgePalette(Age.Neolithic, new Color32(0x25, 0x63, 0xEB, 0xFF), new Color32(0xFF, 0xFF, 0xFF, 0xFF)),
-        new AgePalette(Age.bronzeAge, new Color32(0xB4, 0x53, 0x09, 0xFF), new Color32(0xFF, 0xFF, 0xFF, 0xFF))
+        new AgePalette(Age.nature, new Color32(0x94, 0xA3, 0xB8, 0x80), new Color32(0x94, 0xA3, 0xB8, 0xFF)),
+        new AgePalette(Age.Paleolithic, new Color32(0xFB, 0x92, 0x3C, 0x99), new Color32(0xFB, 0x92, 0x3C, 0xFF)),
+        new AgePalette(Age.Neolithic, new Color32(0x4A, 0xDE, 0x80, 0x99), new Color32(0x4A, 0xDE, 0x80, 0xFF)),
+        new AgePalette(Age.bronzeAge, new Color32(0x38, 0xBD, 0xF8, 0x99), new Color32(0x38, 0xBD, 0xF8, 0xFF))
     };
 
     // 이 슬롯이 담고 있는 아이템. 빈 칸이면 null이다.

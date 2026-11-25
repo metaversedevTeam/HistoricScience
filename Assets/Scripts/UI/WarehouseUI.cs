@@ -26,6 +26,14 @@ public class WarehouseUI : OpenableUIBase<ResourceInventory>
     [Header("닫기")]
     [SerializeField] private Button _closeButton;
 
+    [Header("머리말")]
+    // 보관 중인 아이템 종류 수를 보여 줄 문구. 비워 두면 표시하지 않는다.
+    [SerializeField] private TextMeshProUGUI _summaryText;
+
+    [Header("연출")]
+    // 열릴 때 요소들을 차례로 들여오고, 닫힐 때 거꾸로 내보내는 연출(일시정지 화면과 같은 방식). 비워 두면 연출 없이 닫힌다.
+    [SerializeField] private MainMenuIntroSequence _introSequence;
+
     [Header("상세")]
     [SerializeField] private Image _detailIcon;
     [SerializeField] private Image _detailPlaceholderIcon;
@@ -59,6 +67,18 @@ public class WarehouseUI : OpenableUIBase<ResourceInventory>
         _inventory.OnRemoveItem += HandleInventoryChanged;
 
         Refresh();
+    }
+
+    // 등장 연출을 거꾸로 재생해 요소들을 내보낸 뒤 닫기를 마무리한다. 등장 연출은 활성화될 때 MainMenuIntroSequence가 스스로 재생한다.
+    protected override void PlayCloseTransition()
+    {
+        if (_introSequence == null || !_introSequence.isActiveAndEnabled)
+        {
+            FinishClose();
+            return;
+        }
+
+        _introSequence.PlayReverse(FinishClose);
     }
 
     // 풀로 돌아가기 전에 구독·검색어·선택 상태·스크롤 위치를 초기 상태로 되돌린다.
@@ -136,6 +156,23 @@ public class WarehouseUI : OpenableUIBase<ResourceInventory>
         RefreshSlots();
         RefreshSelection();
         RefreshDetail();
+        RefreshSummary();
+    }
+
+    // 보관 중인 아이템 종류 수를 머리말 문구에 반영한다.
+    private void RefreshSummary()
+    {
+        if (_summaryText == null) return;
+
+        IReadOnlyList<ItemData> items = _inventory.ItemDataList.Items;
+        int ownedCount = 0;
+        for (int i = 0; i < items.Count; i++)
+        {
+            if (_inventory.Get(items[i]) > 0)
+                ownedCount++;
+        }
+
+        _summaryText.text = $"보관소  ·  {ownedCount}종 보관 중";
     }
 
     // 필터를 통과한 아이템으로 슬롯을 채우고, 남는 슬롯은 빈 칸으로 되돌린다.
