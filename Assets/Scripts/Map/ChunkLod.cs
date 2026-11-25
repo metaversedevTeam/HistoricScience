@@ -8,6 +8,6 @@ public enum ChunkLod
     // 풀과 자원을 소환하지 않고 알파맵을 블러 없이 그대로 칠하는 원경용 품질
     Lod1,
 
-    // LOD1처럼 풀과 자원이 없고, 알파맵도 아예 칠하지 않아 높이만 굽는 최원경용 품질
+    // LOD1처럼 풀과 자원이 없고, 알파맵도 아예 칠하지 않아 낮은 해상도(MapTerrainSettings.Lod2HeightmapResolution)의 높이만 굽는 최원경용 품질
     Lod2,
 }

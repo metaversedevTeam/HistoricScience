@@ -198,7 +198,8 @@ public class MapChunkManager : MonoBehaviour
         await HandlePaintChunkAsync(chunkCoordinate, lod, false);
     }
 
-    // 이미 낮은 LOD로 구워진 청크를 더 높은 LOD로 다시 구워 알파맵(LOD0이면 블러, 풀, 자원까지)을 채운다. 높이와 위치, 저장 오브젝트는 그대로라 다시 적용하지 않는다.
+    // 이미 낮은 LOD로 구워진 청크를 더 높은 LOD로 다시 구워 알파맵(LOD0이면 블러, 풀, 자원까지)을 채운다. 위치와 저장 오브젝트는 그대로라 다시 적용하지 않는다.
+    // LOD1에서 LOD0로 올리면 보관해 둔 높이 격자를 써서 높이를 다시 계산하지도 적용하지도 않고, LOD2에서 올리면 원래 해상도의 높이맵을 다시 굽는다.
     // 소환되어 있지 않거나 이미 그 LOD 이상인 청크는 무시한다.
     public async Task UpgradeChunkAsync(Vector2Int chunkCoordinate, ChunkLod lod)
     {
@@ -217,7 +218,8 @@ public class MapChunkManager : MonoBehaviour
         chunkObject.GetComponent<TerrainPainter>().ReduceTo(lod);
     }
 
-    // 청크를 지정한 품질로 비동기 굽는다. isRepaint가 true면 이미 구워진 청크를 다시 칠하는 것이므로 높이맵, 위치, 저장 오브젝트 소환을 건너뛴다.
+    // 청크를 지정한 품질로 비동기 굽는다. isRepaint가 true면 이미 구워진 청크를 다시 칠하는 것이므로 위치와 저장 오브젝트 소환을 건너뛴다.
+    // 높이맵을 다시 적용할지는 터레인 페인터가 보관한 높이 격자 유무로 스스로 정한다.
     private async Task HandlePaintChunkAsync(Vector2Int chunkCoordinate, ChunkLod lod, bool isRepaint)
     {
         if (!HandleCanPaint(chunkCoordinate, out GameObject chunkObject))
@@ -238,7 +240,7 @@ public class MapChunkManager : MonoBehaviour
         if (chunkObject == null || !m_ActiveChunks.TryGetValue(chunkCoordinate, out GameObject currentChunk) || currentChunk != chunkObject)
             return;
 
-        painter.ApplyPaint(result, !isRepaint);
+        painter.ApplyPaint(result);
         m_LastDrawnFrame = Time.frameCount;
 
         if (isRepaint)
