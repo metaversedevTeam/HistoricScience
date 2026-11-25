@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 // 설정 화면. 메인 메뉴와 일시정지 화면의 OPTION 버튼이 UIManager로 여는 공용 창이며,
-// 카메라 수평 감도와 청크 로딩·유지 범위를 슬라이더로, 흑백 강조 사용 여부를 스위치로 바꿔 GameSettings에 바로 반영한다. (수직 감도는 수평의 절반으로 자동으로 맞춰진다)
+// 카메라 수평 감도와 청크 LOD0·LOD1 로딩 범위를 슬라이더로, 흑백 강조 사용 여부를 스위치로 바꿔 GameSettings에 바로 반영한다. (수직 감도는 수평의 절반으로 자동으로 맞춰진다)
 // 일시정지 중(Time.timeScale = 0)에도 열리므로 페이드 연출은 실제 경과 시간으로 돈다.
 public class SettingsUI : OpenableUIBase
 {
@@ -12,10 +12,10 @@ public class SettingsUI : OpenableUIBase
     [SerializeField] private TMP_Text _horizontalValueText;
 
     [Header("청크 범위")]
-    [SerializeField] private Slider _chunkLoadSlider;
-    [SerializeField] private TMP_Text _chunkLoadValueText;
-    [SerializeField] private Slider _chunkKeepSlider;
-    [SerializeField] private TMP_Text _chunkKeepValueText;
+    [SerializeField] private Slider _chunkLod0Slider;
+    [SerializeField] private TMP_Text _chunkLod0ValueText;
+    [SerializeField] private Slider _chunkLod1Slider;
+    [SerializeField] private TMP_Text _chunkLod1ValueText;
 
     [Header("흑백 강조")]
     // 줄 전체를 누르면 흑백 강조를 켜고 끈다.
@@ -50,17 +50,17 @@ public class SettingsUI : OpenableUIBase
         _horizontalSlider.maxValue = GameSettings.MaxHorizontalLookSensitivity;
         _horizontalSlider.wholeNumbers = false;
 
-        _chunkLoadSlider.minValue = GameSettings.MinChunkLoadRadius;
-        _chunkLoadSlider.maxValue = GameSettings.MaxChunkLoadRadius;
-        _chunkLoadSlider.wholeNumbers = true;
+        _chunkLod0Slider.minValue = GameSettings.MinChunkLoadRadius;
+        _chunkLod0Slider.maxValue = GameSettings.MaxChunkLod0LoadRadius;
+        _chunkLod0Slider.wholeNumbers = true;
 
-        _chunkKeepSlider.minValue = GameSettings.MinChunkKeepRadius;
-        _chunkKeepSlider.maxValue = GameSettings.MaxChunkKeepRadius;
-        _chunkKeepSlider.wholeNumbers = true;
+        _chunkLod1Slider.minValue = GameSettings.MinChunkLoadRadius;
+        _chunkLod1Slider.maxValue = GameSettings.MaxChunkLod1LoadRadius;
+        _chunkLod1Slider.wholeNumbers = true;
 
         _horizontalSlider.onValueChanged.AddListener(HandleHorizontalChanged);
-        _chunkLoadSlider.onValueChanged.AddListener(HandleChunkLoadChanged);
-        _chunkKeepSlider.onValueChanged.AddListener(HandleChunkKeepChanged);
+        _chunkLod0Slider.onValueChanged.AddListener(HandleChunkLod0Changed);
+        _chunkLod1Slider.onValueChanged.AddListener(HandleChunkLod1Changed);
         _monochromeFocusButton.onClick.AddListener(HandleMonochromeFocusClick);
         _resetButton.onClick.AddListener(HandleResetClick);
         _closeButton.onClick.AddListener(HandleCloseClick);
@@ -139,29 +139,29 @@ public class SettingsUI : OpenableUIBase
         HandleSyncMonochromeFocus();
     }
 
-    // 저장된 청크 로딩·유지 범위를 이벤트 없이 두 슬라이더와 값 표시에 반영한다.
+    // 저장된 청크 LOD0·LOD1 로딩 범위를 이벤트 없이 두 슬라이더와 값 표시에 반영한다.
     private void HandleSyncChunkRadii()
     {
-        int load = GameSettings.ChunkLoadRadius;
-        int keep = GameSettings.ChunkKeepRadius;
+        int lod0 = GameSettings.ChunkLod0LoadRadius;
+        int lod1 = GameSettings.ChunkLod1LoadRadius;
 
-        _chunkLoadSlider.SetValueWithoutNotify(load);
-        _chunkLoadValueText.text = FormatChunkRadius(load);
-        _chunkKeepSlider.SetValueWithoutNotify(keep);
-        _chunkKeepValueText.text = FormatChunkRadius(keep);
+        _chunkLod0Slider.SetValueWithoutNotify(lod0);
+        _chunkLod0ValueText.text = FormatChunkRadius(lod0);
+        _chunkLod1Slider.SetValueWithoutNotify(lod1);
+        _chunkLod1ValueText.text = FormatChunkRadius(lod1);
     }
 
-    // 로딩 범위 슬라이더가 움직이면 저장하고, 유지 범위가 밀려 올라갔을 수 있으므로 두 슬라이더를 다시 맞춘다.
-    private void HandleChunkLoadChanged(float value)
+    // LOD0 로딩 범위 슬라이더가 움직이면 저장하고, LOD1 로딩 범위가 밀려 올라갔을 수 있으므로 두 슬라이더를 다시 맞춘다.
+    private void HandleChunkLod0Changed(float value)
     {
-        GameSettings.ChunkLoadRadius = Mathf.RoundToInt(value);
+        GameSettings.ChunkLod0LoadRadius = Mathf.RoundToInt(value);
         HandleSyncChunkRadii();
     }
 
-    // 유지 범위 슬라이더가 움직이면 저장하고, 로딩 범위가 밀려 내려갔을 수 있으므로 두 슬라이더를 다시 맞춘다.
-    private void HandleChunkKeepChanged(float value)
+    // LOD1 로딩 범위 슬라이더가 움직이면 저장하고, LOD0 로딩 범위가 밀려 내려갔을 수 있으므로 두 슬라이더를 다시 맞춘다.
+    private void HandleChunkLod1Changed(float value)
     {
-        GameSettings.ChunkKeepRadius = Mathf.RoundToInt(value);
+        GameSettings.ChunkLod1LoadRadius = Mathf.RoundToInt(value);
         HandleSyncChunkRadii();
     }
 
@@ -180,8 +180,8 @@ public class SettingsUI : OpenableUIBase
         AudioManager.PlayConfirm();
 
         GameSettings.HorizontalLookSensitivity = GameSettings.DefaultHorizontalLookSensitivity;
-        GameSettings.ChunkLoadRadius = GameSettings.DefaultChunkLoadRadius;
-        GameSettings.ChunkKeepRadius = GameSettings.DefaultChunkKeepRadius;
+        GameSettings.ChunkLod0LoadRadius = GameSettings.DefaultChunkLod0LoadRadius;
+        GameSettings.ChunkLod1LoadRadius = GameSettings.DefaultChunkLod1LoadRadius;
         GameSettings.MonochromeFocusEnabled = GameSettings.DefaultMonochromeFocusEnabled;
         HandleSyncFromSettings();
     }

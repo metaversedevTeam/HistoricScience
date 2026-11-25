@@ -10,6 +10,18 @@ public class MapChunkManager : MonoBehaviour
     // 소환할 청크 프리팹. Terrain, TerrainCollider, TerrainPainter가 구성되어 있어야 한다.
     [SerializeField] private GameObject m_ChunkPrefab;
 
+    [Header("LOD Gizmo")]
+    // 소환된 청크마다 LOD0·LOD1 단계를 색으로 구분한 사각형을 씬 뷰에 그릴지 여부. 켜 두면 오브젝트를 선택하지 않아도 항상 표시된다.
+    [SerializeField] private bool m_ShowLodGizmos = true;
+    // 사각형을 그릴 높이(이 매니저 기준 로컬 Y). 산에 가려지면 값을 높인다.
+    [SerializeField] private float m_LodGizmoHeight = 0f;
+    // LOD0 청크 사각형의 색. 테두리는 이 색 그대로, 안쪽 면은 알파를 낮춰 그린다.
+    [SerializeField] private Color m_Lod0GizmoColor = new Color(0.2f, 0.9f, 0.3f, 1f);
+    // LOD1 청크 사각형의 색. 테두리는 이 색 그대로, 안쪽 면은 알파를 낮춰 그린다.
+    [SerializeField] private Color m_Lod1GizmoColor = new Color(1f, 0.6f, 0.1f, 1f);
+    // 안쪽 면에 곱할 알파. 0이면 테두리만 그린다.
+    [SerializeField, Range(0f, 1f)] private float m_LodGizmoFillAlpha = 0.15f;
+
     // 이 맵의 모든 청크가 공유하는 맵 데이터. 무한 평면 전체를 담당하는 불변 객체라 하나를 모든 청크에 그대로 넘긴다.
     // 새 게임 시작이나 저장 파일 로드 시 SetMapData로 주입받는다.
     private MapData m_MapData;
@@ -71,15 +83,26 @@ public class MapChunkManager : MonoBehaviour
         return new Vector2Int(Mathf.FloorToInt(localPosition.x / chunkSize.x), Mathf.FloorToInt(localPosition.z / chunkSize.y));
     }
 
-    // 주어진 좌표에 청크 프리팹을 소환하고 곧바로 지형을 굽는다. 이미 소환된 좌표면 기존 오브젝트를 그대로 반환한다.
-    public GameObject DrawChunk(Vector2Int chunkCoordinate)
+    // 주어진 좌표에 소환된 청크가 마지막으로 구워진 품질 단계를 알려 준다. 소환되어 있지 않으면 false를 반환한다.
+    public bool TryGetChunkLod(Vector2Int chunkCoordinate, out ChunkLod lod)
+    {
+        lod = ChunkLod.Lod0;
+        if (!m_ActiveChunks.TryGetValue(chunkCoordinate, out GameObject chunkObject))
+            return false;
+
+        lod = chunkObject.GetComponent<TerrainPainter>().CurrentLod;
+        return true;
+    }
+
+    // 주어진 좌표에 청크 프리팹을 소환하고 곧바로 지정한 품질로 지형을 굽는다. 이미 소환된 좌표면 기존 오브젝트를 그대로 반환한다.
+    public GameObject DrawChunk(Vector2Int chunkCoordinate, ChunkLod lod = ChunkLod.Lod0)
     {
         if (m_ActiveChunks.TryGetValue(chunkCoordinate, out GameObject existingChunk))
             return existingChunk;
 
         GameObject chunkObject = SpawnChunk(chunkCoordinate);
         if (chunkObject != null)
-            PaintChunk(chunkCoordinate);
+            PaintChunk(chunkCoordinate, lod);
 
         return chunkObject;
     }
@@ -134,14 +157,19 @@ public class MapChunkManager : MonoBehaviour
 
     // 이미 소환된 청크의 좌표를 터레인 페인터에 반영해 보로노이 지형을 굽고 월드 위치를 잡는다. 모든 청크에 같은 맵 데이터(m_MapData)를
     // 주입하므로, 각 청크는 같은 무한 맵의 서로 다른 영역을 이어서 보여주게 된다.
-    public void PaintChunk(Vector2Int chunkCoordinate)
+    public void PaintChunk(Vector2Int chunkCoordinate, ChunkLod lod = ChunkLod.Lod0)
     {
         if (!HandleCanPaint(chunkCoordinate, out GameObject chunkObject))
             return;
 
         TerrainPainter painter = chunkObject.GetComponent<TerrainPainter>();
         painter.SetChunkCoordinate(chunkCoordinate);
-        painter.PaintVoronoiTerrain(m_MapData);
+
+        var context = painter.PrepareForPaint(m_MapData, lod);
+        if (context == null)
+            return;
+
+        painter.ApplyPaint(painter.ComputePaint(context.Value));
         m_LastDrawnFrame = Time.frameCount;
 
         HandlePositionChunk(chunkObject, chunkCoordinate);
@@ -149,21 +177,46 @@ public class MapChunkManager : MonoBehaviour
     }
 
     // DrawChunk의 비동기 버전. 무거운 지형 계산을 백그라운드 스레드에서 수행해 메인 스레드를 막지 않는다. 이미 소환된 좌표면 기존 오브젝트를 그대로 반환한다.
-    public async Task<GameObject> DrawChunkAsync(Vector2Int chunkCoordinate)
+    public async Task<GameObject> DrawChunkAsync(Vector2Int chunkCoordinate, ChunkLod lod = ChunkLod.Lod0)
     {
         if (m_ActiveChunks.TryGetValue(chunkCoordinate, out GameObject existingChunk))
             return existingChunk;
 
         GameObject chunkObject = SpawnChunk(chunkCoordinate);
         if (chunkObject != null)
-            await PaintChunkAsync(chunkCoordinate);
+            await PaintChunkAsync(chunkCoordinate, lod);
 
         return chunkObject;
     }
 
     // PaintChunk의 비동기 버전. 알파맵/높이맵 계산만 Task.Run으로 백그라운드 스레드에 맡기고, Terrain에 적용하는 부분은 메인 스레드로 돌아와 처리한다.
     // 계산은 여러 청크가 동시에 진행할 수 있지만, Terrain에 적용하는 무거운 작업은 한 프레임에 한 청크만 하도록 차례를 기다린다.
-    public async Task PaintChunkAsync(Vector2Int chunkCoordinate)
+    public async Task PaintChunkAsync(Vector2Int chunkCoordinate, ChunkLod lod = ChunkLod.Lod0)
+    {
+        await HandlePaintChunkAsync(chunkCoordinate, lod, false);
+    }
+
+    // 이미 LOD1로 구워진 청크를 LOD0로 다시 구워 알파맵 블러, 풀, 자원을 채운다. 높이와 위치, 저장 오브젝트는 그대로라 다시 적용하지 않는다.
+    // 소환되어 있지 않거나 이미 LOD0인 청크는 무시한다.
+    public async Task UpgradeChunkToLod0Async(Vector2Int chunkCoordinate)
+    {
+        if (!TryGetChunkLod(chunkCoordinate, out ChunkLod lod) || lod == ChunkLod.Lod0)
+            return;
+
+        await HandlePaintChunkAsync(chunkCoordinate, ChunkLod.Lod0, true);
+    }
+
+    // LOD0로 구워진 청크를 다시 계산하지 않고 LOD1로 낮춰 풀과 자원을 지운다. 소환되어 있지 않은 청크는 무시한다.
+    public void ReduceChunkToLod1(Vector2Int chunkCoordinate)
+    {
+        if (!m_ActiveChunks.TryGetValue(chunkCoordinate, out GameObject chunkObject))
+            return;
+
+        chunkObject.GetComponent<TerrainPainter>().ReduceToLod1();
+    }
+
+    // 청크를 지정한 품질로 비동기 굽는다. isRepaint가 true면 이미 구워진 청크를 다시 칠하는 것이므로 높이맵, 위치, 저장 오브젝트 소환을 건너뛴다.
+    private async Task HandlePaintChunkAsync(Vector2Int chunkCoordinate, ChunkLod lod, bool isRepaint)
     {
         if (!HandleCanPaint(chunkCoordinate, out GameObject chunkObject))
             return;
@@ -171,7 +224,7 @@ public class MapChunkManager : MonoBehaviour
         TerrainPainter painter = chunkObject.GetComponent<TerrainPainter>();
         painter.SetChunkCoordinate(chunkCoordinate);
 
-        var context = painter.PrepareForPaint(m_MapData);
+        var context = painter.PrepareForPaint(m_MapData, lod);
         if (context == null)
             return;
 
@@ -183,8 +236,11 @@ public class MapChunkManager : MonoBehaviour
         if (chunkObject == null || !m_ActiveChunks.TryGetValue(chunkCoordinate, out GameObject currentChunk) || currentChunk != chunkObject)
             return;
 
-        painter.ApplyPaint(result);
+        painter.ApplyPaint(result, !isRepaint);
         m_LastDrawnFrame = Time.frameCount;
+
+        if (isRepaint)
+            return;
 
         HandlePositionChunk(chunkObject, chunkCoordinate);
         HandleSpawnSavables(chunkObject);
@@ -215,26 +271,38 @@ public class MapChunkManager : MonoBehaviour
         return chunkCoordinates;
     }
 
-    // 현재 소환된 모든 청크를 지운 뒤 같은 좌표에 다시 그린다. 맵 데이터를 바꾼 뒤 기존 청크에 반영할 때 사용한다.
+    // 현재 소환된 모든 청크를 지운 뒤 같은 좌표에 같은 품질로 다시 그린다. 맵 데이터를 바꾼 뒤 기존 청크에 반영할 때 사용한다.
     [ContextMenu("Redraw All Chunks")]
     public void RedrawAllChunks()
     {
-        List<Vector2Int> chunkCoordinates = EraseAllChunks();
+        Dictionary<Vector2Int, ChunkLod> chunkLods = HandleCollectChunkLods();
+        EraseAllChunks();
 
-        foreach (Vector2Int chunkCoordinate in chunkCoordinates)
-            DrawChunk(chunkCoordinate);
+        foreach (KeyValuePair<Vector2Int, ChunkLod> chunk in chunkLods)
+            DrawChunk(chunk.Key, chunk.Value);
     }
 
     // RedrawAllChunks의 비동기 버전. 모든 청크의 지형 계산을 백그라운드에서 동시에 진행하고 전부 끝날 때까지 기다린다.
     public async Task RedrawAllChunksAsync()
     {
-        List<Vector2Int> chunkCoordinates = EraseAllChunks();
+        Dictionary<Vector2Int, ChunkLod> chunkLods = HandleCollectChunkLods();
+        EraseAllChunks();
 
-        List<Task<GameObject>> drawTasks = new List<Task<GameObject>>(chunkCoordinates.Count);
-        foreach (Vector2Int chunkCoordinate in chunkCoordinates)
-            drawTasks.Add(DrawChunkAsync(chunkCoordinate));
+        List<Task<GameObject>> drawTasks = new List<Task<GameObject>>(chunkLods.Count);
+        foreach (KeyValuePair<Vector2Int, ChunkLod> chunk in chunkLods)
+            drawTasks.Add(DrawChunkAsync(chunk.Key, chunk.Value));
 
         await Task.WhenAll(drawTasks);
+    }
+
+    // 현재 소환된 모든 청크의 좌표와 품질 단계를 모은다. 다시 그릴 때 원래 품질을 유지하는 데 쓴다.
+    private Dictionary<Vector2Int, ChunkLod> HandleCollectChunkLods()
+    {
+        Dictionary<Vector2Int, ChunkLod> chunkLods = new Dictionary<Vector2Int, ChunkLod>(m_ActiveChunks.Count);
+        foreach (KeyValuePair<Vector2Int, GameObject> chunk in m_ActiveChunks)
+            chunkLods[chunk.Key] = chunk.Value.GetComponent<TerrainPainter>().CurrentLod;
+
+        return chunkLods;
     }
 
     // 인스펙터 컨텍스트 메뉴에서 RedrawAllChunksAsync를 실행하고, 버려지는 Task의 예외가 묻히지 않도록 로그로 남긴다.
@@ -305,6 +373,54 @@ public class MapChunkManager : MonoBehaviour
         Terrain terrain = chunkObject.GetComponent<Terrain>();
         if (terrain != null && terrain.terrainData != null)
             Destroy(terrain.terrainData);
+    }
+
+    // 선택 여부와 관계없이 소환된 청크의 LOD 범위 기즈모를 표시한다.
+    private void OnDrawGizmos()
+    {
+        HandleDrawLodGizmos();
+    }
+
+    // 소환된 청크마다 현재 LOD 단계 색으로 청크 영역 사각형을 그려, LOD0 범위와 LOD1 범위를 씬 뷰에서 구분해 보여 준다.
+    // 청크 크기는 맵 데이터에서 오므로, 맵 데이터가 주입되기 전이나 소환된 청크가 없으면 아무것도 그리지 않는다.
+    private void HandleDrawLodGizmos()
+    {
+        if (!m_ShowLodGizmos || m_MapData == null || m_ActiveChunks.Count == 0)
+            return;
+
+        Vector2 chunkSize = ChunkWorldSize;
+        Vector3 boxSize = new Vector3(chunkSize.x, 0f, chunkSize.y);
+        // 이웃 청크와 테두리가 겹쳐 한 선으로 보이지 않도록 조금 안쪽으로 줄여 그린다.
+        Vector3 outlineSize = boxSize * 0.97f;
+
+        Gizmos.matrix = transform.localToWorldMatrix;
+
+        foreach (KeyValuePair<Vector2Int, GameObject> chunk in m_ActiveChunks)
+        {
+            if (chunk.Value == null)
+                continue;
+
+            ChunkLod lod = chunk.Value.GetComponent<TerrainPainter>().CurrentLod;
+            Color color = lod == ChunkLod.Lod0 ? m_Lod0GizmoColor : m_Lod1GizmoColor;
+            Vector3 center = new Vector3((chunk.Key.x + 0.5f) * chunkSize.x, m_LodGizmoHeight, (chunk.Key.y + 0.5f) * chunkSize.y);
+
+            HandleDrawLodGizmoBox(center, boxSize, outlineSize, color);
+        }
+
+        Gizmos.matrix = Matrix4x4.identity;
+    }
+
+    // 청크 하나의 LOD 사각형을 반투명 면과 진한 테두리로 그린다.
+    private void HandleDrawLodGizmoBox(Vector3 center, Vector3 boxSize, Vector3 outlineSize, Color color)
+    {
+        if (m_LodGizmoFillAlpha > 0f)
+        {
+            Gizmos.color = new Color(color.r, color.g, color.b, color.a * m_LodGizmoFillAlpha);
+            Gizmos.DrawCube(center, boxSize);
+        }
+
+        Gizmos.color = color;
+        Gizmos.DrawWireCube(center, outlineSize);
     }
 
     // 매니저가 파괴될 때 아직 지워지지 않은 모든 청크의 터레인 데이터를 정리한다.
