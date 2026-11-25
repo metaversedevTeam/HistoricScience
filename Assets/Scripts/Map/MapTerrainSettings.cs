@@ -33,6 +33,8 @@ public class MapTerrainSettings : ScriptableObject
     [SerializeField, Delayed] private int m_HeightmapResolution = 129;
     // 청크 터레인의 알파맵(바이옴 페인팅) 해상도
     [SerializeField, Delayed] private int m_AlphamapResolution = 512;
+    // 원경용 LOD1 청크의 알파맵 해상도. 알파맵 생성과 경사·고도 페인팅 비용이 해상도의 제곱에 비례하므로 낮출수록 LOD1 로딩이 빨라진다. 알파맵 해상도 이하로 맞춰진다.
+    [SerializeField, Delayed] private int m_Lod1AlphamapResolution = 256;
     // 청크 터레인의 디테일(풀) 해상도. 청크 한 변을 이 수만큼의 셀로 나눠 셀마다 풀 개수를 정한다. 0이면 풀을 출력하지 않는다.
     [SerializeField, Delayed] private int m_DetailResolution = 512;
     // 디테일 해상도를 렌더링 패치로 나누는 단위(셀). 패치 단위로 풀 메시가 묶여 컬링된다.
@@ -101,7 +103,7 @@ public class MapTerrainSettings : ScriptableObject
     public MapTerrainConfig CreateConfig()
     {
         MapSurfaceOverlayConfig surfaceOverlay = new MapSurfaceOverlayConfig(m_CliffLayer, m_CliffSlopeRange, m_SnowLayer, m_SnowHeightRange, m_SnowSlopeRange, m_SnowLineJitter);
-        return new MapTerrainConfig(m_ChunkWorldSize, m_MapViewSize, m_MaxTerrainHeight, m_HeightmapResolution, m_AlphamapResolution, m_DetailResolution, m_DetailResolutionPerPatch, m_SeaLevel, m_WalkableMaxHeight, surfaceOverlay);
+        return new MapTerrainConfig(m_ChunkWorldSize, m_MapViewSize, m_MaxTerrainHeight, m_HeightmapResolution, m_AlphamapResolution, m_Lod1AlphamapResolution, m_DetailResolution, m_DetailResolutionPerPatch, m_SeaLevel, m_WalkableMaxHeight, surfaceOverlay);
     }
 
     // 현재 내륙 노이즈 설정값을 복사하고 높이 커브를 미리 샘플링한 불변 값 묶음을 만든다. 커브를 읽으므로 메인 스레드에서 호출해야 한다.
@@ -117,6 +119,7 @@ public class MapTerrainSettings : ScriptableObject
     {
         m_HeightmapResolution = HandleSnapHeightmapResolution(m_HeightmapResolution);
         m_AlphamapResolution = Mathf.Clamp(Mathf.ClosestPowerOfTwo(m_AlphamapResolution), k_MinAlphamapResolution, k_MaxAlphamapResolution);
+        m_Lod1AlphamapResolution = Mathf.Clamp(Mathf.ClosestPowerOfTwo(m_Lod1AlphamapResolution), k_MinAlphamapResolution, m_AlphamapResolution);
         m_DetailResolution = Mathf.Clamp(m_DetailResolution, 0, k_MaxDetailResolution);
         m_DetailResolutionPerPatch = Mathf.Clamp(m_DetailResolutionPerPatch, k_MinDetailResolutionPerPatch, k_MaxDetailResolutionPerPatch);
         m_SeaLevel = Mathf.Min(m_SeaLevel, m_MaxTerrainHeight);
@@ -146,6 +149,8 @@ public readonly struct MapTerrainConfig
     public readonly int HeightmapResolution;
     // 청크 터레인의 알파맵 해상도
     public readonly int AlphamapResolution;
+    // 원경용 LOD1 청크의 알파맵 해상도 (알파맵 해상도 이하)
+    public readonly int Lod1AlphamapResolution;
     // 청크 터레인의 디테일(풀) 해상도. 0이면 풀을 출력하지 않는다.
     public readonly int DetailResolution;
     // 디테일 해상도를 렌더링 패치로 나누는 단위(셀)
@@ -157,7 +162,7 @@ public readonly struct MapTerrainConfig
     // 바이옴 페인팅 위에 경사·고도에 따라 절벽·눈 레이어를 덮는 규칙
     public readonly MapSurfaceOverlayConfig SurfaceOverlay;
 
-    public MapTerrainConfig(float chunkWorldSize, float mapViewSize, float maxTerrainHeight, int heightmapResolution, int alphamapResolution, int detailResolution, int detailResolutionPerPatch, float seaLevel, float walkableMaxHeight, MapSurfaceOverlayConfig surfaceOverlay)
+    public MapTerrainConfig(float chunkWorldSize, float mapViewSize, float maxTerrainHeight, int heightmapResolution, int alphamapResolution, int lod1AlphamapResolution, int detailResolution, int detailResolutionPerPatch, float seaLevel, float walkableMaxHeight, MapSurfaceOverlayConfig surfaceOverlay)
     {
         SurfaceOverlay = surfaceOverlay;
         ChunkWorldSize = chunkWorldSize;
@@ -165,10 +170,17 @@ public readonly struct MapTerrainConfig
         MaxTerrainHeight = maxTerrainHeight;
         HeightmapResolution = heightmapResolution;
         AlphamapResolution = alphamapResolution;
+        Lod1AlphamapResolution = lod1AlphamapResolution;
         DetailResolution = detailResolution;
         DetailResolutionPerPatch = detailResolutionPerPatch;
         SeaLevel = seaLevel;
         WalkableMaxHeight = walkableMaxHeight;
+    }
+
+    // 주어진 품질 단계의 청크가 쓸 알파맵 해상도를 반환한다.
+    public int GetAlphamapResolution(ChunkLod lod)
+    {
+        return lod == ChunkLod.Lod0 ? AlphamapResolution : Lod1AlphamapResolution;
     }
 
     // 청크 터레인의 월드 크기 (x/z = 청크 크기, y = 최대 높이)

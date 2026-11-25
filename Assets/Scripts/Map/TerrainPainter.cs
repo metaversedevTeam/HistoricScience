@@ -130,6 +130,7 @@ namespace HistoricScience.Test
             TerrainLayer[] layers = HandleCollectTerrainLayers(biomes, mapData.TerrainConfig.SurfaceOverlay, out int cliffLayerIndex, out int snowLayerIndex);
 
             TerrainData terrainData = m_Terrain.terrainData;
+            HandleApplyAlphamapResolution(terrainData, mapData.TerrainConfig.GetAlphamapResolution(lod));
             terrainData.terrainLayers = layers;
 
             // 디테일 레이어 순서도 같은 바이옴 목록에서 정해지므로, 바이옴에 등록된 풀 종류를 여기서 모아 프로토타입으로 할당한다.
@@ -332,6 +333,16 @@ namespace HistoricScience.Test
             {
                 terrainCollider.terrainData = terrainData;
             }
+        }
+
+        // 터레인의 알파맵 해상도를 이번에 굽는 품질 단계의 해상도로 맞춘다. 해상도를 바꾸면 기존 알파맵이 지워지므로 값이 다를 때만 바꾼다.
+        // LOD1은 낮은 해상도로 계산해 로딩을 줄이고, LOD0로 올릴 때 원래 해상도로 되돌린다. LOD0에서 낮춘 청크는 높은 해상도를 그대로 둔다.
+        private void HandleApplyAlphamapResolution(TerrainData terrainData, int resolution)
+        {
+            if (terrainData.alphamapResolution == resolution)
+                return;
+
+            terrainData.alphamapResolution = resolution;
         }
 
         // 바이옴 목록에서 터레인 레이어를 순서대로 추출하고, 지정된 절벽·눈 레이어를 그 뒤에 덧붙인다. 지정되지 않은 레이어의 인덱스는 -1이다.
