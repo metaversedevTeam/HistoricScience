@@ -34,7 +34,6 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 8687549537724606040}
   - {fileID: 8252934088120336340}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -54,7 +53,7 @@ MonoBehaviour:
   - _itemData: {fileID: 11400000, guid: 05a321718a1102c4eaa52651c664bd3f, type: 2}
     _amount: 1
     _weight: 1
-  _gatherCooldown: 3
+  _gatherCooldown: 1
   _gatherSpeedBonus: {fileID: 11400000, guid: 88395d34c1e750189d20a8bbb8c656e7, type: 2}
 --- !u!114 &1803116923085429630
 MonoBehaviour:
@@ -118,80 +117,6 @@ MonoBehaviour:
   _raycastLength: 1000
   _snapOnEnable: 1
   _navMeshSearchRadius: 10
---- !u!1001 &6038790842437247885
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 7224650727096111167}
-    m_Modifications:
-    - target: {fileID: 4795111736551831, guid: 100a41bea6e5d404e99b8d484925397b, type: 3}
-      propertyPath: m_Name
-      value: PP_Rock_Moss_04
-      objectReference: {fileID: 0}
-    - target: {fileID: 4795111736551831, guid: 100a41bea6e5d404e99b8d484925397b, type: 3}
-      propertyPath: m_IsActive
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4795111736551831, guid: 100a41bea6e5d404e99b8d484925397b, type: 3}
-      propertyPath: m_StaticEditorFlags
-      value: 2147483647
-      objectReference: {fileID: 0}
-    - target: {fileID: 167287164613014648, guid: 100a41bea6e5d404e99b8d484925397b, type: 3}
-      propertyPath: 'm_Materials.Array.data[0]'
-      value: 
-      objectReference: {fileID: 2100000, guid: 041ed09a673ddca4fb5e973a59236fc7, type: 2}
-    - target: {fileID: 3125067133255779797, guid: 100a41bea6e5d404e99b8d484925397b, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3125067133255779797, guid: 100a41bea6e5d404e99b8d484925397b, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3125067133255779797, guid: 100a41bea6e5d404e99b8d484925397b, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3125067133255779797, guid: 100a41bea6e5d404e99b8d484925397b, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3125067133255779797, guid: 100a41bea6e5d404e99b8d484925397b, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: -0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3125067133255779797, guid: 100a41bea6e5d404e99b8d484925397b, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: -0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3125067133255779797, guid: 100a41bea6e5d404e99b8d484925397b, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: -0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3125067133255779797, guid: 100a41bea6e5d404e99b8d484925397b, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3125067133255779797, guid: 100a41bea6e5d404e99b8d484925397b, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3125067133255779797, guid: 100a41bea6e5d404e99b8d484925397b, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: 100a41bea6e5d404e99b8d484925397b, type: 3}
---- !u!4 &8687549537724606040 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 3125067133255779797, guid: 100a41bea6e5d404e99b8d484925397b, type: 3}
-  m_PrefabInstance: {fileID: 6038790842437247885}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &8252934088119859340
 PrefabInstance:
   m_ObjectHideFlags: 0
