@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 7913048810111824886}
   - component: {fileID: 7510188537879547689}
   - component: {fileID: 2460814599113326371}
+  - component: {fileID: 7704502586924965618}
   m_Layer: 0
   m_Name: Stone Source
   m_TagString: Untagged
@@ -117,6 +118,21 @@ MonoBehaviour:
   _raycastLength: 1000
   _snapOnEnable: 1
   _navMeshSearchRadius: 10
+--- !u!114 &7704502586924965618
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1564132085319456066}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ea2b997c4f5d8c143a7c252af6799c3e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _referencePrefab: {fileID: 174596, guid: 41dcf1459594f434a8a9bae6ae03eab0, type: 3}
+  _fallbackPrefab: {fileID: 7421282481094758983, guid: 0868ffa096400d7438887666c68d9f1b, type: 3}
+  _spawnParent: {fileID: 7224650727096111167}
 --- !u!1001 &8252934088119859340
 PrefabInstance:
   m_ObjectHideFlags: 0
