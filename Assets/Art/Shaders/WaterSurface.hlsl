@@ -3,6 +3,9 @@
 #ifndef HISTORICSCIENCE_WATER_SURFACE_INCLUDED
 #define HISTORICSCIENCE_WATER_SURFACE_INCLUDED
 
+// 물은 반투명이라 불투명 물체에 안개를 덮는 전체 화면 패스보다 나중에 그려지므로, 반경 안개를 직접 적용한다
+#include "Assets/Art/Shaders/RadialFog.hlsl"
+
 // 정수 격자 좌표를 0~1 사이 의사 난수로 바꾼다.
 float WaterHash(float2 p)
 {
@@ -133,6 +136,13 @@ void WaterSurface_float(
     NormalWS = normalize(lerp(waveNormal, float3(0.0, 1.0, 0.0), foam));
     SmoothnessOut = lerp(Smoothness, 0.0, foam);
     Alpha = 1.0;
+
+    // 반경 안개: 조명은 Base Color에 비례하므로 Base Color와 Emission을 함께 줄이고 줄어든 만큼 안개 색을 Emission으로 더한다.
+    // 반사광은 Base Color와 무관하게 더해지므로 매끄러움도 함께 낮춰 먼 수면의 반짝임이 안개를 뚫지 않게 한다.
+    float fog = RadialFogFactor(WorldPos);
+    BaseColor *= 1.0 - fog;
+    Emission = lerp(Emission, _RadialFogColor.rgb, fog);
+    SmoothnessOut *= 1.0 - fog;
 }
 
 #endif
