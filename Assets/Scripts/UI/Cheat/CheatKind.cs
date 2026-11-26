@@ -12,4 +12,7 @@ public enum CheatKind
 
     // 로딩된 맵 안이라면 걸을 수 없는 지형도 WASD로 통과한다. 언제든 껐다 켤 수 있다.
     IgnoreWalls,
+
+    // 화면 왼쪽 위에 플레이어 좌표·바이옴·프레임·배치 수·GC 지연 그래프를 표시한다. 언제든 껐다 켤 수 있다.
+    DebugOverlay,
 }

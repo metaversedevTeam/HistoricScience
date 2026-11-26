@@ -71,6 +71,9 @@ MonoBehaviour:
     _title: "\uBCBD \uBB34\uC2DC (Ignore Walls)"
     _description: "\uB85C\uB529\uB41C \uB9F5 \uC548\uC774\uB77C\uBA74 \uAC78\uC744
       \uC218 \uC5C6\uB294 \uC9C0\uD615\uB3C4 WASD\uB85C \uD1B5\uACFC\uD569\uB2C8\uB2E4."
+  - _kind: 4
+    _title: "\uB514\uBC84\uADF8 UI (Debug Overlay)"
+    _description: "\uD654\uBA74 \uC67C\uCABD \uC704\uC5D0 \uC88C\uD45C\u00B7\uBC14\uC774\uC634\u00B7\uD504\uB808\uC784\u00B7\uBC30\uCE58 \uC218\u00B7GC \uC9C0\uC5F0 \uADF8\uB798\uD504\uB97C \uD45C\uC2DC\uD569\uB2C8\uB2E4."
   _sliderRowPrefab: {fileID: 623862318192608116, guid: a4e63ae025f4cce4bb723ff7816ccc40, type: 3}
   _sliderRowContainer: {fileID: 5204965372711360707}
   _moveSpeedTitle: "\uC774\uB3D9\uC18D\uB3C4 \uBC30\uC728 (Move Speed)"

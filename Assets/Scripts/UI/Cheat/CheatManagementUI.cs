@@ -234,6 +234,7 @@ public class CheatManagementUI : OpenableUIBase<CheatMenuData>
         CheatKind.UnlockAllItems => _codex != null && _codex.IsEverythingUnlocked,
         CheatKind.UnlockAllResearch => _research != null && _research.IsEverythingCompleted,
         CheatKind.IgnoreWalls => WallIgnoreCheat.IsEnabled,
+        CheatKind.DebugOverlay => DebugOverlayCheat.IsEnabled,
         _ => false,
     };
 
@@ -244,6 +245,7 @@ public class CheatManagementUI : OpenableUIBase<CheatMenuData>
         CheatKind.UnlockAllItems => _codex != null && !_codex.IsEverythingUnlocked,
         CheatKind.UnlockAllResearch => _research != null && !_research.IsEverythingCompleted,
         CheatKind.IgnoreWalls => true,
+        CheatKind.DebugOverlay => true,
         _ => false,
     };
 
@@ -269,6 +271,10 @@ public class CheatManagementUI : OpenableUIBase<CheatMenuData>
 
             case CheatKind.IgnoreWalls:
                 WallIgnoreCheat.IsEnabled = !WallIgnoreCheat.IsEnabled;
+                break;
+
+            case CheatKind.DebugOverlay:
+                DebugOverlayCheat.IsEnabled = !DebugOverlayCheat.IsEnabled;
                 break;
         }
 
