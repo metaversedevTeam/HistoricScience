@@ -16,7 +16,10 @@ MonoBehaviour:
   m_MapViewSize: 3
   m_MaxTerrainHeight: 1024
   m_HeightmapResolution: 257
+  m_Lod1HeightmapResolution: 129
+  m_Lod2HeightmapResolution: 129
   m_AlphamapResolution: 512
+  m_Lod1AlphamapResolution: 128
   m_DetailResolution: 512
   m_DetailResolutionPerPatch: 32
   m_SeaLevel: 12

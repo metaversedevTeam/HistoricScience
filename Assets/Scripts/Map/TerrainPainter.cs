@@ -33,7 +33,7 @@ namespace HistoricScience.Test
         // 마지막으로 터레인에 적용한 품질 단계. 굽기 전에는 Lod0이다.
         private ChunkLod m_CurrentLod = ChunkLod.Lod0;
 
-        // LOD0·LOD1로 구울 때 계산한 높이 격자. 높이는 LOD0과 LOD1에서 같으므로, 둘 사이를 오갈 때 다시 계산하지 않고 절벽·눈 판정에 그대로 쓴다.
+        // LOD0·LOD1로 구울 때 계산한 높이 격자. 격자는 LOD0과 LOD1에서 같으므로, 둘 사이를 오갈 때 다시 계산하지 않고 절벽·눈 판정과 높이맵 채우기에 그대로 쓴다.
         // 불변 객체라 백그라운드 계산에서 읽어도 안전하다. LOD2로 낮추면 메모리를 아끼려고 버린다.
         private ChunkHeightGrid m_HeightGrid;
         // m_HeightGrid를 계산할 때 쓴 맵 데이터와 청크 좌표. 둘 중 하나라도 바뀌면 격자를 다시 계산한다.
@@ -113,8 +113,9 @@ namespace HistoricScience.Test
         // 주입받은 맵 데이터를 보관하고 백그라운드 계산에 필요한 데이터를 모아 반환한다. Unity API를 사용하므로 반드시 메인 스레드에서 호출해야 한다.
         // lod가 Lod1이면 풀 디테일 프로토타입을 비워 두고, 이후 계산과 적용에서도 풀·자원·알파맵 블러를 건너뛴다. Lod2는 여기에 더해 알파맵 계산과 적용도 건너뛴다.
         // Lod0이고 자원 스포너가 있으면 자원 소환 계획도 함께 만들어, 무거운 자리 계산을 ComputePaint(백그라운드)에서 하게 한다.
-        // LOD0·LOD1로 구울 때 같은 맵·좌표로 계산해 둔 높이 격자가 있으면 HeightGrid로 넘겨, 높이를 다시 계산하거나 적용하지 않게 한다.
-        public (MapData MapData, MapBiome[] Biomes, TerrainLayer[] Layers, int CliffLayerIndex, int SnowLayerIndex, int AlphamapWidth, int AlphamapHeight, int HeightmapResolution, ChunkGrassLayout GrassLayout, int DetailResolution, ChunkLod Lod, ChunkResourcePlan ResourcePlan, ChunkHeightGrid HeightGrid)? PrepareForPaint(MapData mapData, ChunkLod lod = ChunkLod.Lod0)
+        // LOD0·LOD1로 구울 때 같은 맵·좌표로 계산해 둔 높이 격자가 있으면 HeightGrid로 넘겨 높이 격자를 다시 계산하지 않게 하고,
+        // 터레인의 높이맵 해상도까지 같으면(ReusesAppliedHeights) 높이맵도 다시 적용하지 않게 한다. LOD0·LOD1의 높이맵 해상도가 다르면 높이맵만 다시 채워 적용한다.
+        public (MapData MapData, MapBiome[] Biomes, TerrainLayer[] Layers, int CliffLayerIndex, int SnowLayerIndex, int AlphamapWidth, int AlphamapHeight, int HeightmapResolution, ChunkGrassLayout GrassLayout, int DetailResolution, ChunkLod Lod, ChunkResourcePlan ResourcePlan, ChunkHeightGrid HeightGrid, bool ReusesAppliedHeights)? PrepareForPaint(MapData mapData, ChunkLod lod = ChunkLod.Lod0)
         {
             if (mapData == null)
             {
@@ -162,8 +163,9 @@ namespace HistoricScience.Test
             // 높이맵 해상도도 알파맵처럼 여기서 바꾸지 않고, 계산할 해상도만 정해 두었다가 ApplyPaint에서 바꾼다.
             int heightmapResolution = mapData.TerrainConfig.GetHeightmapResolution(lod);
             ChunkHeightGrid cachedHeightGrid = HandleGetReusableHeightGrid(mapData, lod);
+            bool reusesAppliedHeights = cachedHeightGrid != null && terrainData.heightmapResolution == heightmapResolution;
 
-            return (mapData, biomes, layers, cliffLayerIndex, snowLayerIndex, alphamapResolution, alphamapResolution, heightmapResolution, grassLayout, terrainData.detailResolution, lod, resourcePlan, cachedHeightGrid);
+            return (mapData, biomes, layers, cliffLayerIndex, snowLayerIndex, alphamapResolution, alphamapResolution, heightmapResolution, grassLayout, terrainData.detailResolution, lod, resourcePlan, cachedHeightGrid, reusesAppliedHeights);
         }
 
         // LOD0·LOD1로 구울 때, 같은 맵 데이터와 청크 좌표로 계산해 둔 높이 격자가 있으면 반환한다. LOD2이거나 없으면 null이다.
@@ -192,9 +194,9 @@ namespace HistoricScience.Test
         // 굽는 동안 조회할 보로노이 정점을 먼저 한 번에 계산해 두고 모든 조회에 넘기므로, 같은 정점을 텍셀마다 다시 만들지 않는다.
         // context.Lod가 Lod1이면 알파맵 블러와 풀 밀도 계산을 건너뛰고, Lod2면 알파맵(절벽·눈 포함)을 아예 계산하지 않아 Alphamap이 null이다.
         // Lod0이면 자원 소환 자리도 여기서 계산해, 메인 스레드는 소환만 하게 한다.
-        // context.HeightGrid가 있으면(LOD0·LOD1 사이 전환) 높이 격자를 다시 계산하지 않고 ApplyHeights를 false로 돌려 높이맵도 다시 적용하지 않게 한다.
+        // context.HeightGrid가 있으면(LOD0·LOD1 사이 전환) 높이 격자를 다시 계산하지 않고, 높이맵 해상도까지 같으면(context.ReusesAppliedHeights) ApplyHeights를 false로 돌려 높이맵도 다시 적용하지 않게 한다.
         // Lod2는 높이 격자 없이 낮은 해상도의 높이맵만 바로 계산한다(HeightGrid가 null).
-        public (float[,,] Alphamap, float[,] Heightmap, bool ApplyHeights, ChunkHeightGrid HeightGrid, int[][,] GrassLayers, ChunkResourcePlan ResourcePlan, ChunkLod Lod) ComputePaint((MapData MapData, MapBiome[] Biomes, TerrainLayer[] Layers, int CliffLayerIndex, int SnowLayerIndex, int AlphamapWidth, int AlphamapHeight, int HeightmapResolution, ChunkGrassLayout GrassLayout, int DetailResolution, ChunkLod Lod, ChunkResourcePlan ResourcePlan, ChunkHeightGrid HeightGrid) context)
+        public (float[,,] Alphamap, float[,] Heightmap, bool ApplyHeights, ChunkHeightGrid HeightGrid, int[][,] GrassLayers, ChunkResourcePlan ResourcePlan, ChunkLod Lod) ComputePaint((MapData MapData, MapBiome[] Biomes, TerrainLayer[] Layers, int CliffLayerIndex, int SnowLayerIndex, int AlphamapWidth, int AlphamapHeight, int HeightmapResolution, ChunkGrassLayout GrassLayout, int DetailResolution, ChunkLod Lod, ChunkResourcePlan ResourcePlan, ChunkHeightGrid HeightGrid, bool ReusesAppliedHeights) context)
         {
             bool isFullDetail = context.Lod == ChunkLod.Lod0;
             bool paintsAlphamap = context.Lod != ChunkLod.Lod2;
@@ -218,7 +220,7 @@ namespace HistoricScience.Test
             // 재사용할 때도 풀 밀도가 높이맵을 읽으므로 격자에서 높이맵을 채우지만, 격자점을 복사할 뿐이라 가볍고 터레인에 다시 적용하지는 않는다.
             ChunkHeightGrid heightGrid = null;
             float[,] heightmap;
-            bool applyHeights = context.HeightGrid == null;
+            bool applyHeights = !context.ReusesAppliedHeights;
             if (context.Lod == ChunkLod.Lod2)
             {
                 heightmap = HandleBuildLod2Heightmap(context.HeightmapResolution, context.MapData, regionField);
@@ -264,7 +266,7 @@ namespace HistoricScience.Test
         }
 
         // 계산된 알파맵과 높이맵을 실제 터레인에 적용하고, LOD0이면 풀과 자원까지 채운다. Unity API를 사용하므로 반드시 메인 스레드에서 호출해야 한다.
-        // result.ApplyHeights가 false면(LOD0·LOD1 사이 전환) 높이맵 적용(콜라이더 재구축 포함)을 건너뛴다. 알파맵이 없으면(LOD2) 터레인의 알파맵을 건드리지 않는다.
+        // result.ApplyHeights가 false면(높이맵 해상도가 같은 LOD0·LOD1 사이 전환) 높이맵 적용(콜라이더 재구축 포함)을 건너뛴다. 알파맵이 없으면(LOD2) 터레인의 알파맵을 건드리지 않는다.
         // LOD0·LOD1로 구운 높이 격자는 다음 LOD0·LOD1 전환에 쓰려고 보관하고, LOD2로 구우면 버린다.
         public void ApplyPaint((float[,,] Alphamap, float[,] Heightmap, bool ApplyHeights, ChunkHeightGrid HeightGrid, int[][,] GrassLayers, ChunkResourcePlan ResourcePlan, ChunkLod Lod) result)
         {
@@ -574,24 +576,27 @@ namespace HistoricScience.Test
         }
 
         // 각 높이맵 셀의 높이(m)를 MapData에서 받아와, 터레인이 쓰는 최대 높이 대비 비율(0~1)의 높이맵을 만든다. 높이 계산 로직은 MapData가 담당한다.
-        // 청크 좌표로 배치된 청크는 높이맵 정점이 높이 격자점과 1:1로 겹치므로 격자점을 그대로 읽고, 그 밖의 경우(에디터에서 원점을 직접 지정 등)는 격자를 보간한다.
+        // 청크 좌표로 배치된 청크는 높이맵 정점이 높이 격자점과 겹치므로(해상도가 낮으면 격자점을 일정 간격으로 건너뛰어) 격자점을 그대로 읽고,
+        // 그 밖의 경우(에디터에서 원점을 직접 지정, 간격이 정수가 아님 등)는 격자를 보간한다.
         private float[,] HandleBuildHeightmap(int resolution, MapData mapData, ChunkHeightGrid heightGrid)
         {
             float[,] heightmap = new float[resolution, resolution];
             // 터레인은 맵 설정의 최대 높이로 만들어지므로(HandleAssignTerrainData), 같은 값으로 나눠 미터를 높이맵 비율로 바꾼다.
             float inverseMaxHeight = 1f / mapData.TerrainConfig.MaxTerrainHeight;
 
-            bool isGridAligned = m_ChunkCoordinate.HasValue && resolution == mapData.TerrainConfig.HeightmapResolution;
+            int cellsPerChunk = mapData.TerrainConfig.HeightCellsPerChunk;
+            int heightmapCells = resolution - 1;
+            bool isGridAligned = m_ChunkCoordinate.HasValue && heightmapCells > 0 && cellsPerChunk % heightmapCells == 0;
             if (isGridAligned)
-                HandleFillGridAlignedHeightmap(heightmap, resolution, mapData, heightGrid, inverseMaxHeight);
+                HandleFillGridAlignedHeightmap(heightmap, resolution, cellsPerChunk / heightmapCells, mapData, heightGrid, inverseMaxHeight);
             else
                 HandleFillInterpolatedHeightmap(heightmap, resolution, heightGrid, inverseMaxHeight);
 
             return heightmap;
         }
 
-        // 청크 원점의 격자 좌표부터 높이맵 정점마다 대응하는 격자점 높이를 그대로 채운다. 경계 정점은 이웃 청크와 같은 격자점을 읽어 높이가 정확히 일치한다.
-        private void HandleFillGridAlignedHeightmap(float[,] heightmap, int resolution, MapData mapData, ChunkHeightGrid heightGrid, float inverseMaxHeight)
+        // 청크 원점의 격자 좌표부터 stride칸 간격으로 높이맵 정점마다 대응하는 격자점 높이를 그대로 채운다. 경계 정점은 이웃 청크와 같은 격자점을 읽어 높이가 정확히 일치한다.
+        private void HandleFillGridAlignedHeightmap(float[,] heightmap, int resolution, int stride, MapData mapData, ChunkHeightGrid heightGrid, float inverseMaxHeight)
         {
             int cellsPerChunk = mapData.TerrainConfig.HeightCellsPerChunk;
             int gridOriginX = m_ChunkCoordinate.Value.x * cellsPerChunk;
@@ -601,7 +606,7 @@ namespace HistoricScience.Test
             {
                 for (int x = 0; x < resolution; x++)
                 {
-                    heightmap[z, x] = heightGrid.GetGridHeight(gridOriginX + x, gridOriginZ + z) * inverseMaxHeight;
+                    heightmap[z, x] = heightGrid.GetGridHeight(gridOriginX + x * stride, gridOriginZ + z * stride) * inverseMaxHeight;
                 }
             }
         }

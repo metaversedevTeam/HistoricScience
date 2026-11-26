@@ -31,12 +31,14 @@ public class MapTerrainSettings : ScriptableObject
     [SerializeField, Min(1f), Delayed] private float m_MaxTerrainHeight = 100f;
     // 청크 터레인의 높이맵 해상도 (2의 거듭제곱 + 1)
     [SerializeField, Delayed] private int m_HeightmapResolution = 129;
-    // 최원경용 LOD2 청크의 높이맵 해상도 (2의 거듭제곱 + 1, 높이맵 해상도 이하). 높이 격자점을 일정 간격으로 건너뛰어 읽으므로 낮출수록 LOD2 로딩이 빨라진다.
+    // 원경용 LOD1 청크의 높이맵 해상도 (2의 거듭제곱 + 1, 높이맵 해상도 이하). 높이 격자는 LOD0과 같은 해상도로 계산해 절벽·눈 판정에 쓰고, 높이맵만 격자점을 일정 간격으로 건너뛰어 채운다.
+    [SerializeField, Delayed] private int m_Lod1HeightmapResolution = 129;
+    // 최원경용 LOD2 청크의 높이맵 해상도 (2의 거듭제곱 + 1, LOD1 높이맵 해상도 이하). 높이 격자점을 일정 간격으로 건너뛰어 읽으므로 낮출수록 LOD2 로딩이 빨라진다.
     [SerializeField, Delayed] private int m_Lod2HeightmapResolution = 129;
     // 청크 터레인의 알파맵(바이옴 페인팅) 해상도
     [SerializeField, Delayed] private int m_AlphamapResolution = 512;
     // 원경용 LOD1 청크의 알파맵 해상도. 알파맵 생성과 경사·고도 페인팅 비용이 해상도의 제곱에 비례하므로 낮출수록 LOD1 로딩이 빨라진다. 알파맵 해상도 이하로 맞춰진다.
-    [SerializeField, Delayed] private int m_Lod1AlphamapResolution = 256;
+    [SerializeField, Delayed] private int m_Lod1AlphamapResolution = 128;
     // 청크 터레인의 디테일(풀) 해상도. 청크 한 변을 이 수만큼의 셀로 나눠 셀마다 풀 개수를 정한다. 0이면 풀을 출력하지 않는다.
     [SerializeField, Delayed] private int m_DetailResolution = 512;
     // 디테일 해상도를 렌더링 패치로 나누는 단위(셀). 패치 단위로 풀 메시가 묶여 컬링된다.
@@ -105,7 +107,7 @@ public class MapTerrainSettings : ScriptableObject
     public MapTerrainConfig CreateConfig()
     {
         MapSurfaceOverlayConfig surfaceOverlay = new MapSurfaceOverlayConfig(m_CliffLayer, m_CliffSlopeRange, m_SnowLayer, m_SnowHeightRange, m_SnowSlopeRange, m_SnowLineJitter);
-        return new MapTerrainConfig(m_ChunkWorldSize, m_MapViewSize, m_MaxTerrainHeight, m_HeightmapResolution, m_Lod2HeightmapResolution, m_AlphamapResolution, m_Lod1AlphamapResolution, m_DetailResolution, m_DetailResolutionPerPatch, m_SeaLevel, m_WalkableMaxHeight, surfaceOverlay);
+        return new MapTerrainConfig(m_ChunkWorldSize, m_MapViewSize, m_MaxTerrainHeight, m_HeightmapResolution, m_Lod1HeightmapResolution, m_Lod2HeightmapResolution, m_AlphamapResolution, m_Lod1AlphamapResolution, m_DetailResolution, m_DetailResolutionPerPatch, m_SeaLevel, m_WalkableMaxHeight, surfaceOverlay);
     }
 
     // 현재 내륙 노이즈 설정값을 복사하고 높이 커브를 미리 샘플링한 불변 값 묶음을 만든다. 커브를 읽으므로 메인 스레드에서 호출해야 한다.
@@ -120,7 +122,8 @@ public class MapTerrainSettings : ScriptableObject
     private void OnValidate()
     {
         m_HeightmapResolution = HandleSnapHeightmapResolution(m_HeightmapResolution);
-        m_Lod2HeightmapResolution = Mathf.Min(HandleSnapHeightmapResolution(m_Lod2HeightmapResolution), m_HeightmapResolution);
+        m_Lod1HeightmapResolution = Mathf.Min(HandleSnapHeightmapResolution(m_Lod1HeightmapResolution), m_HeightmapResolution);
+        m_Lod2HeightmapResolution = Mathf.Min(HandleSnapHeightmapResolution(m_Lod2HeightmapResolution), m_Lod1HeightmapResolution);
         m_AlphamapResolution = Mathf.Clamp(Mathf.ClosestPowerOfTwo(m_AlphamapResolution), k_MinAlphamapResolution, k_MaxAlphamapResolution);
         m_Lod1AlphamapResolution = Mathf.Clamp(Mathf.ClosestPowerOfTwo(m_Lod1AlphamapResolution), k_MinAlphamapResolution, m_AlphamapResolution);
         m_DetailResolution = Mathf.Clamp(m_DetailResolution, 0, k_MaxDetailResolution);
@@ -150,7 +153,9 @@ public readonly struct MapTerrainConfig
     public readonly float MaxTerrainHeight;
     // 청크 터레인의 높이맵 해상도
     public readonly int HeightmapResolution;
-    // 최원경용 LOD2 청크의 높이맵 해상도 (2의 거듭제곱 + 1, 높이맵 해상도 이하)
+    // 원경용 LOD1 청크의 높이맵 해상도 (2의 거듭제곱 + 1, 높이맵 해상도 이하)
+    public readonly int Lod1HeightmapResolution;
+    // 최원경용 LOD2 청크의 높이맵 해상도 (2의 거듭제곱 + 1, LOD1 높이맵 해상도 이하)
     public readonly int Lod2HeightmapResolution;
     // 청크 터레인의 알파맵 해상도
     public readonly int AlphamapResolution;
@@ -167,14 +172,15 @@ public readonly struct MapTerrainConfig
     // 바이옴 페인팅 위에 경사·고도에 따라 절벽·눈 레이어를 덮는 규칙
     public readonly MapSurfaceOverlayConfig SurfaceOverlay;
 
-    public MapTerrainConfig(float chunkWorldSize, float mapViewSize, float maxTerrainHeight, int heightmapResolution, int lod2HeightmapResolution, int alphamapResolution, int lod1AlphamapResolution, int detailResolution, int detailResolutionPerPatch, float seaLevel, float walkableMaxHeight, MapSurfaceOverlayConfig surfaceOverlay)
+    public MapTerrainConfig(float chunkWorldSize, float mapViewSize, float maxTerrainHeight, int heightmapResolution, int lod1HeightmapResolution, int lod2HeightmapResolution, int alphamapResolution, int lod1AlphamapResolution, int detailResolution, int detailResolutionPerPatch, float seaLevel, float walkableMaxHeight, MapSurfaceOverlayConfig surfaceOverlay)
     {
         SurfaceOverlay = surfaceOverlay;
         ChunkWorldSize = chunkWorldSize;
         MapViewSize = mapViewSize;
         MaxTerrainHeight = maxTerrainHeight;
         HeightmapResolution = heightmapResolution;
-        Lod2HeightmapResolution = Mathf.Min(lod2HeightmapResolution, heightmapResolution);
+        Lod1HeightmapResolution = Mathf.Min(lod1HeightmapResolution, heightmapResolution);
+        Lod2HeightmapResolution = Mathf.Min(lod2HeightmapResolution, Lod1HeightmapResolution);
         AlphamapResolution = alphamapResolution;
         Lod1AlphamapResolution = lod1AlphamapResolution;
         DetailResolution = detailResolution;
@@ -189,10 +195,15 @@ public readonly struct MapTerrainConfig
         return lod == ChunkLod.Lod0 ? AlphamapResolution : Lod1AlphamapResolution;
     }
 
-    // 주어진 품질 단계의 청크가 쓸 높이맵 해상도를 반환한다. LOD2만 낮은 해상도를 쓴다.
+    // 주어진 품질 단계의 청크가 쓸 높이맵 해상도를 반환한다.
     public int GetHeightmapResolution(ChunkLod lod)
     {
-        return lod == ChunkLod.Lod2 ? Lod2HeightmapResolution : HeightmapResolution;
+        switch (lod)
+        {
+            case ChunkLod.Lod0: return HeightmapResolution;
+            case ChunkLod.Lod1: return Lod1HeightmapResolution;
+            default: return Lod2HeightmapResolution;
+        }
     }
 
     // 청크 터레인의 월드 크기 (x/z = 청크 크기, y = 최대 높이)

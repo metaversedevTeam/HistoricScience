@@ -199,7 +199,7 @@ public class MapChunkManager : MonoBehaviour
     }
 
     // 이미 낮은 LOD로 구워진 청크를 더 높은 LOD로 다시 구워 알파맵(LOD0이면 블러, 풀, 자원까지)을 채운다. 위치와 저장 오브젝트는 그대로라 다시 적용하지 않는다.
-    // LOD1에서 LOD0로 올리면 보관해 둔 높이 격자를 써서 높이를 다시 계산하지도 적용하지도 않고, LOD2에서 올리면 원래 해상도의 높이맵을 다시 굽는다.
+    // LOD1에서 LOD0로 올리면 보관해 둔 높이 격자를 써서 높이를 다시 계산하지 않고, 높이맵 해상도가 LOD1과 다르면 격자에서 높이맵만 다시 채워 적용한다. LOD2에서 올리면 그 LOD 해상도의 높이맵을 다시 굽는다.
     // 소환되어 있지 않거나 이미 그 LOD 이상인 청크는 무시한다.
     public async Task UpgradeChunkAsync(Vector2Int chunkCoordinate, ChunkLod lod)
     {
