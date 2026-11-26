@@ -10,8 +10,8 @@ using UnityEngine;
 // LOD0 청크는 LOD0 유지 범위(LOD0 로딩 범위 + 1) 밖으로 나가면 LOD1로, LOD0·LOD1 청크는 LOD1 유지 범위(LOD1 로딩 범위 + 1) 밖으로 나가면 LOD2로 낮추고,
 // 모든 청크는 LOD2 유지 범위(LOD2 로딩 범위 + 1) 밖으로 나가면 해제한다.
 // 추적 대상은 인스펙터로 미리 등록하거나 런타임에 AddTarget/RemoveTarget으로 바꿀 수 있다.
-// 스스로 시작하지 않으며, 씬 진입점이 시드 주입을 마친 뒤 BeginLoadingAsync를 호출해야 한다. 초기 로딩이 끝나면
-// 대상 위치를 주기적으로 다시 확인하며 로딩/해제를 이어 간다.
+// 스스로 시작하지 않으며, 씬 진입점이 시드 주입을 마친 뒤 BeginLoadingAsync를 호출해야 한다. 초기 로딩은 LOD1 로딩 범위까지만 채우고 끝나며,
+// 그 바깥 LOD2 청크는 이어지는 추적 루프가 플레이 중에 채운다. 이후 대상 위치를 주기적으로 다시 확인하며 로딩/해제를 이어 간다.
 // 무거운 지형 계산은 MapChunkManager.DrawChunkAsync를 통해 백그라운드 스레드에서 여러 청크를 동시에 처리해 메인 스레드 프레임드랍을 막는다.
 public class MapChunkLoader : MonoBehaviour
 {
@@ -59,10 +59,10 @@ public class MapChunkLoader : MonoBehaviour
     // 모든 추적 대상에게서 이 반경(청크 단위) 밖으로 벗어난 청크를 해제한다. LOD2 로딩 반경 + 1이다.
     private int Lod2KeepRadius => GameSettings.ChunkLod2KeepRadius;
 
-    // 등록된 청크 중 로딩이 끝난 청크의 비율(0~1)이 바뀔 때마다 알린다. 로딩 화면의 프로그래스 바가 이 값을 표시한다.
+    // LOD1 로딩 범위 안의 등록된 청크 중 로딩이 끝난 청크의 비율(0~1)이 바뀔 때마다 알린다. 로딩 화면의 프로그래스 바가 이 값을 표시한다.
     public event Action<float> LoadProgressChanged;
 
-    // 등록된 청크(추적 대상 주변에 로딩되어 있어야 하는 청크) 중 로딩이 끝난 청크의 비율(0~1)
+    // LOD1 로딩 범위 안의 등록된 청크(맵을 열기 전에 로딩되어 있어야 하는 청크) 중 로딩이 끝난 청크의 비율(0~1)
     public float LoadProgress => m_LoadProgress;
 
     private void OnDestroy()
@@ -109,8 +109,9 @@ public class MapChunkLoader : MonoBehaviour
             return;
         }
 
+        // 맵을 여는 데 필요한 LOD1 로딩 범위까지만 기다리고, 그 바깥 LOD2 청크는 추적 루프의 첫 갱신에서 플레이 중에 채운다.
         HandleCollectDesiredChunks();
-        HandleEnqueueMissingChunks();
+        HandleEnqueueMissingChunks(ChunkLod.Lod1);
         await HandleLoadPendingChunksAsync(token);
 
         HandleTrackTargets(token);
@@ -133,24 +134,25 @@ public class MapChunkLoader : MonoBehaviour
     }
 
     // 취소될 때까지 주기적으로 추적 대상 위치를 다시 확인해, 멀어진 청크는 해제하고 새로 필요해진 청크는 로딩한다.
+    // 초기 로딩에서 건너뛴 LOD2 청크를 곧바로 채우도록 첫 갱신은 기다리지 않고 바로 실행한다.
     private async void HandleTrackTargets(CancellationToken token)
     {
         try
         {
             while (!token.IsCancellationRequested)
             {
+                if (HandleCollectTargetCoordinates())
+                {
+                    HandleCollectDesiredChunks();
+                    HandleUnloadDistantChunks();
+                    HandleReduceDistantChunks();
+                    HandleUnloadDistantObjects();
+                    HandleEnqueueMissingChunks(ChunkLod.Lod2);
+
+                    await HandleLoadPendingChunksAsync(token);
+                }
+
                 await Task.Delay(Mathf.RoundToInt(m_RefreshInterval * 1000f), token);
-
-                if (!HandleCollectTargetCoordinates())
-                    continue;
-
-                HandleCollectDesiredChunks();
-                HandleUnloadDistantChunks();
-                HandleReduceDistantChunks();
-                HandleUnloadDistantObjects();
-                HandleEnqueueMissingChunks();
-
-                await HandleLoadPendingChunksAsync(token);
             }
         }
         catch (OperationCanceledException)
@@ -280,12 +282,16 @@ public class MapChunkLoader : MonoBehaviour
     }
 
     // 아직 소환되지 않은 청크와 정해진 품질보다 낮은 LOD로 소환되어 있는 청크를, 로딩 중이 아니면 가장 가까운 대상에서 가까운 순서로 대기열에 넣는다.
-    private void HandleEnqueueMissingChunks()
+    // 정해진 품질이 maxLod보다 낮은(더 먼) 청크는 넣지 않는다. 초기 로딩에서 LOD2 청크를 뒤로 미룰 때 쓴다.
+    private void HandleEnqueueMissingChunks(ChunkLod maxLod)
     {
         m_CoordinateBuffer.Clear();
 
         foreach (KeyValuePair<Vector2Int, ChunkLod> desired in m_DesiredChunks)
         {
+            if (desired.Value > maxLod)
+                continue;
+
             if (m_ReservedChunks.Contains(desired.Key))
                 continue;
 
@@ -306,16 +312,22 @@ public class MapChunkLoader : MonoBehaviour
         HandleRefreshLoadProgress();
     }
 
-    // 등록된 청크 중 로딩이 끝난 청크의 비율을 다시 계산해, 값이 바뀌었으면 알린다. 대기열을 채운 뒤와 청크 하나가 로딩될 때마다 호출한다.
+    // 맵을 여는 데 필요한 LOD1 로딩 범위 안의 등록된 청크 중 로딩이 끝난 청크의 비율을 다시 계산해, 값이 바뀌었으면 알린다.
+    // 플레이 중에 채우는 LOD2 청크는 세지 않는다. 대기열을 채운 뒤와 청크 하나가 로딩될 때마다 호출한다.
     private void HandleRefreshLoadProgress()
     {
-        int registeredCount = m_DesiredChunks.Count;
+        int registeredCount = 0;
         int loadedCount = 0;
 
-        foreach (Vector2Int coordinate in m_DesiredChunks.Keys)
+        foreach (KeyValuePair<Vector2Int, ChunkLod> desired in m_DesiredChunks)
         {
+            if (desired.Value > ChunkLod.Lod1)
+                continue;
+
+            registeredCount++;
+
             // 대기열에 있거나 지금 백그라운드에서 계산 중인 청크는 아직 로딩이 끝나지 않은 것으로 센다.
-            if (!m_ReservedChunks.Contains(coordinate) && m_ChunkManager.IsChunkActive(coordinate))
+            if (!m_ReservedChunks.Contains(desired.Key) && m_ChunkManager.IsChunkActive(desired.Key))
                 loadedCount++;
         }
 
