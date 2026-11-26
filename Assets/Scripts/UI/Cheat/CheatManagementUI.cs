@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 // 치트 관리 화면(Figma의 cheat-management-ui). 자원 무한처럼 언제든 껐다 켤 수 있는 치트와
-// 모든 아이템·연구 해금처럼 되돌릴 수 없는 일회성 치트, 그리고 슬라이더로 고르는 이동속도 배율·Y오프셋·시간·시간 진행 속도를 한 목록에서 다룬다.
+// 모든 아이템·연구 해금처럼 되돌릴 수 없는 일회성 치트, 그리고 슬라이더로 고르는 이동속도 배율·채집 속도 배율·Y오프셋·시간·시간 진행 속도를 한 목록에서 다룬다.
 // 일회성 치트는 실행하고 나면 스위치가 켜진 채로 잠겨 다시 눌리지 않으며,
 // 잠금 여부는 UI가 따로 기억하지 않고 도감·연구 상태에서 그때그때 다시 읽는다. (창을 다시 열거나 저장을 불러와도 그대로 유지된다)
 public class CheatManagementUI : OpenableUIBase<CheatMenuData>
@@ -19,8 +19,14 @@ public class CheatManagementUI : OpenableUIBase<CheatMenuData>
 
     [Header("이동속도 배율")]
     [SerializeField] private CheatSliderRowUI _sliderRowPrefab;
+    // 슬라이더 줄들을 세로로 쌓는 오른쪽 열. 스위치 줄들(_rowContainer)과 두 열로 나란히 놓인다.
+    [SerializeField] private RectTransform _sliderRowContainer;
     [SerializeField] private string _moveSpeedTitle = "이동속도 배율 (Move Speed)";
     [SerializeField, TextArea(1, 3)] private string _moveSpeedDescription = "모든 시민의 이동속도를 1배에서 10배까지 높입니다.";
+
+    [Header("채집 속도 배율")]
+    [SerializeField] private string _gatherSpeedTitle = "채집 속도 배율 (Gather Speed)";
+    [SerializeField, TextArea(1, 3)] private string _gatherSpeedDescription = "모든 시민의 채집 속도를 1배에서 10배까지 높입니다.";
 
     [Header("Y오프셋")]
     [SerializeField] private string _heightOffsetTitle = "Y오프셋 (Height Offset)";
@@ -36,6 +42,9 @@ public class CheatManagementUI : OpenableUIBase<CheatMenuData>
 
     // 이동속도 배율 슬라이더 값의 간격
     private const float k_MoveSpeedStep = 0.5f;
+
+    // 채집 속도 배율 슬라이더 값의 간격
+    private const float k_GatherSpeedStep = 0.5f;
 
     // Y오프셋 슬라이더 값의 간격(m)
     private const float k_HeightOffsetStep = 1f;
@@ -54,7 +63,10 @@ public class CheatManagementUI : OpenableUIBase<CheatMenuData>
     // 스위치 줄들 아래에 만들어 두는 이동속도 배율 슬라이더 줄
     private CheatSliderRowUI _moveSpeedRow;
 
-    // 이동속도 배율 줄 아래에 만들어 두는 Y오프셋 슬라이더 줄
+    // 이동속도 배율 줄 아래에 만들어 두는 채집 속도 배율 슬라이더 줄
+    private CheatSliderRowUI _gatherSpeedRow;
+
+    // 채집 속도 배율 줄 아래에 만들어 두는 Y오프셋 슬라이더 줄
     private CheatSliderRowUI _heightOffsetRow;
 
     // Y오프셋 줄 아래에 만들어 두는 시간 슬라이더 줄
@@ -98,31 +110,36 @@ public class CheatManagementUI : OpenableUIBase<CheatMenuData>
         BuildSliderRows();
     }
 
-    // 스위치 줄들 아래에 이동속도 배율과 Y오프셋 슬라이더 줄을 차례로 만든다.
+    // 스위치 줄들 옆 오른쪽 열에 슬라이더 치트 줄들을 차례로 만든다.
     private void BuildSliderRows()
     {
-        if (_sliderRowPrefab == null)
+        if (_sliderRowPrefab == null || _sliderRowContainer == null)
         {
-            Debug.LogWarning($"CheatManagementUI({name}): 슬라이더 줄 프리팹이 없어 슬라이더 치트를 표시하지 않습니다.", this);
+            Debug.LogWarning($"CheatManagementUI({name}): 슬라이더 줄 프리팹이나 오른쪽 열이 없어 슬라이더 치트를 표시하지 않습니다.", this);
             return;
         }
 
-        _moveSpeedRow = Instantiate(_sliderRowPrefab, _rowContainer);
+        _moveSpeedRow = Instantiate(_sliderRowPrefab, _sliderRowContainer);
         _moveSpeedRow.Setup(_moveSpeedTitle, _moveSpeedDescription,
             MoveSpeedCheat.MinMultiplier, MoveSpeedCheat.MaxMultiplier, k_MoveSpeedStep,
             FormatMoveSpeed, HandleMoveSpeedChanged);
 
-        _heightOffsetRow = Instantiate(_sliderRowPrefab, _rowContainer);
+        _gatherSpeedRow = Instantiate(_sliderRowPrefab, _sliderRowContainer);
+        _gatherSpeedRow.Setup(_gatherSpeedTitle, _gatherSpeedDescription,
+            GatherSpeedCheat.MinMultiplier, GatherSpeedCheat.MaxMultiplier, k_GatherSpeedStep,
+            FormatMoveSpeed, HandleGatherSpeedChanged);
+
+        _heightOffsetRow = Instantiate(_sliderRowPrefab, _sliderRowContainer);
         _heightOffsetRow.Setup(_heightOffsetTitle, _heightOffsetDescription,
             HeightOffsetCheat.MinOffset, HeightOffsetCheat.MaxOffset, k_HeightOffsetStep,
             FormatHeightOffset, HandleHeightOffsetChanged);
 
-        _timeOfDayRow = Instantiate(_sliderRowPrefab, _rowContainer);
+        _timeOfDayRow = Instantiate(_sliderRowPrefab, _sliderRowContainer);
         _timeOfDayRow.Setup(_timeOfDayTitle, _timeOfDayDescription,
             0f, k_HoursPerDay, k_TimeOfDayStepHours,
             FormatTimeOfDay, HandleTimeOfDayChanged);
 
-        _timeSpeedRow = Instantiate(_sliderRowPrefab, _rowContainer);
+        _timeSpeedRow = Instantiate(_sliderRowPrefab, _sliderRowContainer);
         _timeSpeedRow.Setup(_timeSpeedTitle, _timeSpeedDescription,
             TimeSpeedCheat.MinMultiplier, TimeSpeedCheat.MaxMultiplier, k_TimeSpeedStep,
             FormatTimeSpeed, HandleTimeSpeedChanged);
@@ -137,6 +154,9 @@ public class CheatManagementUI : OpenableUIBase<CheatMenuData>
 
     // 슬라이더로 고른 배율을 이동속도 치트에 적용한다.
     private void HandleMoveSpeedChanged(float multiplier) => MoveSpeedCheat.Multiplier = multiplier;
+
+    // 슬라이더로 고른 배율을 채집 속도 치트에 적용한다.
+    private void HandleGatherSpeedChanged(float multiplier) => GatherSpeedCheat.Multiplier = multiplier;
 
     // 슬라이더로 고른 높이를 Y오프셋 치트에 적용한다.
     private void HandleHeightOffsetChanged(float offset) => HeightOffsetCheat.Offset = offset;
@@ -185,6 +205,9 @@ public class CheatManagementUI : OpenableUIBase<CheatMenuData>
 
         if (_moveSpeedRow != null)
             _moveSpeedRow.SetValue(MoveSpeedCheat.Multiplier);
+
+        if (_gatherSpeedRow != null)
+            _gatherSpeedRow.SetValue(GatherSpeedCheat.Multiplier);
 
         if (_heightOffsetRow != null)
             _heightOffsetRow.SetValue(HeightOffsetCheat.Offset);

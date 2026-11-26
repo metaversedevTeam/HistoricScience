@@ -12,16 +12,17 @@ public class GatherableObject : MonoBehaviour, IGatherable
 
     private float _lastGatherTime = float.NegativeInfinity;
 
-    // 연구 보너스를 반영한 실제 채집 쿨타임(초). 채집 속도 배율이 높을수록 쿨타임이 짧아진다.
+    // 연구 보너스와 채집 속도 치트를 반영한 실제 채집 쿨타임(초). 채집 속도 배율이 높을수록 쿨타임이 짧아진다.
     private float EffectiveCooldown
     {
         get
         {
-            if (_gatherSpeedBonus == null) return _gatherCooldown;
+            float cheat = GatherSpeedCheat.Multiplier;
+            if (_gatherSpeedBonus == null) return _gatherCooldown / cheat;
 
             // 보너스가 음수로 쌓여 배율이 0 이하가 되면 나눗셈 결과가 깨지므로 하한을 둔다.
-            float multiplier = Mathf.Max(0.01f, ResearchManager.Instance.GetMultiplier(_gatherSpeedBonus));
-            return _gatherCooldown / multiplier;
+            float research = Mathf.Max(0.01f, ResearchManager.Instance.GetMultiplier(_gatherSpeedBonus));
+            return _gatherCooldown / (research * cheat);
         }
     }
 
