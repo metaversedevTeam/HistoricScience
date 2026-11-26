@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: "\uC810\uD1A0 \uC18C\uD658 \uBC29\uC2DD"
   m_EditorClassIdentifier: 
   m_SourcePrefab: {fileID: 1564132085319456066, guid: 9b8b42494e4271d4eb53ecc5e53d70cc, type: 3}
-  m_SeedId: 1
+  m_SeedId: 21
   m_SpawnBiomes:
   - {fileID: 11400000, guid: 54a51f916e7b33b4998e37a57c060571, type: 2}
   m_MinSpawnHeight: 12
