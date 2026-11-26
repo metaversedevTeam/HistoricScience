@@ -47,6 +47,9 @@ public class GroundMover : MonoBehaviour, IMover
     // 벽 무시 이동을 끝내고 내브메시로 돌아올 때 가장 가까운 내브메시를 찾아볼 반경(m). 걸을 수 없는 지형 한가운데서 끝낼 수 있어 넉넉히 잡는다.
     private const float k_NoclipReturnSearchRadius = 50f;
 
+    // 바라볼 방향과의 각도 차이가 이 값(도) 이하로 줄면 회전을 마친 것으로 보고 정확히 맞춘다.
+    private const float k_FacingDoneAngle = 0.5f;
+
     // 목적지의 지면 높이를 찾을 때 감지할 지면 레이어. 비워두면 Awake에서 "Ground" 레이어를 자동으로 찾는다.
     [SerializeField] private LayerMask _groundLayer;
 
@@ -55,6 +58,9 @@ public class GroundMover : MonoBehaviour, IMover
 
     // 방향 이동 중 달릴 때 걷는 속도에 곱할 배율. FPVTest 브랜치의 걷기 5 / 달리기 9 비율을 따른다.
     [SerializeField, Min(1f)] private float _runSpeedMultiplier = 1.8f;
+
+    // 방향 이동 중 이동 방향으로 몸을 돌리는 보간 세기. 클수록 빨리 돌아서며, 프레임 속도와 관계없이 같은 빠르기로 보간된다.
+    [SerializeField, Min(0.1f)] private float _turnSharpness = 12f;
 
     // 이동하는 동안 계속 반복 재생할 걷는 소리. 비워 두면 발소리를 내지 않고, 처음 걸을 때 한 번 경고를 남긴다.
     [SerializeField] private AudioClip _walkSfx;
@@ -131,6 +137,10 @@ public class GroundMover : MonoBehaviour, IMover
     private bool    _isRunning;
     // 벽 무시 치트로 에이전트의 위치 동기화를 끄고 transform을 직접 옮기고 있는지
     private bool    _isNoclipping;
+    // 방향 이동으로 바라봐야 할 방향이 남아 있는지. 입력이 끊긴 뒤에도 회전이 끝날 때까지 보간을 이어 가기 위한 값이다.
+    private bool       _hasFacingTarget;
+    // 방향 이동 입력 방향을 바라보는 목표 회전
+    private Quaternion _facingTarget;
 
     // NavMeshAgent와 HitableObject 컴포넌트를 캐싱하고 지면 레이어와 기본 이동 속도를 확보
     private void Awake()
@@ -229,7 +239,42 @@ public class GroundMover : MonoBehaviour, IMover
         if (_isDirectMoving && _lastDirectMoveFrame != Time.frameCount)
             EndDirectMove(true);
 
+        HandleFacing();
         HandleHeightOffset();
+    }
+
+    // 방향 이동 입력 방향을 향해 몸을 부드럽게 돌린다. 입력이 끊겨도 목표 방향에 닿을 때까지 이어서 돌고, 닿으면 에이전트 자동 회전을 되돌린다.
+    private void HandleFacing()
+    {
+        if (!_hasFacingTarget)
+            return;
+
+        float t = 1f - Mathf.Exp(-_turnSharpness * Time.deltaTime);
+        transform.rotation = Quaternion.Slerp(transform.rotation, _facingTarget, t);
+
+        if (Quaternion.Angle(transform.rotation, _facingTarget) > k_FacingDoneAngle)
+            return;
+
+        transform.rotation = _facingTarget;
+
+        if (!_isDirectMoving)
+            ClearFacingTarget();
+    }
+
+    // 방향 이동 입력의 월드 XZ 방향을 바라볼 목표 회전으로 지정한다.
+    private void SetFacingDirection(Vector2 direction)
+    {
+        _facingTarget    = Quaternion.LookRotation(new Vector3(direction.x, 0f, direction.y), Vector3.up);
+        _hasFacingTarget = true;
+    }
+
+    // 바라볼 목표를 지우고, 방향 이동 중이 아니면 꺼 두었던 에이전트 자동 회전을 되돌린다.
+    private void ClearFacingTarget()
+    {
+        _hasFacingTarget = false;
+
+        if (!_isDirectMoving)
+            _agent.updateRotation = _defaultUpdateRotation;
     }
 
     // Y오프셋 치트 값을 반영한다. 0~499는 에이전트 높이 오프셋(baseOffset)으로 띄우고, 최댓값이면 transform을 월드 Y 최댓값에 직접 고정한다.
@@ -305,6 +350,7 @@ public class GroundMover : MonoBehaviour, IMover
 
         _lastDirectMoveFrame = Time.frameCount;
         SetRunning(isRunning);
+        SetFacingDirection(direction);
 
         Vector2 clamped = Vector2.ClampMagnitude(direction, 1f);
         Vector3 delta   = new Vector3(clamped.x, 0f, clamped.y) * (_agent.speed * GetRunFactor() * Time.deltaTime);
@@ -371,7 +417,7 @@ public class GroundMover : MonoBehaviour, IMover
         RefreshUpdatePosition();
     }
 
-    // 방향 이동을 시작한다. 진행 중이던 경로 이동·추적은 대체된 것이므로 콜백을 버리고 경로를 지운 뒤, 바라보는 방향이 바뀌지 않게 자동 회전을 끈다.
+    // 방향 이동을 시작한다. 진행 중이던 경로 이동·추적은 대체된 것이므로 콜백을 버리고 경로를 지운 뒤, 회전을 직접 보간하도록 에이전트 자동 회전을 끈다.
     private void BeginDirectMove()
     {
         ReplaceMoveOrder();
@@ -390,14 +436,16 @@ public class GroundMover : MonoBehaviour, IMover
         OnMoveOrdered?.Invoke();
     }
 
-    // 방향 이동 상태를 끝내고 자동 회전을 되돌린다. 입력이 끊겨 멈춘 경우에만 OnMoveEnd를 발생시키고, 새 경로 이동으로 바뀐 경우는 이동이 이어지므로 발생시키지 않는다.
+    // 방향 이동 상태를 끝낸다. 입력이 끊겨 멈춘 경우에만 OnMoveEnd를 발생시키고 남은 회전을 마저 보간하며, 새 경로 이동으로 바뀌거나 Stop된 경우는
+    // 에이전트 자동 회전에 바로 넘긴다. 자동 회전은 남은 회전이 끝난 뒤(ClearFacingTarget)에 되돌린다.
     private void EndDirectMove(bool raiseMoveEnd)
     {
         if (!_isDirectMoving)
             return;
 
-        _isDirectMoving       = false;
-        _agent.updateRotation = _defaultUpdateRotation;
+        _isDirectMoving = false;
+        if (!raiseMoveEnd || !_hasFacingTarget)
+            ClearFacingTarget();
         SetRunning(false);
 
         if (raiseMoveEnd)
