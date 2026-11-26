@@ -83,6 +83,8 @@ public class MapTerrainSettings : ScriptableObject
     [Header("경사·고도 페인팅")]
     // 가파른 경사에 덮을 절벽 레이어. 비워 두면 절벽 덮기를 하지 않는다.
     [SerializeField] private TerrainLayer m_CliffLayer;
+    // 절벽 레이어의 외부 텍스처가 없을 때(외부 에셋을 가져오지 않은 환경) 흰색 단색 텍스처에 입힐 색. 절벽은 바이옴이 아니라 기즈모 색이 없어 따로 둔다.
+    [SerializeField] private Color m_CliffPlaceholderColor = new Color(0.4f, 0.4f, 0.4f);
     // 절벽 레이어가 나타나기 시작하는 경사(x, 도)와 완전히 덮는 경사(y, 도)
     [SerializeField] private Vector2 m_CliffSlopeRange = new Vector2(45f, 58f);
     // 높은 곳에 덮을 눈 레이어. 비워 두면 눈 덮기를 하지 않는다.
@@ -106,7 +108,7 @@ public class MapTerrainSettings : ScriptableObject
     // 현재 설정값을 복사한 불변 값 묶음을 만든다. 백그라운드 스레드가 읽는 값은 에셋이 아니라 이 묶음에서 가져가야 한다.
     public MapTerrainConfig CreateConfig()
     {
-        MapSurfaceOverlayConfig surfaceOverlay = new MapSurfaceOverlayConfig(m_CliffLayer, m_CliffSlopeRange, m_SnowLayer, m_SnowHeightRange, m_SnowSlopeRange, m_SnowLineJitter);
+        MapSurfaceOverlayConfig surfaceOverlay = new MapSurfaceOverlayConfig(TerrainLayerFallback.Resolve(m_CliffLayer, m_CliffPlaceholderColor), m_CliffSlopeRange, m_SnowLayer, m_SnowHeightRange, m_SnowSlopeRange, m_SnowLineJitter);
         return new MapTerrainConfig(m_ChunkWorldSize, m_MapViewSize, m_MaxTerrainHeight, m_HeightmapResolution, m_Lod1HeightmapResolution, m_Lod2HeightmapResolution, m_AlphamapResolution, m_Lod1AlphamapResolution, m_DetailResolution, m_DetailResolutionPerPatch, m_SeaLevel, m_WalkableMaxHeight, surfaceOverlay);
     }
 

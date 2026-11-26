@@ -46,7 +46,8 @@ public class MapBiome : ScriptableObject
 
     public string Name => m_BiomeName;
     public IReadOnlyList<BiomeGrassEntry> GrassEntries => m_GrassEntries ?? System.Array.Empty<BiomeGrassEntry>();
-    public TerrainLayer TerrainLayer => m_TerrainLayer;
+    // 칠할 터레인 레이어. 외부 텍스처가 없으면 기즈모 색 단색 대체 레이어를 돌려준다. 메인 스레드에서만 읽어야 한다.
+    public TerrainLayer TerrainLayer => TerrainLayerFallback.Resolve(m_TerrainLayer, m_GizmoColor);
     public Material BottomMaterial => m_BottomMaterial;
     public Color GizmoColor => m_GizmoColor;
     public MapBiomeCategory Category => m_Category;
