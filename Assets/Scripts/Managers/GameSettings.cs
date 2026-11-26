@@ -1,10 +1,22 @@
 using System;
 using UnityEngine;
 
-// 플레이어가 설정 화면에서 바꾸는 값(카메라 수평 감도, 청크 LOD0·LOD1·LOD2 로딩 범위, 안개 시작 범위, 흑백 강조 사용 여부)을 PlayerPrefs에 보관하고 읽어 주는 정적 저장소.
+// 플레이어가 설정 화면에서 바꾸는 값(전체 소리 크기, 카메라 수평 감도, 청크 LOD0·LOD1·LOD2 로딩 범위, 안개 시작 범위, 흑백 강조 사용 여부)을 PlayerPrefs에 보관하고 읽어 주는 정적 저장소.
 // 메인 메뉴와 인게임이 같은 값을 공유하며, 게임을 다시 켜도 유지된다.
 public static class GameSettings
 {
+    // 설정 화면에 보이는 전체 소리 크기의 최솟값
+    public const int MinMasterVolume = 0;
+
+    // 설정 화면에 보이는 전체 소리 크기의 최댓값
+    public const int MaxMasterVolume = 100;
+
+    // 설정 화면에 보이는 전체 소리 크기의 기본값
+    public const int DefaultMasterVolume = 100;
+
+    // 전체 소리 크기를 저장하는 PlayerPrefs 키
+    private const string k_MasterVolumeKey = "Settings.MasterVolume";
+
     // 설정 화면에 보이는 수평 감도의 최솟값
     public const float MinHorizontalLookSensitivity = 0.2f;
 
@@ -85,6 +97,24 @@ public static class GameSettings
 
     // 흑백 강조 사용 여부가 바뀌면 새 값과 함께 알린다. 흑백 강조 중인 화면을 바로 컬러로 되돌릴 때 쓴다.
     public static event Action<bool> MonochromeFocusEnabledChanged;
+
+    // 설정 화면에 보이는 전체 소리 크기(0~100). 바꾸면 AudioListener.volume에 곧바로 반영되어 BGM·효과음 등 게임의 모든 소리에 적용된다.
+    public static int MasterVolume
+    {
+        get => Mathf.Clamp(PlayerPrefs.GetInt(k_MasterVolumeKey, DefaultMasterVolume), MinMasterVolume, MaxMasterVolume);
+        set
+        {
+            PlayerPrefs.SetInt(k_MasterVolumeKey, Mathf.Clamp(value, MinMasterVolume, MaxMasterVolume));
+            ApplyMasterVolume();
+        }
+    }
+
+    // 저장된 전체 소리 크기를 AudioListener.volume(0~1)에 반영한다. 게임이 시작될 때 첫 씬을 불러오기 전에 한 번 자동으로 불린다.
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    public static void ApplyMasterVolume()
+    {
+        AudioListener.volume = MasterVolume / (float)MaxMasterVolume;
+    }
 
     // 설정 화면에 보이는 수평 감도(0.2~2.0)
     public static float HorizontalLookSensitivity

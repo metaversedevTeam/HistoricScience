@@ -3,10 +3,14 @@ using UnityEngine;
 using UnityEngine.UI;
 
 // 설정 화면. 메인 메뉴와 일시정지 화면의 OPTION 버튼이 UIManager로 여는 공용 창이며,
-// 카메라 수평 감도와 청크 LOD0·LOD1·LOD2 로딩 범위와 안개 시작 범위를 슬라이더로, 흑백 강조 사용 여부를 스위치로 바꿔 GameSettings에 바로 반영한다. (수직 감도는 수평의 절반으로 자동으로 맞춰진다)
+// 전체 소리 크기(0~100)와 카메라 수평 감도와 청크 LOD0·LOD1·LOD2 로딩 범위와 안개 시작 범위를 슬라이더로, 흑백 강조 사용 여부를 스위치로 바꿔 GameSettings에 바로 반영한다. (수직 감도는 수평의 절반으로 자동으로 맞춰진다)
 // 일시정지 중(Time.timeScale = 0)에도 열리므로 페이드 연출은 실제 경과 시간으로 돈다.
 public class SettingsUI : OpenableUIBase
 {
+    [Header("소리")]
+    [SerializeField] private Slider _masterVolumeSlider;
+    [SerializeField] private TMP_Text _masterVolumeValueText;
+
     [Header("카메라 감도")]
     [SerializeField] private Slider _horizontalSlider;
     [SerializeField] private TMP_Text _horizontalValueText;
@@ -50,6 +54,10 @@ public class SettingsUI : OpenableUIBase
 
     private void Awake()
     {
+        _masterVolumeSlider.minValue = GameSettings.MinMasterVolume;
+        _masterVolumeSlider.maxValue = GameSettings.MaxMasterVolume;
+        _masterVolumeSlider.wholeNumbers = true;
+
         _horizontalSlider.minValue = GameSettings.MinHorizontalLookSensitivity;
         _horizontalSlider.maxValue = GameSettings.MaxHorizontalLookSensitivity;
         _horizontalSlider.wholeNumbers = false;
@@ -70,6 +78,7 @@ public class SettingsUI : OpenableUIBase
         _fogStartSlider.maxValue = GameSettings.MaxFogStartChunkRadius;
         _fogStartSlider.wholeNumbers = true;
 
+        _masterVolumeSlider.onValueChanged.AddListener(HandleMasterVolumeChanged);
         _horizontalSlider.onValueChanged.AddListener(HandleHorizontalChanged);
         _chunkLod0Slider.onValueChanged.AddListener(HandleChunkLod0Changed);
         _chunkLod1Slider.onValueChanged.AddListener(HandleChunkLod1Changed);
@@ -118,9 +127,13 @@ public class SettingsUI : OpenableUIBase
         _canvasGroup.interactable = true;
     }
 
-    // 저장된 수평 감도, 청크 범위, 흑백 강조 사용 여부를 이벤트 없이 화면에 반영한다.
+    // 저장된 전체 소리 크기, 수평 감도, 청크 범위, 흑백 강조 사용 여부를 이벤트 없이 화면에 반영한다.
     private void HandleSyncFromSettings()
     {
+        int masterVolume = GameSettings.MasterVolume;
+        _masterVolumeSlider.SetValueWithoutNotify(masterVolume);
+        _masterVolumeValueText.text = masterVolume.ToString();
+
         float horizontal = GameSettings.HorizontalLookSensitivity;
         _horizontalSlider.SetValueWithoutNotify(horizontal);
         _horizontalValueText.text = FormatSensitivity(horizontal);
@@ -199,6 +212,14 @@ public class SettingsUI : OpenableUIBase
         HandleSyncChunkRadii();
     }
 
+    // 전체 소리 크기 슬라이더가 움직이면 저장해 모든 소리에 바로 적용하고 표시를 갱신한다.
+    private void HandleMasterVolumeChanged(float value)
+    {
+        int volume = Mathf.RoundToInt(value);
+        GameSettings.MasterVolume = volume;
+        _masterVolumeValueText.text = volume.ToString();
+    }
+
     // 수평 감도 슬라이더가 움직이면 0.05 단위로 맞춰 저장하고 표시를 갱신한다.
     private void HandleHorizontalChanged(float value)
     {
@@ -208,11 +229,12 @@ public class SettingsUI : OpenableUIBase
         _horizontalValueText.text = FormatSensitivity(snapped);
     }
 
-    // 수평 감도, 청크 범위, 흑백 강조 사용 여부를 기본값으로 되돌린다.
+    // 전체 소리 크기, 수평 감도, 청크 범위, 흑백 강조 사용 여부를 기본값으로 되돌린다.
     private void HandleResetClick()
     {
         AudioManager.PlayConfirm();
 
+        GameSettings.MasterVolume = GameSettings.DefaultMasterVolume;
         GameSettings.HorizontalLookSensitivity = GameSettings.DefaultHorizontalLookSensitivity;
         GameSettings.ChunkLod0LoadRadius = GameSettings.DefaultChunkLod0LoadRadius;
         GameSettings.ChunkLod1LoadRadius = GameSettings.DefaultChunkLod1LoadRadius;
