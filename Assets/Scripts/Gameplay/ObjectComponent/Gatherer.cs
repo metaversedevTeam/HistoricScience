@@ -12,7 +12,7 @@ public class Gatherer : MonoBehaviour
 
 
     // 지정한 IGatherable 대상이 채집 범위 안에 있는지 확인한다. 대상에 HitableObject가 있다면 HitRadius만큼 범위를 늘려준다.
-    private bool IsInRange(IGatherable target)
+    public bool IsInRange(IGatherable target)
     {
         if (target is not Component component) return false;
 

@@ -180,15 +180,15 @@ public class Citizen : MonoBehaviour, ISavable
         commands[index].OnExecute?.Invoke(player);
     }
 
-    // 앞의 채집 대상을 채집하러 간다. 진행 중이던 채집과 건축 위치 지정을 먼저 정리한다.
+    // 앞의 채집 대상을 그 자리에서 채집한다. 진행 중이던 채집과 건축 위치 지정을 먼저 정리한다.
     private void ExecuteGatherCommand(IGatherable gatherable, PlayerManager player)
     {
-        if (gatherable is not Component component) return;
+        if (gatherable is not Component) return;
 
         CancelGathering();
         CancelBuildingPlacement();
         AudioManager.PlayButtonClick();
-        BeginGathering(gatherable, player.ResourceInventory, component.transform);
+        BeginGathering(gatherable, player.ResourceInventory);
     }
 
     // 시민 앞쪽 감지 구 안에서 IGatherable이나 ICommandable을 가진, 구 중심에 가장 가까운 충돌체를 찾는다. 자기 자신은 제외한다.
@@ -298,7 +298,7 @@ public class Citizen : MonoBehaviour, ISavable
 
         var gatherable = clickable.GetComponent<IGatherable>();
         if (gatherable != null)
-            BeginGathering(gatherable, PlayerManager.Instance.ResourceInventory, clickable.transform);
+            BeginGathering(gatherable, PlayerManager.Instance.ResourceInventory);
         else
             _mover.Move(clickable.transform);
     }
@@ -326,17 +326,14 @@ public class Citizen : MonoBehaviour, ISavable
         var gatherable = clickable != null ? clickable.GetComponent<IGatherable>() : null;
         if (gatherable == null) return;
 
-        BeginGathering(gatherable, chosenPlayer.ResourceInventory, clickable.transform);
+        BeginGathering(gatherable, chosenPlayer.ResourceInventory);
     }
 
-    // 지정한 대상을 채집 대상으로 설정하고 대상에게 이동을 시작한다.
-    // 이동 명령은 진행 중이던 채집을 취소하므로(HandleMoveOrdered), 이동을 먼저 시작하고 그 뒤에 채집 대상을 설정한다.
-    private void BeginGathering(IGatherable gatherable, ResourceInventory inventory, Transform targetTransform)
+    // 지정한 대상을 채집 대상으로 설정한다. 대상에게 다가가지 않고 지금 서 있는 자리에서 채집하며, 채집 범위 밖이면 HandleGathering이 채집을 취소한다.
+    private void BeginGathering(IGatherable gatherable, ResourceInventory inventory)
     {
-        // 채집도 대상까지 이동하는 명령이므로, 채집 타겟 지정을 거쳐 들어온 경우까지 포함해 여기서 건축 위치 지정을 정리한다.
+        // 채집 타겟 지정을 거쳐 들어온 경우까지 포함해 여기서 건축 위치 지정을 정리한다.
         CancelBuildingPlacement();
-
-        _mover.Move(targetTransform);
 
         _gatherTarget = gatherable;
         _gatherInventory = inventory;
@@ -364,12 +361,13 @@ public class Citizen : MonoBehaviour, ISavable
         Cursor.SetCursor(texture, hotspot, CursorMode.Auto);
     }
 
-    // 채집 대상이 유효하면 Gatherer로 채집을 시도하고, 대상이 파괴되었으면 채집을 취소한다.
+    // 채집 대상이 유효하면 Gatherer로 채집을 시도하고, 대상이 파괴되었거나 제자리에서 닿지 않는 거리면 채집을 취소한다.
     private void HandleGathering()
     {
         if (_gatherTarget == null) return;
 
-        if (_gatherTarget is Component component && component == null)
+        bool isDestroyed = _gatherTarget is Component component && component == null;
+        if (isDestroyed || !_gatherer.IsInRange(_gatherTarget))
         {
             CancelGathering();
             return;
@@ -388,7 +386,7 @@ public class Citizen : MonoBehaviour, ISavable
 
     // 이동이 시작되면 이동 중으로 표시하고 진행 중이던 채집을 취소한다. 건축 명령처럼 시민 밖에서 내려온 이동 명령도 이 이벤트를 거치므로,
     // 채집 대상이 남은 채로 다른 곳에 도착해 채집 애니메이션이 다시 재생되는 것을 여기서 막는다.
-    // 채집이 대상에게 걸어가려 스스로 내리는 이동 명령은 BeginGathering이 이 호출 뒤에 대상을 설정하므로 취소되지 않는다.
+    // 채집은 이동 없이 제자리에서 하므로, 채집 중 이동 명령이 들어오면 채집을 멈춘다.
     private void HandleMoveOrdered()
     {
         _isMoving = true;
