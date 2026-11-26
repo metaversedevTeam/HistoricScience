@@ -43,6 +43,7 @@ public class BuildingPlacementController : MonoBehaviour
     private bool _hasPosition;
     private bool _isFinished;
     private Vector3 _hologramWorldPosition;
+    private Quaternion _hologramWorldRotation = Quaternion.identity;
 
     // 위치 지정 중인 컨트롤러로 집계한다.
     private void Awake()
@@ -114,7 +115,8 @@ public class BuildingPlacementController : MonoBehaviour
         if (!_hasPosition) return;
 
         _hologramWorldPosition = groundPoint;
-        _hologram.transform.position = groundPoint;
+        _hologramWorldRotation = ComputeFacingRotation(groundPoint);
+        _hologram.transform.SetPositionAndRotation(groundPoint, _hologramWorldRotation);
 
         _isValidPosition = IsPositionBuildable(groundPoint, terrainPainter);
         _hologram.SetValid(_isValidPosition && HasEnoughResources, _validColor, _invalidColor);
@@ -161,6 +163,21 @@ public class BuildingPlacementController : MonoBehaviour
         point = hit.point;
         terrainPainter = hit.collider.GetComponentInParent<TerrainPainter>();
         return true;
+    }
+
+    // 배치 위치에서 플레이어(건물을 짓는 시민, 없으면 카메라)를 바라보는 방향에 y축 180도를 더한 회전을 계산한다. 두 위치가 XZ상 겹치면 직전 회전을 유지한다.
+    private Quaternion ComputeFacingRotation(Vector3 buildingPosition)
+    {
+        Transform viewer = _builderTransform != null ? _builderTransform : (_camera != null ? _camera.transform : null);
+        if (viewer == null)
+            return _hologramWorldRotation;
+
+        Vector3 toViewer = viewer.position - buildingPosition;
+        toViewer.y = 0f;
+        if (toViewer.sqrMagnitude < 0.0001f)
+            return _hologramWorldRotation;
+
+        return Quaternion.LookRotation(toViewer, Vector3.up) * Quaternion.Euler(0f, 180f, 0f);
     }
 
     // 홀로그램 중심과 건물 크기를 반영한 반경 안에 걸을 수 없는 지형이 있는지, 시민이 그 자리에 서 있지는 않은지,
@@ -258,7 +275,7 @@ public class BuildingPlacementController : MonoBehaviour
         }
 
         SpendResources();
-        GameObject building = Instantiate(_buildingPrefab, _hologramWorldPosition, Quaternion.identity);
+        GameObject building = Instantiate(_buildingPrefab, _hologramWorldPosition, _hologramWorldRotation);
         StartConstructionAnimation(building);
         AudioManager.PlayConfirm();
 
