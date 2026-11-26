@@ -1,8 +1,8 @@
 using UnityEngine;
 
 // 청크 LOD 로딩 범위에 맞춰 거리 안개의 시작·끝 거리를 정하는 컴포넌트
-// 시작 거리 = LOD0 최소 거리, 끝 거리 = LOD1 최소 거리. 최소 거리는 추적 대상이 자기 청크 안 어디에 있든 그 LOD 이상으로 로딩된 청크가 보장되는 가장 짧은 거리다
-// 설정 화면에서 로딩 범위를 바꾸면 다음 프레임에 안개 거리도 함께 바뀐다
+// 시작 거리 = 안개 시작 범위의 최소 거리, 끝 거리 = LOD1 최소 거리. 최소 거리는 추적 대상이 자기 청크 안 어디에 있든 그 반경 안 청크가 모두 로딩되어 있다고 보장되는 가장 짧은 거리다
+// 설정 화면에서 안개 시작 범위나 로딩 범위를 바꾸면 다음 프레임에 안개 거리도 함께 바뀐다
 [RequireComponent(typeof(DistanceFogController))]
 public class ChunkLodFogDistance : MonoBehaviour
 {
@@ -12,7 +12,7 @@ public class ChunkLodFogDistance : MonoBehaviour
     private DistanceFogController _fogController;
 
     // 마지막으로 안개 거리에 반영한 값. 바뀌었을 때만 다시 적용한다
-    private int _appliedLod0Radius = -1;
+    private int _appliedFogStartRadius = -1;
     private int _appliedLod1Radius = -1;
     private float _appliedChunkSize = -1f;
 
@@ -24,7 +24,7 @@ public class ChunkLodFogDistance : MonoBehaviour
     private void OnEnable()
     {
         // 꺼져 있는 동안 바뀐 값이 있어도 켜질 때 반드시 다시 적용한다
-        _appliedLod0Radius = -1;
+        _appliedFogStartRadius = -1;
         HandleLodRadiusChange();
     }
 
@@ -33,7 +33,7 @@ public class ChunkLodFogDistance : MonoBehaviour
         HandleLodRadiusChange();
     }
 
-    // 로딩 범위나 청크 크기가 바뀌었으면 안개 시작·끝 거리를 다시 계산해 적용한다
+    // 안개 시작 범위, LOD1 로딩 범위, 청크 크기 중 하나가 바뀌었으면 안개 시작·끝 거리를 다시 계산해 적용한다
     private void HandleLodRadiusChange()
     {
         if (_terrainSettings == null)
@@ -41,20 +41,20 @@ public class ChunkLodFogDistance : MonoBehaviour
             return;
         }
 
-        int lod0Radius = GameSettings.ChunkLod0LoadRadius;
+        int fogStartRadius = GameSettings.FogStartChunkRadius;
         int lod1Radius = GameSettings.ChunkLod1LoadRadius;
         float chunkSize = _terrainSettings.ChunkWorldSize;
 
-        if (lod0Radius == _appliedLod0Radius && lod1Radius == _appliedLod1Radius && Mathf.Approximately(chunkSize, _appliedChunkSize))
+        if (fogStartRadius == _appliedFogStartRadius && lod1Radius == _appliedLod1Radius && Mathf.Approximately(chunkSize, _appliedChunkSize))
         {
             return;
         }
 
-        _appliedLod0Radius = lod0Radius;
+        _appliedFogStartRadius = fogStartRadius;
         _appliedLod1Radius = lod1Radius;
         _appliedChunkSize = chunkSize;
 
-        float startDistance = GetGuaranteedRadius(lod0Radius) * chunkSize;
+        float startDistance = GetGuaranteedRadius(fogStartRadius) * chunkSize;
         float endDistance = GetGuaranteedRadius(lod1Radius) * chunkSize;
         _fogController.SetDistances(startDistance, endDistance);
     }

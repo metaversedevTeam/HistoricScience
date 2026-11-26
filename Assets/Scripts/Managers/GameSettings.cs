@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-// 플레이어가 설정 화면에서 바꾸는 값(카메라 수평 감도, 청크 LOD0·LOD1·LOD2 로딩 범위, 흑백 강조 사용 여부)을 PlayerPrefs에 보관하고 읽어 주는 정적 저장소.
+// 플레이어가 설정 화면에서 바꾸는 값(카메라 수평 감도, 청크 LOD0·LOD1·LOD2 로딩 범위, 안개 시작 범위, 흑백 강조 사용 여부)을 PlayerPrefs에 보관하고 읽어 주는 정적 저장소.
 // 메인 메뉴와 인게임이 같은 값을 공유하며, 게임을 다시 켜도 유지된다.
 public static class GameSettings
 {
@@ -50,6 +50,18 @@ public static class GameSettings
     // LOD2 로딩 범위(청크 단위)의 기본값
     public const int DefaultChunkLod2LoadRadius = 8;
 
+    // 안개 시작 범위는 항상 LOD1 로딩 범위보다 최소 이만큼 작다.
+    public const int MinFogStartLod1Margin = 1;
+
+    // 안개 시작 범위(청크 단위)의 최솟값. LOD1 로딩 범위의 최솟값 - 최소 차이다.
+    public const int MinFogStartChunkRadius = MinChunkLoadRadius - MinFogStartLod1Margin;
+
+    // 안개 시작 범위(청크 단위)의 최댓값. LOD1 로딩 범위의 최댓값 - 최소 차이다.
+    public const int MaxFogStartChunkRadius = MaxChunkLod1LoadRadius - MinFogStartLod1Margin;
+
+    // 안개 시작 범위(청크 단위)의 기본값. 예전처럼 LOD0 로딩 범위 기본값과 같은 거리에서 시작한다.
+    public const int DefaultFogStartChunkRadius = 2;
+
     // 유지 범위는 로딩 범위보다 이만큼 크게 잡아, 경계에서 로딩과 해제(또는 LOD 전환)가 반복되지 않게 한다.
     private const int k_ChunkKeepMargin = 1;
 
@@ -61,6 +73,9 @@ public static class GameSettings
 
     // LOD2 로딩 범위를 저장하는 PlayerPrefs 키
     private const string k_ChunkLod2LoadRadiusKey = "Settings.ChunkLod2LoadRadius";
+
+    // 안개 시작 범위를 저장하는 PlayerPrefs 키
+    private const string k_FogStartChunkRadiusKey = "Settings.FogStartChunkRadius";
 
     // 흑백 강조의 기본 사용 여부
     public const bool DefaultMonochromeFocusEnabled = true;
@@ -115,6 +130,7 @@ public static class GameSettings
                 PlayerPrefs.SetInt(k_ChunkLod0LoadRadiusKey, lod1);
 
             HandlePushLod2AboveLod1();
+            HandlePullFogStartBelowLod1();
         }
     }
 
@@ -134,6 +150,24 @@ public static class GameSettings
 
             if (ReadStoredLod0LoadRadius() > maxLod1)
                 PlayerPrefs.SetInt(k_ChunkLod0LoadRadiusKey, maxLod1);
+
+            HandlePullFogStartBelowLod1();
+        }
+    }
+
+    // 추적 대상 주변 이 반경(청크 단위)의 최소 거리부터 거리 안개가 시작된다(0~15). 항상 LOD1 로딩 범위보다 1 이상 작다.
+    // 값을 바꿀 때 LOD1 로딩 범위가 이보다 1 이상 크지 않으면 LOD1 로딩 범위(와 필요하면 LOD2 로딩 범위)를 함께 늘린다.
+    public static int FogStartChunkRadius
+    {
+        get => Mathf.Min(ReadStoredFogStartChunkRadius(), ChunkLod1LoadRadius - MinFogStartLod1Margin);
+        set
+        {
+            int fogStart = Mathf.Clamp(value, MinFogStartChunkRadius, MaxFogStartChunkRadius);
+            PlayerPrefs.SetInt(k_FogStartChunkRadiusKey, fogStart);
+
+            int minLod1 = fogStart + MinFogStartLod1Margin;
+            if (ChunkLod1LoadRadius < minLod1)
+                ChunkLod1LoadRadius = minLod1;
         }
     }
 
@@ -196,5 +230,19 @@ public static class GameSettings
         int minLod2 = ChunkLod1LoadRadius + MinChunkLod2Margin;
         if (ReadStoredLod2LoadRadius() < minLod2)
             PlayerPrefs.SetInt(k_ChunkLod2LoadRadiusKey, minLod2);
+    }
+
+    // 저장된 안개 시작 범위를 최솟값~최댓값 사이로 잘라 읽는다. LOD1 로딩 범위와의 대소는 따지지 않는다.
+    private static int ReadStoredFogStartChunkRadius()
+    {
+        return Mathf.Clamp(PlayerPrefs.GetInt(k_FogStartChunkRadiusKey, DefaultFogStartChunkRadius), MinFogStartChunkRadius, MaxFogStartChunkRadius);
+    }
+
+    // 저장된 안개 시작 범위가 LOD1 로딩 범위보다 1 이상 작지 않으면 LOD1 로딩 범위 - 1로 줄인다. LOD1·LOD2 로딩 범위를 바꾼 뒤 부른다.
+    private static void HandlePullFogStartBelowLod1()
+    {
+        int maxFogStart = ChunkLod1LoadRadius - MinFogStartLod1Margin;
+        if (ReadStoredFogStartChunkRadius() > maxFogStart)
+            PlayerPrefs.SetInt(k_FogStartChunkRadiusKey, maxFogStart);
     }
 }
